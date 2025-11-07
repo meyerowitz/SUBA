@@ -16,44 +16,41 @@
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/img/icono.png",
         "backgroundImage": "./assets/img/icono.png",
-        "monochromeImage": "./assets/img/icono.png",
-        "config":{
-          "googleMaps":{
-            "apiKey":""
-          }
-        }
+        "monochromeImage": "./assets/img/icono.png"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "package": "com.anonymous.BusTrackerCiudBolivar"
     },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+    "extra": {
+      "eas": {
+        "projectId": "086d5cbd-eb33-4cc1-9cfd-740340a8a1ff"
+      }
     },
     "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#000000"
-          }
-        }
-      ],
-      [
-        "expo-location",
-        {
-          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
-        }
-      ]
+      "expo-web-browser"
+    ]
+  },
+  "web": {
+    "output": "static",
+    "favicon": "./assets/images/favicon.png"
+  },
+  "plugins": [
+    "expo-router",
+    [
+      "expo-splash-screen",
+      {
+        "resizeMode": "contain",
+        "backgroundColor": "#FFFFFF"
+      }
     ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
-    }
+    [
+      "expo-location",
+      {
+        "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
+      }
+    ]
+  ],
+  "experiments": {
+    "typedRoutes": true,
+    "reactCompiler": true
   }
 }
