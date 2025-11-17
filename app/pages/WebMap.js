@@ -28,6 +28,7 @@ const loadMapHtml = async () => {
   return asset.uri;
 };
 //-----------------------------------------------------------------------
+
 // -------------------------------------------------------------
 // FUNCIÓN DE CONSULTA A OVERPASS
 // -------------------------------------------------------------
@@ -52,7 +53,7 @@ const fetchGuayanaBusStops = async () => {
 };
 //--------------------------------------------------------
 
-export default function WebView ()  {
+export default function WebMap ()  {
     //---------------Hooks------------------------------
     const webviewRef = useRef(null);//---cluster del mapa
     const [mapHtmlUri, setMapHtmlUri] = useState(null);//---url y datos del mapa del tiempo real
@@ -120,11 +121,11 @@ useEffect(() => {
     
 // Depende SOLAMENTE de userLocation para el tiempo real.
 }, [userLocation]);
+
 useEffect(() => {
     // Escucha el evento de carga del mapa, si es posible, es más seguro.
     // Si no, se ejecuta apenas el componente monte y tenga acceso a webviewRef.
     if (webviewRef.current) {
-        
         // B. Cargar Paradas de Ciudad Guayana
         // Utilizamos la bandera 'busStopsLoaded' para asegurar la ejecución única
         if (!webviewRef.current.busStopsLoaded) {
@@ -144,19 +145,16 @@ useEffect(() => {
         }
     }
     
-    // Al dejar [webviewRef] como dependencia, se ejecuta una vez al montar,
-    // y si la referencia se actualiza (raro), se vuelve a intentar.
-}, [webviewRef]);
-//----------------------------------------------->
+    
+}, []);
 
+// 1. Manejador de Mensajes (No cambiar)
 const handleWebViewMessage = (event) => {
     const message = event.nativeEvent.data;
     if (message === 'MAP_LOADED') {
-        setIsMapReady(true);
+        setIsMapReady(true); // <-- Esto desbloquea el siguiente useEffect
     }
-    // ... aquí irían otros manejadores de mensajes si los tuvieran
 };
-
    // en el caso de que maphtmlUri se encuentre vacio se graficara una pantalla de carga
   if (!mapHtmlUri) {
         return (

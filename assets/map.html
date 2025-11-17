@@ -65,22 +65,27 @@
         const initialLat = INITIAL_CENTER.latitude;
         const initialLon = INITIAL_CENTER.longitude;
         function initializeMap() {
-            if (isMapInitialized) return;
-            map = L.map('mapid', {
-                zoomControl: false
-            }).setView([initialLat, initialLon], 13);
-            L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: ''
-            }).addTo(map);
-            
+    if (isMapInitialized) return;
+    map = L.map('mapid', {
+        zoomControl: false
+    }).setView([initialLat, initialLon], 13);
+    L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: ''
+    }).addTo(map);
 
-            isMapInitialized = true;
+    // Utilizamos map.whenReady para garantizar que Leaflet esté 100% listo.
+    map.whenReady(function() {
+        isMapInitialized = true;
+        // Solo enviamos el mensaje UNA VEZ aquí
+        if (window.ReactNativeWebView) {
             window.ReactNativeWebView.postMessage('MAP_LOADED');
         }
-        initializeMap();
+    });
+}
+initializeMap();
 
-        // Función JS que será llamada desde React Native para actualizar la ubicación del USUARIO
+        // Función JS que será llamada desde React Natve para actualizar la ubicación del USUARIO
         window.updateUserMarker = function(lat, lon) {
             const latlng = [lat, lon];
             const userIcon = L.divIcon({
@@ -153,9 +158,6 @@
             
         }
     
-    isMapInitialized = true;
-    // ESTA LÍNEA ES CRUCIAL
-    window.ReactNativeWebView.postMessage('MAP_LOADED');
     };
         // Función de manejo de clic (Sin cambios)
         map.on('click', function(e) {
