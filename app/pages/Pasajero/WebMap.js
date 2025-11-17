@@ -4,7 +4,7 @@ import WebView from 'react-native-webview';
 import { Asset } from 'expo-asset';
 import * as Location from 'expo-location';
 
-import SearchRoot from '../Components/SearchRoot';
+import SearchRoot from '../../Components/SearchRoot';
 
 
 // ..####....####...##...##..#####....####...##..##..######..##..##..######.
@@ -28,7 +28,7 @@ const loadMapHtml = async () => {
     console.log()
     console.log(' Recarga del mapa ♻️')
     console.log()
-  const asset = Asset.fromModule(require('../../assets/map.html'));
+  const asset = Asset.fromModule(require('../../../assets/map.html'));
   await asset.downloadAsync();
   return asset.uri;
 };
