@@ -4,6 +4,8 @@ import WebView from 'react-native-webview';
 import { Asset } from 'expo-asset';
 import * as Location from 'expo-location';
 
+import SearchRoot from '../Components/SearchRoot';
+
 
 // ..####....####...##...##..#####....####...##..##..######..##..##..######.
 // .##..##..##..##..###.###..##..##..##..##..###.##..##......###.##....##...
@@ -215,6 +217,7 @@ const handleWebViewMessage = (event) => {
                 
             />
         </View>
+        <SearchRoot></SearchRoot>
      
     </View>
   );
