@@ -121,17 +121,24 @@ export default function WebMap ()  {
 
 //-----------------UseEffect para actualizar el marcador del usuario ✅ --------------------
 useEffect(() => {
-    // A. Actualizar Marcador del Usuario
+    console.log()
+    console.log(' marcador del usuario 📍 ')
     if (userLocation && webviewRef.current && isMapReady) {
         const { latitude, longitude } = userLocation;
         // Llama a la función updateUserMarker
         const userJsCode = `updateUserMarker(${latitude}, ${longitude}); true;`;
         webviewRef.current.injectJavaScript(userJsCode);
     }
+    if(userLocation!== null){
+    console.log(' ----> Ubicacion actualizada ')
+    console.log('      latitud: ', userLocation.latitude , ' longitud: ',userLocation.longitude)
+    console.log('')
+}
+    
     
 // Depende SOLAMENTE de userLocation para el tiempo real.
 }, [userLocation,isMapReady]);
-
+//--------------UseEffect para cargar las paradas dentro de un pequeño BBOX------
 useEffect(() => {
     // Solo si el mapa está listo Y las paradas no han sido inyectadas AHORA
     if (isMapReady && webviewRef.current && !stopsInjected) {
