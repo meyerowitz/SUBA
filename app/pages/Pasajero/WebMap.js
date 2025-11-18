@@ -32,7 +32,6 @@ const loadMapHtml = async () => {
   await asset.downloadAsync();
   return asset.uri;
 };
-//-----------------------------------------------------------------------
 
 // -------------------------------------------------------------
 // FUNCIÓN DE CONSULTA A OVERPASS
@@ -158,6 +157,7 @@ useEffect(() => {
     }
 // Depende de isMapReady (espera a que el WebView termine de cargar el mapa) y stopsInjected.
 }, [isMapReady, stopsInjected]);
+
 
 // 1. Manejador de Mensajes (No cambiar)
 const handleWebViewMessage = (event) => {
