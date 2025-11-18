@@ -20,10 +20,15 @@ import SearchRoot from '../../Components/SearchRoot';
 // ..##.##...######..#####...##...##..##..##..##.....                       
 // .................................................. 
 
+
+// --- CONSTANTES DE LA API DEL BUS ---
+const BASE_URL = 'https://api-bus-w29v.onrender.com/api/v1'; 
+const BUSES_API_URL = `${BASE_URL}/buses`; // GET para obtener todas las ubicaciones
+const FETCH_INTERVAL = 5000; // Cargar buses cada 5 segundos (500ms)
 // BBOX estático para Ciudad Guayana: [LatSur, LonOeste, LatNorte, LonEste]
 const GUAYANA_BBOX = "8.21,-62.88,8.39,-62.60";
 
-//---------------------Funcion que renderiza el mapa------------------------
+//---------------------1) .Funcion que renderiza el mapa------------------------
 const loadMapHtml = async () => {
     console.log()
     console.log(' Recarga del mapa ♻️')
@@ -32,17 +37,18 @@ const loadMapHtml = async () => {
   await asset.downloadAsync();
   return asset.uri;
 };
-
 // -------------------------------------------------------------
-// FUNCIÓN DE CONSULTA A OVERPASS
+// 2) .FUNCIÓN DE CONSULTA A OVERPASS
 // -------------------------------------------------------------
-const fetchGuayanaBusStops = async () => {
-    console.log()
-    console.log(' -->fetchGuayanaBusStops ')
-    console.log()
-    // La consulta se mantiene, solo se reescribe para claridad
+const fetchGuayanaBusStops = async (retry = 0) => { // retry: contador de reintentos
+    const MAX_RETRIES = 3;
+    const DELAY_MS = 10000 * (retry + 1); // 10s, 20s, 30s de demora
+    console.log('')
+    console.log('---> fetchGuayanaBusStops en acción')
+    console.log('--->       Ejecutando consultas Http Overpass')
+    console.log('')
     const overpassQuery = `
-        [out:json][timeout:30];
+        [out:json][timeout:60];
         node[highway=bus_stop](${GUAYANA_BBOX});
         out center; 
     `;
@@ -51,14 +57,41 @@ const fetchGuayanaBusStops = async () => {
 
     try {
         const response = await fetch(url);
-        if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-        return await response.json(); 
+        if (response.ok) {
+            console.log(`Paradas obtenidas exitosamente en el intento ${retry + 1}.`);
+            return await response.json(); 
+        }
+        
+        // Manejo específico del error 429
+        if (response.status === 429 && retry < MAX_RETRIES) {
+            console.warn(`Error 429 (Demasiadas solicitudes). Reintentando en ${DELAY_MS / 1000} segundos... (Intento ${retry + 1}/${MAX_RETRIES})`);
+            await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+            return fetchGuayanaBusStops(retry + 1); // Llamada recursiva para reintentar
+        }
+
+        throw new Error(`Error HTTP: ${response.status}`);
+        
     } catch (error) {
         console.error("Error al obtener paradas de Overpass:", error);
+        // Si el error persiste después de los reintentos, lanzamos el error original
         return null;
     }
 };
 //--------------------------------------------------------
+// ---3) .FUNCIÓN DE CONSULTA A LA API RET / BUSES ---
+const fetchBusLocations = async () => {
+    console.log('---> fetchBusLocation en la API()')
+    try {
+        const response = await fetch(BUSES_API_URL);
+        if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+        const data = await response.json();
+        console.log(data)
+        return data;
+    } catch (error) {
+        console.error("Error al obtener ubicaciones de buses:", error);
+        return [];
+    }
+};
 
 export default function WebMap ()  {
     //---------------Hooks------------------------------
@@ -75,13 +108,16 @@ export default function WebMap ()  {
     const [searchQuery, setSearchQuery] = useState('')//----Query de busquedas
     const [searchResult, setSearchResult] = useState(null);//----Resultados de la busqueda
     const [isSearching, setIsSearching] = useState(false);//---Stado de la busqueda
+
+    // NUEVO ESTADO para las ubicaciones de los buses
+    const [busLocations, setBusLocations] = useState([]);
     //--------------------------------------------------
 
-//-----------UseEffet loadhtmlUri-----------------------
+//----------- 1) .UseEffet loadhtmlUri-----------------------
   useEffect(() => {
     loadMapHtml().then(setMapHtmlUri);
   }, []);
- // --- Lógica de Expo Location  ✅ ---
+ // --- 2) .Lógica de Expo Location  ✅ ---
   useEffect(() => {
     console.log('-----Solicitando permisos de Locacion------')
         let locationSubscription = null;
@@ -95,11 +131,12 @@ export default function WebMap ()  {
                 setLoading(false);
                 return;
             }
+            console.log('--------> Permisos de ubicacion aprobados ♿ ☑️------')
             locationSubscription = await Location.watchPositionAsync(
                 {
                    accuracy: Location.Accuracy.BestForNavigation,
-                    timeInterval: 360000, // Actualiza cada 6 minutos
-                    distanceInterval: 10, // Actualiza cada 10 metros
+                    timeInterval: 5000, // Actualiza cada 5 segundos
+                    distanceInterval: 2, // Actualiza cada 10 metros
                 },
                 (location) => {
                     const { latitude, longitude } = location.coords;
@@ -107,7 +144,7 @@ export default function WebMap ()  {
                   setLoading(false);
                 }
             );
-            console.log('--------> Permisos de ubicacion aprobados ♿ ☑️------')
+            
         };
         requestPermissionsAndGetLocation();
         // Limpieza: detener la suscripción cuando el componente se desmonte
@@ -118,7 +155,7 @@ export default function WebMap ()  {
         };
     }, []);
 
-//-----------------UseEffect para actualizar el marcador del usuario ✅ --------------------
+//----------------- 3) .UseEffect para actualizar el marcador del usuario ✅ --------------------
 useEffect(() => {
     console.log()
     console.log(' marcador del usuario 📍 ')
@@ -137,9 +174,11 @@ useEffect(() => {
     
 // Depende SOLAMENTE de userLocation para el tiempo real.
 }, [userLocation,isMapReady]);
-//--------------UseEffect para cargar las paradas dentro de un pequeño BBOX------
+//-------------- 4) .UseEffect para cargar las paradas dentro de un pequeño BBOX------
 useEffect(() => {
-    // Solo si el mapa está listo Y las paradas no han sido inyectadas AHORA
+    console.log()
+    console.log(' marcador de las paradas de buses 📍 ')
+    console.log()
     if (isMapReady && webviewRef.current && !stopsInjected) {
         fetchGuayanaBusStops()
             .then(overpassData => {
@@ -157,6 +196,49 @@ useEffect(() => {
     }
 // Depende de isMapReady (espera a que el WebView termine de cargar el mapa) y stopsInjected.
 }, [isMapReady, stopsInjected]);
+
+//-----------------5) .UseEffect para cargar y renderizar la ubicación de los buses 🚌 --------------------
+useEffect(() => {
+    let fetchBusesInterval;
+    console.log()
+    console.log(' marcador de los BUSES 📍 ')
+    console.log()
+    const loadAndRenderBuses = async () => {
+        const locations = await fetchBusLocations();
+        
+        const transformedData = locations.map(bus => ({
+            bus_id: bus._id,
+            route: bus.route || 'Desconocida',
+            velocity: bus.last_speed !== undefined ? bus.last_speed.toFixed(1) : 'N/A',
+            // Coordenadas GeoJSON [lon, lat] -> Invertir a [lat, lon] para JS
+            lat: bus.last_location.coordinates[1], 
+            lon: bus.last_location.coordinates[0],
+        }));
+
+        setBusLocations(transformedData); 
+        // 2. Inyectar JavaScript en el WebView SOLO si el mapa está listo
+        if (isMapReady && webviewRef.current) {
+            console.log('inyectando los buses en el mapa: ', transformedData)
+            if(isMapReady=== true){console.log('isMapReady: true ')}
+            const busDataString = JSON.stringify(transformedData);
+
+            const busJsCode = `renderBusLocations(${busDataString}); true;`;
+            webviewRef.current.injectJavaScript(busJsCode);
+            console.log(`Ubicaciones de ${transformedData.length} buses inyectadas.`);
+        }
+    };
+    
+    loadAndRenderBuses();
+    
+    fetchBusesInterval = setInterval(loadAndRenderBuses, FETCH_INTERVAL);
+
+    return () => {
+        clearInterval(fetchBusesInterval);
+        console.log("Intervalo de carga de buses detenido.");
+    };
+
+}, [isMapReady]);
+
 
 
 // 1. Manejador de Mensajes (No cambiar)

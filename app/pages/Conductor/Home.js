@@ -1,60 +1,116 @@
 import axios from 'axios';
 import * as Location from 'expo-location';
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View , FlatList} from 'react-native';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { StyleSheet, Text, View, FlatList, Button, ScrollView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
 
-// --- ¡ASEGÚRATE QUE ESTA IP SEA LA DE TU PC! ---
-const BASE_URL = 'http://192.168.100.2:3000/api/v1'; // URL Base jaja
-const TRACK_API_URL = `${BASE_URL}/track`; // POST para enviar mi ubicación
-const BUSES_API_URL = `${BASE_URL}/buses`; // GET para obtener todas las ubicaciones
-const MY_BUS_ID = 'BUS-101-PROTOTIPO';
+// --- Constantes Geográficas ---
+// Radio de la Tierra en metros (WGS-84 semieje mayor)
+const EARTH_RADIUS = 6378137.0; 
+// Distancia de movimiento para el botón (10 metros)
+const DISTANCE_TO_MOVE = 10; 
+
+// --- Configuración de la API y Almacenamiento ---
+const BUS_ID_KEY = '@MyBusId';
+const BASE_URL = 'https://api-bus-w29v.onrender.com/api/v1'; 
+const TRACK_API_URL = `${BASE_URL}/track`; 
+const BUSES_API_URL = `${BASE_URL}/buses`; 
 
 // Intervalos de actualización (en milisegundos)
 const SEND_INTERVAL = 20000; // 20 segundos para enviar mi ubicación
 const FETCH_INTERVAL = 5000; // 5 segundos para cargar las ubicaciones de los demás
 
+
+// --- Funciones de Utilidad ---
+
+// Función para cargar o generar el ID del Bus
+const getOrGenerateBusId = async () => {
+    let storedId = await AsyncStorage.getItem(BUS_ID_KEY);
+    if (storedId) {
+        console.log("ID cargada:", storedId);
+        return storedId;
+    }
+    const newId = uuidv4();
+    await AsyncStorage.setItem(BUS_ID_KEY, newId);
+    console.log("ID generada y guardada:", newId);
+    return newId;
+};
+
+// Función para calcular nuevas coordenadas dado un punto y una distancia (Asumiendo Norte (0°) por simplicidad)
+const calculateNewLocation = (currentLat, currentLon, distanceMeters) => {
+    // Cálculo para mover 10 metros al Norte (cambia solo la latitud)
+    // dLat (en radianes) = Distancia / Radio de la Tierra
+    const dLat = distanceMeters / EARTH_RADIUS;
+    
+    // Latitud nueva (en grados)
+    const newLat = currentLat + (dLat * (180 / Math.PI));
+    
+    // La longitud se mantiene casi constante para un movimiento norte/sur corto
+    const newLon = currentLon; 
+
+    return {
+        latitude: newLat,
+        longitude: newLon,
+    };
+};
+
+
+// --- Componente Principal ---
 export default function Home() {
     const [errorMsg, setErrorMsg] = useState(null);
-    const [LocationBus, setLocationBus] = useState([]); // Estado para guardar todos los buses
+    const [locationBus, setLocationBus] = useState([]); // Todos los buses
+    const [busId, setBusId] = useState('CARGANDO...');
+    
+    // 🆕 Estado para mi ubicación SIMULADA (la que enviamos)
+    const [myLocation, setMyLocation] = useState(null);
+    
+    // Usamos useRef para acceder a los valores más recientes dentro de setInterval
+    const myLocationRef = useRef(myLocation);
+    const busIdRef = useRef(busId);
+    
+    // Mantener las referencias actualizadas
+    useEffect(() => {
+        myLocationRef.current = myLocation;
+        busIdRef.current = busId;
+    }, [myLocation, busId]);
 
-    // Función para enviar mi propia ubicación (Bus-101)
-    const sendLocation = async (currentLocation) => {
-        if (!currentLocation) return;
+
+    // Función para enviar mi propia ubicación
+    // 🔄 ACEPTA UN OBJETO DE COORDENADAS SIMPLIFICADO
+    const sendLocation = useCallback(async (locationToSend, currentBusId) => {
+        if (!locationToSend || !currentBusId) return;
+        
         const payload = {
-            bus_id: MY_BUS_ID,
-            latitude: currentLocation.coords.latitude,
-            longitude: currentLocation.coords.longitude,
-            speed: currentLocation.coords.speed
+            bus_id: currentBusId,
+            // Usamos 0 para la velocidad ya que es una simulación manual
+            latitude: locationToSend.latitude,
+            longitude: locationToSend.longitude,
+            speed: locationToSend.speed || 0 
         };
+        
         try {
-            console.log("Enviando (Expo Go):", payload);
-            // Usamos la URL correcta para enviar
+            console.log("Enviando [SIMULADO/REAL]:", payload);
             await axios.post(TRACK_API_URL, payload, { timeout: 5000 });
-            console.log("Enviado (Expo Go) OK");
+            console.log("Enviado OK. Lat:", payload.latitude.toFixed(5));
+            setErrorMsg(null); 
         } catch (error) {
             console.error("Error al enviar ubicación:", error.message);
-            // Si el error es de red, mostramos mensaje de API caído
-            if (error.code === 'ECONNABORTED' || error.message.includes('Network Error')) {
-                 setErrorMsg('Error de red al enviar. ¿API está corriendo y la IP es correcta?');
-            } else {
-                 setErrorMsg('Error al enviar ubicación.');
-            }
-           
+            setErrorMsg('Error de red al enviar ubicación. Revisa la URL.');
         }
-    };
-    
+    }, []);
+
     // Función para cargar las ubicaciones de TODOS los buses desde la API
     const fetchBusLocations = async () => {
         try {
-            // Usamos la URL correcta para cargar los buses
             const response = await fetch(BUSES_API_URL);
             const data = await response.json();
             
             if (response.ok) {
-                console.log(`Buses cargados (${data.length}):`, data.map(b => b._id));
-                // Actualiza el estado con la lista de buses
+                console.log(`Buses cargados (${data.length})`);
                 setLocationBus(data);
-                setErrorMsg(null); // Limpiar errores si la carga fue exitosa
+                setErrorMsg(null);
             } else {
                 console.error('Error del servidor al obtener buses:', data.error);
                 setErrorMsg(`Error del servidor: ${data.error}`);
@@ -65,70 +121,130 @@ export default function Home() {
         }
     };
     
+    // 🆕 Función para mover el bus 10 metros al Norte (simulación)
+    const moveBus = async () => {
+        if (!myLocation) {
+            setErrorMsg("No se ha cargado la ubicación inicial para poder mover el bus.");
+            return;
+        }
+
+        const newCoords = calculateNewLocation(
+            myLocation.latitude, 
+            myLocation.longitude, 
+            DISTANCE_TO_MOVE
+        );
+        
+        // 1. Actualiza el estado de mi ubicación con la nueva posición
+        const newLocationObject = { 
+            latitude: newCoords.latitude, 
+            longitude: newCoords.longitude, 
+            speed: 5 // Velocidad simulada para el movimiento
+        };
+        setMyLocation(newLocationObject); 
+
+        // 2. Envía la nueva ubicación a la API inmediatamente
+        await sendLocation(newLocationObject, busId);
+    };
+
+
     // --- useEffect: Inicialización y Bucles de Tareas ---
     useEffect(() => {
         let sendLocationInterval;
         let fetchBusesInterval;
         
-        // Función principal asíncrona dentro de useEffect
         (async () => {
-            // 1. Pedir permiso de ubicación
+            console.log('---> Inicialización de Tracking Simulador Iniciada');
+            
+            // 1. Cargar/Generar ID
+            const currentBusId = await getOrGenerateBusId();
+            setBusId(currentBusId); 
+            
+            // 2. Pedir permiso y obtener ubicación INICIAL (se usará como punto de partida)
             let { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
                 setErrorMsg('Permiso de ubicación denegado. No se puede rastrear.');
                 return;
             }
             
-            // 2. Iniciar el BUCLE para ENVIAR mi ubicación (Bus-101)
-            sendLocationInterval = setInterval(async () => {
-                try {
-                    let currentLocation = await Location.getCurrentPositionAsync({
-                        accuracy: Location.Accuracy.High,
-                    });
-                    await sendLocation(currentLocation);
-                } catch (error) {
-                    console.warn("Error obteniendo/enviando:", error);
-                    // Solo actualizamos el mensaje de error si es diferente al de red ya establecido
-                    if (!errorMsg || !errorMsg.includes('red al enviar')) { 
-                         setErrorMsg('Error de rastreo: ' + error.message);
-                    }
-                   
-                }
-            }, SEND_INTERVAL); // Cada 20 segundos
+            try {
+                let initialLocation = await Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.High,
+                });
+                
+                const initialCoords = {
+                    latitude: initialLocation.coords.latitude,
+                    longitude: initialLocation.coords.longitude,
+                    speed: initialLocation.coords.speed || 0, // Asegura que 'speed' exista
+                };
+                
+                setMyLocation(initialCoords); // Guarda la ubicación inicial
+                
+                // Envía la ubicación inicial inmediatamente
+                await sendLocation(initialCoords, currentBusId);
 
-            // 3. Iniciar el BUCLE para CARGAR las ubicaciones de TODOS los buses
-            // Hacemos una carga inicial inmediata
+            } catch (error) {
+                setErrorMsg('Error al obtener la ubicación inicial.');
+                console.error("Error al obtener ubicación inicial:", error);
+                return;
+            }
+
+
+            // 3. Iniciar el BUCLE para ENVIAR mi ubicación (usa myLocationRef para la ubicación más reciente)
+            sendLocationInterval = setInterval(async () => {
+                // Usamos la referencia para obtener el valor más reciente del estado myLocation
+                const latestLocation = myLocationRef.current;
+                const latestBusId = busIdRef.current;
+                
+                if (latestLocation) {
+                    await sendLocation(latestLocation, latestBusId); 
+                } else {
+                    console.log("Ubicación aún no disponible para el envío periódico.");
+                }
+            }, SEND_INTERVAL); 
+
+            // 4. Iniciar el BUCLE para CARGAR las ubicaciones de TODOS los buses
             await fetchBusLocations(); 
-            
-            // Y luego lo repetimos cada 5 segundos
             fetchBusesInterval = setInterval(fetchBusLocations, FETCH_INTERVAL);
 
         })();
         
-        // Función de limpieza: Se ejecuta al desmontar el componente
+        // Función de limpieza
         return () => {
-            clearInterval(sendLocationInterval); // Detiene el envío
-            clearInterval(fetchBusesInterval); // Detiene la carga
+            clearInterval(sendLocationInterval); 
+            clearInterval(fetchBusesInterval); 
             console.log("Intervalos de rastreo detenidos.");
         };
-    }, []); // El array vacío asegura que solo se ejecute al montar y desmontar
+    }, [sendLocation]); // Agregamos sendLocation a deps ya que es un useCallback, aunque la dependencia real es [] para la inicialización.
 
-    // El resto del componente `return` (Vistas) es el mismo que tenías
+
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Tracking Activado (Modo Bus)</Text>
-            <Text>Mi ID de Bus: **{MY_BUS_ID}** (Envío cada {SEND_INTERVAL/1000}s)</Text>
+            
+            <Text style={styles.title}>Tracking Activado (Modo Bus Simulador)</Text>
+            <Text>Mi ID de Bus: <Text style={{fontWeight: 'bold', color: '#007AFF'}}>{busId}</Text></Text>
+            <Text>Ubicación Actual (Simulada):</Text>
+            {myLocation ? (
+                <Text style={{marginBottom: 10, color: '#333'}}>
+                    Lat: {myLocation.latitude.toFixed(6)}, Lon: {myLocation.longitude.toFixed(6)}
+                </Text>
+            ) : (
+                <Text>Cargando ubicación inicial...</Text>
+            )}
+
             <Text>Cargando buses desde la API cada {FETCH_INTERVAL/1000}s</Text>
             
             <FlatList
-                data={LocationBus}
+                style={styles.flatList}
+                data={locationBus}
                 keyExtractor={item => item._id.toString()}
                 renderItem={({ item }) => (
-                    <View style={styles.busItem}>
+                    <View style={[
+                        styles.busItem, 
+                        item._id === busId && styles.myBusItem // Resaltar mi propio bus
+                    ]}>
                         <Text style={styles.busId}>🚌 ID: {item._id}</Text>
-                        {/* Se asegura que last_location y coordinates existan antes de acceder */}
                         {item.last_location && item.last_location.coordinates && 
-                            <Text>📍 Lat: {item.last_location.coordinates[1].toFixed(5)}, Lon: {item.last_location.coordinates[0].toFixed(5)}</Text>
+                            <Text>📍 Lat: {item.last_location.coordinates[1].toFixed(6)}, Lon: {item.last_location.coordinates[0].toFixed(6)}</Text>
                         }
                         <Text>⚡ Velocidad: {item.last_speed !== undefined ? item.last_speed.toFixed(1) : 'N/A'} km/h</Text>
                         <Text>⏱️ Visto: {item.last_seen ? new Date(item.last_seen).toLocaleTimeString() : 'N/A'}</Text>
@@ -137,46 +253,72 @@ export default function Home() {
                 )}
                 ListEmptyComponent={() => <Text style={styles.emptyText}>Esperando datos de buses...</Text>}
             />
+            <View style={{flexDirection:'row', marginHorizontal: 90, marginBottom: 20}}>
+                <Button 
+                    title='Moverme 10 metros al Norte ⬆️' 
+                    onPress={moveBus}
+                    disabled={!myLocation || busId === 'CARGANDO...'}
+                />
+            </View>
             {errorMsg && <Text style={styles.error}>{errorMsg}</Text>}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-// ... (Tus estilos se mantienen)
     container: {
         flex: 1,
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         alignItems: 'center',
         padding: 20,
-        paddingTop: 50, // Pequeño ajuste para evitar la barra de estado
+        paddingTop: 50, 
+        backgroundColor: '#fff',
     },
     title: {
-        fontSize: 20,
+        fontSize: 22,
         fontWeight: 'bold',
-        marginBottom: 5,
+        marginBottom: 10,
+        color: '#333',
     },
     error: {
         color: 'red',
         marginTop: 15,
-        textAlign: 'center'
+        textAlign: 'center',
+        padding: 10,
+        backgroundColor: '#ffe0e0',
+        borderRadius: 5,
+    },
+    flatList: {
+        maxHeight: 350, // Ajuste para mejor visualización
+        marginVertical: 15,
+        width: '100%',
     },
     busItem: {
-        backgroundColor: '#f0f0f5', // Color ligeramente diferente
+        backgroundColor: '#f0f0f5', 
         padding: 15,
-        borderRadius: 8,
+        borderRadius: 10,
         marginBottom: 10,
         borderLeftWidth: 5,
-        borderLeftColor: '#4CAF50', // Verde para indicar estado
+        borderLeftColor: '#4CAF50', 
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.20,
+        shadowRadius: 1.41,
+        elevation: 2,
+    },
+    myBusItem: {
+        backgroundColor: '#e1f5fe', // Color diferente para mi bus
+        borderLeftColor: '#007AFF', // Azul para mi bus
     },
     busId: {
-        fontWeight: 'bold',
-        fontSize: 15,
-        marginBottom: 5
+        fontWeight: '700',
+        fontSize: 16,
+        marginBottom: 5,
+        color: '#333'
     },
     emptyText: {
         textAlign: 'center',
         marginTop: 20,
-        color: '#666'
+        color: '#999'
     }
 });
