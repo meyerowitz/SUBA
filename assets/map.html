@@ -17,7 +17,7 @@
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
         }
         .user-marker-icon {
-            background-color: #007bff;
+            background-color: #00ff44;
             width: 20px;
             height: 20px;
             display: block;
@@ -25,7 +25,7 @@
             top: -10px;
             position: relative;
             border-radius: 50%;
-            border: 3px solid white;
+            border: 3px solid rgb(0, 115, 40);
             box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
             animation: pulse 1.5s infinite;
         }
@@ -47,16 +47,11 @@
             box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
         }
         .bus-marker-icon {
-    /* No necesitamos definir todo si el HTML del ícono ya lo hace */
     width: 20px;
     height: 20px;
-    display: flex; /* Para centrar contenido si usas un ícono */
+    display: flex; 
     justify-content: center;
     align-items: center;
-    left: -10px;
-    top: -10px;
-    position: relative;
-    /* Puedes dejarlo vacío o añadir más estilos si usas una imagen personalizada */
 }
     </style>
 </head>
@@ -152,7 +147,7 @@ initializeMap();
             
             const stopIcon = L.divIcon({
                 className: 'bus-stop-icon',
-                html: '<div style="background-color: #9fc5e8; border-radius: 50%; width: 12px; height: 12px; border: 2px solid white;"></div>', 
+                html: '<div style="background-color: #0661BC; border-radius: 50%; width: 12px; height: 12px; border: 2px solid white;"></div>', 
                 iconSize: [16, 16],
                 iconAnchor: [8, 8]
             });
@@ -174,38 +169,69 @@ initializeMap();
     };
         
         // 4. Función para Renderizar los buses ubicados en la API
-        window.renderBusLocations = function(busData) {
-            const activeBusIds = new Set();
+    
+   window.renderBusLocations = function(busData) {
+    const activeBusIds = new Set();
+    const locationBusesMap = {}; // Mapa para agrupar buses por ubicación [lat, lon]
 
-            // Icono para los buses (puedes personalizarlo)
-            const busIcon = L.divIcon({
-                className: 'bus-marker-icon', // Puedes definir un estilo CSS para este
-                // Nota: Asegúrate de tener la fuente 'Font Awesome' si usas la clase 'fa fa-bus'
-                html: '<div style="background-color: #28a745; border-radius: 50%; width: 15px; height: 15px; border: 2px solid white;"><i class="fa fa-bus" style="color:white;"><h>🚌</h></i></div>', 
-                iconSize: [20, 20],
-                iconAnchor: [10, 10]
-            });
+    // 1. Agrupar buses por ubicación exacta para identificar colisiones
+    busData.forEach(bus => {
+        // Usamos una clave con precisión alta para la agrupación
+        const key = `${bus.lat.toFixed(6)},${bus.lon.toFixed(6)}`;
+        if (!locationBusesMap[key]) {
+            locationBusesMap[key] = [];
+        }
+        locationBusesMap[key].push(bus);
+    });
 
-            busData.forEach(bus => {
-                const { bus_id, lat, lon, route, velocity } = bus;
-                const latlng = [lat, lon];
-        
-                activeBusIds.add(bus_id);
+    // Constante de desplazamiento (ajusta este valor si necesitas más o menos separación)
+    const OFFSET = 0.00003; 
 
-                if (busMarkers[bus_id]) {
-                    // El marcador ya existe, simplemente actualiza su posición
-                    busMarkers[bus_id].setLatLng(latlng);
-                    // Opcional: Actualizar el contenido del popup
-                    busMarkers[bus_id].setPopupContent(`<b>Bus ${bus_id}</b><br>Ruta: ${route}<br>Velocidad: ${velocity} km/h<br>Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}`);
-                } else {
+    // Icono para los buses (usamos la definición que ya tienes)
+    const busIcon = L.divIcon({
+        className: 'bus-marker-icon',
+        html: '<div style="background-color: #F54927; border-radius: 50%; width: 15px; height: 15px; border: 2px solid #F4320B;"><h>🚌</h></div>', 
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+    });
+
+    // 2. Iterar sobre las agrupaciones y renderizar con desplazamiento si es necesario
+    Object.values(locationBusesMap).forEach(busesInLocation => {
+        busesInLocation.forEach((bus, index) => {
+            const { bus_id, lat, lon, route, velocity } = bus;
+            activeBusIds.add(bus_id);
+
+            let adjustedLat = lat;
+            let adjustedLon = lon;
+
+            // Aplicar desplazamiento solo si hay más de un bus
+            if (busesInLocation.length > 1) {
+                // Desplazamiento simple: mueve el marcador ligeramente en latitud y longitud
+                // El factor 'index' asegura que cada bus se mueva a un lugar diferente
+                adjustedLat = lat + (OFFSET * index); 
+                adjustedLon = lon + (OFFSET * index * 0.5); // Desplazamiento menor en longitud para dispersar
+            }
+
+            const latlng = [adjustedLat, adjustedLon];
+            const popupContent = `<b>Bus ${bus_id}</b><br>Ruta: ${route}<br>Velocidad: ${velocity} km/h<br>Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}`;
+
+            if (busMarkers[bus_id]) {
+                // El marcador ya existe, actualiza su posición
+                busMarkers[bus_id].setLatLng(latlng);
+                busMarkers[bus_id].setPopupContent(popupContent);
+            } else {
                 // El marcador no existe, créalo
-                busMarkers[bus_id] = L.marker(latlng, { icon: busIcon })
-                .bindPopup(`<b>Bus ${bus_id}</b><br>Ruta: ${route}<br>Velocidad: ${velocity} km/h<br>Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}`)
+                busMarkers[bus_id] = L.marker(latlng, { 
+                    icon: busIcon,
+                    bus_id: bus_id // Añade el ID como una opción para referencia
+                })
+                .bindPopup(popupContent)
                 .addTo(map);
             }
-            });
+        });
+    });
 
-    // Eliminar buses que ya no están en los datos (se han desconectado o salido del área)
+    // 3. Eliminar buses que ya no están en los datos
     Object.keys(busMarkers).forEach(busId => {
         if (!activeBusIds.has(busId)) {
             map.removeLayer(busMarkers[busId]);
@@ -213,7 +239,6 @@ initializeMap();
         }
     });
 };
-        // Función de manejo de clic (Sin cambios)
         map.on('click', function(e) {
             const latlng = { type: 'MAP_CLICK', lat: e.latlng.lat, lng: e.latlng.lng };
             window.ReactNativeWebView.postMessage(JSON.stringify(latlng));
