@@ -4,8 +4,7 @@
   <img src="logotipo.png" alt="Logotipo SUBA" width="350" />
   <hr style="border: 1px solid #ccc; margin: 20px 0;" />
   <p style="color: #666;">Repositorio Oficial</p>
-  <img src="https://img.freepik.com/vector-premium/mapa-ruta-punteros-estilo-plano_23-2147796451.jpg" alt="Mapa de ruta con punteros" width="80%" style="border-radius: 12px; max-width: 500px; margin-top: 20px; border: 1px solid #ddd;" />
-</div>
+ </div>
 
 
 [![maintainability](https://img.shields.io/badge/maintainability-A-00C400)]()
