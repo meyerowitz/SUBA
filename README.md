@@ -1,50 +1,51 @@
-# Welcome to your Expo app 👋
+# 📚 MANUAL DE RAMIFICACIÓN Y FLUJO DE TRABAJO (GITFLOW ADAPTADO) 🌳
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Este manual establece la convención de nombres y el flujo de trabajo (workflow) para asegurar la claridad, estabilidad del código y la responsabilidad individual en el proyecto.
 
-## Get started
+---
 
-1. Install dependencies
+## 1. REGLAS FUNDAMENTALES DE RAMIFICACIÓN
 
-   ```bash
-   npm install
-   ```
+### A. Rama Permanente (Estabilidad)
 
-2. Start the app
+| Rama | Propósito | Regla de Oro |
+| :--- | :--- | :--- |
+| **`main`** | Contiene el código **más estable y funcionando**. Es el código listo para la entrega final. | **NUNCA** se hace un commit directo. Todo debe ser fusionado a través de un **Pull Request (PR) aprobado**. |
 
-   ```bash
-   npx expo start
-   ```
+### B. Ramas de Trabajo (Desarrollo y Tareas)
 
-In the output, you'll find options to open the app in a
+* **Propósito:** Contener el desarrollo de una característica, módulo o corrección de error.
+* **Vida Útil:** Son temporales y deben ser eliminadas inmediatamente después de su fusión en `main`.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 2. CONVENCIÓN DE NOMBRES (Responsabilidad Individual)
 
-## Get a fresh project
+Para vincular la tarea con el responsable, utilizaremos esta estructura **obligatoria**:
 
-When you're ready, run:
+### `feature/<iniciales-del-compañero>/<descripcion-corta-de-la-tarea>`
+
+| Componente | Ejemplo | Descripción |
+| :--- | :--- | :--- |
+| **Prefijo** | `feature/` | Indica que es una rama de desarrollo. |
+| **Identificador** | `JC/` (Iniciales) | **Identificador de Responsabilidad:** Obligatorio para rastrear la actividad individual (ej. **J**uan **C**arlos). |
+| **Descripción** | `crud-usuarios` | Nombre descriptivo de la tarea (usar guiones). |
+| **Ejemplo Final** | `feature/JC/login-google` | **RAMA VÁLIDA** |
+
+---
+
+## 3. FLUJO DE TRABAJO EN 5 PASOS (Workflow) ⚙️
+
+Todo el trabajo debe seguir el siguiente ciclo:
+
+### 🟢 Paso 1: Crear y Publicar la Rama
+
+Siempre crea tu rama de tarea desde el punto más estable (`main`).
 
 ```bash
-npm run reset-project
-```
+# 1. Sincroniza la rama base
+git checkout main
+git pull origin main
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+# 2. Crea y cambia a tu rama de trabajo
+git checkout -b feature/TU-INICIALES/TU-TAREA
