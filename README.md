@@ -1,3 +1,5 @@
+![Logotipo Oficial](logotipo.png)
+
 # 📚 MANUAL DE RAMIFICACIÓN Y FLUJO DE TRABAJO (GITFLOW ADAPTADO) 🌳
 
 Este manual establece la convención de nombres y el flujo de trabajo (workflow) para asegurar la claridad, estabilidad del código y la responsabilidad individual en el proyecto.
