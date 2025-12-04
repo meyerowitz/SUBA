@@ -1,6 +1,22 @@
-![Logotipo Oficial](logotipo.png)
+<div align="left">
+  
 
-# 📚 MANUAL DE RAMIFICACIÓN Y FLUJO DE TRABAJO (GITFLOW ADAPTADO) 🌳
+  <img src="logotipo.png" alt="Logotipo SUBA" width="350" />
+  <hr style="border: 1px solid #ccc; margin: 20px 0;" />
+  <p style="color: #666;">Repositorio Oficial</p>
+</div>
+
+
+[![maintainability](https://img.shields.io/badge/maintainability-A-00C400)]()
+[![CodeQL](https://img.shields.io/badge/CodeQL-passing-30A900?logo=github&logoColor=white)]()
+[![tests](https://img.shields.io/badge/tests-2000+-00C400)]()
+[![release](https://img.shields.io/badge/release-v2.0.1-555555)]()
+[![release date](https://img.shields.io/badge/release_date-last%20monday-00C400)]()
+[![last commit](https://img.shields.io/badge/last%20commit-last%20monday-00C400)]()
+
+[![getting started](https://img.shields.io/badge/getting%20started-guide-0078D4)]()
+[![non commercial](https://img.shields.io/badge/free%20for-non%20commercial%20use-00C400)]()
+# MANUAL DE RAMIFICACIÓN Y FLUJO DE TRABAJO (GITFLOW ADAPTADO) 
 
 Este manual establece la convención de nombres y el flujo de trabajo (workflow) para asegurar la claridad, estabilidad del código y la responsabilidad individual en el proyecto.
 
@@ -51,3 +67,5 @@ git pull origin main
 
 # 2. Crea y cambia a tu rama de trabajo
 git checkout -b feature/TU-INICIALES/TU-TAREA
+
+
