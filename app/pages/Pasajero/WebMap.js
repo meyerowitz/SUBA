@@ -5,6 +5,7 @@ import { Picker } from '@react-native-picker/picker';
 import { Feather } from '@expo/vector-icons';
 import { Asset } from 'expo-asset';
 import * as Location from 'expo-location';
+import * as FileSystem from 'expo-file-system/legacy';
 
 import SearchRoot from '../../Components/SearchRoot';
 import Destinos from '../../Components/Destinos.json';
@@ -16,6 +17,7 @@ const FETCH_INTERVAL = 5000; // Cargar buses cada 5 segundos (500ms)
 // BBOX estático para Ciudad Guayana: [LatSur, LonOeste, LatNorte, LonEste]
 const GUAYANA_BBOX = "8.21,-62.88,8.39,-62.60";
 //---------------------1) .Funcion que renderiza el mapa------------------------
+/*
 const loadMapHtml = async () => {
     console.log()
     console.log(' Recarga del mapa ♻️')
@@ -26,6 +28,7 @@ const loadMapHtml = async () => {
     
   return cacheBusterUri;
 };
+*/
 // -------------------------------------------------------------
 // 2) .FUNCIÓN DE CONSULTA A OVERPASS
 // -------------------------------------------------------------
@@ -87,6 +90,7 @@ export default function WebMap ()  {
     //---------------Hooks------------------------------
     const webviewRef = useRef(null);//---cluster del mapa
     const [mapHtmlUri, setMapHtmlUri] = useState(null);//---url y datos del mapa del tiempo real
+    const [mapHtmlContent, setMapHtmlContent] = useState(null);
     const [loading, setLoading] = useState(true);
 
     // Nuevo estado para rastrear si el mapa y las paradas están listos.
@@ -106,7 +110,22 @@ export default function WebMap ()  {
 
 //----------- 1) .UseEffet loadhtmlUri-----------------------
   useEffect(() => {
-    loadMapHtml().then(setMapHtmlUri);
+    //loadMapHtml().then(setMapHtmlUri);
+    const loadHTML = async () => {
+        try {
+            const asset = Asset.fromModule(require('../../../assets/map.html'));
+            await asset.downloadAsync();
+            
+            // En producción, usamos localUri para leer el archivo físico
+            const uri = asset.localUri || asset.uri;
+            const htmlString = await FileSystem.readAsStringAsync(uri);
+            
+            setMapHtmlContent(htmlString);
+        } catch (error) {
+            console.error("Error cargando el mapa en APK:", error);
+        }
+    };
+    loadHTML();
   }, []);
  // --- 2) .Lógica de Expo Location  ✅ ---
   useEffect(() => {
@@ -303,15 +322,14 @@ const handleSearch = () => {
 };
 
    // en el caso de que maphtmlUri se encuentre vacio se graficara una pantalla de carga
-  if (!mapHtmlUri) {
-        return (
-               <View style={[styles.container, styles.center]}>
-                   <ActivityIndicator size="large" color="#007bff" />
-                   <Text style={styles.loadingText}>Buscando tu ubicación...</Text>
-               </View>
-           );
-   
-  }
+useEffect(() => {
+    const timer = setTimeout(() => {
+        if (!mapHtmlContent) {
+            Alert.alert("Error", "El mapa está tardando demasiado en cargar.");
+        }
+    }, 10000); // 10 segundos
+    return () => clearTimeout(timer);
+}, [mapHtmlContent]);
 
 
   
@@ -332,12 +350,16 @@ const handleSearch = () => {
         <View style={{flex: 1, borderRadius: 12,overflow: 'hidden',shadowColor: '#000',shadowOffset: { width: 0, height: 4 },shadowOpacity: 0.1,shadowRadius: 5,elevation: 8,}}>
              <WebView
                 ref={webviewRef}
-                source={{ uri: mapHtmlUri }}
+                source={mapHtmlContent ? { html: mapHtmlContent, baseUrl: '' } : null }
                 style={{flex: 1,}}
                 onMessage={handleWebViewMessage}
                 javaScriptEnabled={true}
                 domStorageEnabled={true}
                 scrollEnabled={false}
+
+                originWhitelist={['*']}
+                allowFileAccess={true}
+                allowUniversalAccessFromFileURLs={true}
                 
             />
         </View>

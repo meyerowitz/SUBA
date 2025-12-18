@@ -18,7 +18,8 @@
         "backgroundImage": "./assets/img/icono.png",
         "monochromeImage": "./assets/img/icono.png"
       },
-      "package": "com.anonymous.BusTrackerCiudBolivar"
+      "package": "com.anonymous.BusTrackerCiudBolivar",
+      "permissions": ["INTERNET", "ACCESS_FINE_LOCATION","ACCESS_COARSE_LOCATION"]
     },
     "extra": {
       "eas": {
