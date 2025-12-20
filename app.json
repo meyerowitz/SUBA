@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Bus-Tracker-CiudBolivar",
-    "slug": "Bus-Tracker-CiudBolivar",
+    "name": "SUBA",
+    "slug": "SUBA",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/img/icono.png",
@@ -13,10 +13,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/img/icono.png",
-        "backgroundImage": "./assets/img/icono.png",
-        "monochromeImage": "./assets/img/icono.png"
+        "backgroundColor": "#ffffff"
       },
       "package": "com.anonymous.BusTrackerCiudBolivar",
       "permissions": ["INTERNET", "ACCESS_FINE_LOCATION","ACCESS_COARSE_LOCATION"]
