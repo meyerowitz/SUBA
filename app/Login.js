@@ -61,6 +61,67 @@ const handleLogin = async () => {
     }
   }
 
+  const handleLogin2 = async () => {
+  // 1. Validación inicial
+  if (!correo || !password) {
+    Alert.alert("Error", "Por favor, completa todos los campos");
+    return;
+  }
+
+  try {
+    setIsLoading(true); // Iniciamos el estado de carga (para ver tu GIF)
+
+    // 2. Petición POST a la API
+    const response = await fetch('https://subapp-api.onrender.com/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        // Enviamos 'correo' como email. Si tu API acepta nombre o email en el mismo campo,
+        // asegúrate de que el backend esté preparado para recibirlo así.
+        email: correo.toLowerCase(), 
+        password: password,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // 3. Si el login es exitoso, extraemos el usuario y el rol que devuelve tu API
+      // Nota: Ajusta 'data.user' o 'data.role' según cómo responda tu servidor
+      const role = 'passenger'; 
+      setUserRole(role);
+
+      // 4. Mantenemos tu simulación de carga de 4 segundos para el GIF
+      setTimeout(() => {
+        if (role === "driver") {
+          router.replace("./pages/Conductor/Home");
+        } else {
+          router.replace("./pages/Pasajero/Navigation");
+        }
+      }, 4000);
+
+    } else {
+      // 5. Si la API devuelve error (401, 404, etc.)
+      setIsLoading(false);
+      Alert.alert("Error", data.message || "Usuario o contraseña incorrectos");
+    }
+  } catch (error) {
+    // Error de red o del servidor caído
+    setIsLoading(false);
+    Alert.alert("Error de conexión", "No se pudo conectar con el servidor. Inténtalo más tarde.");
+    console.error(error);
+  }
+};
+
+{!isLoading && (
+        <View style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }}>
+          <Image source={require("../assets/img/driver-loading.gif")} priority="high" />
+          <Image source={require("../assets/img/passenger-loading.gif")} priority="high" />
+        </View>
+      )}
+
   if (isLoading) {
     return (
       <View style={styles.loaderContainer}>
@@ -71,7 +132,7 @@ const handleLogin = async () => {
   cachePolicy="memory-disk" // Prioriza cargar desde la memoria RAM o disco
   priority="high"           // Le dice al sistema que este recurso es urgente
   placeholder={{ blurhash: "L6PZfSaD00jE.AyE_3t7t7Rj4n9w" }} // O simplemente una imagen estática
-  transition={100}
+  transition={10}
 />
         <Text style={styles.loaderText}>
           {userRole === "driver" ? "Preparando tu ruta..." : "Buscando tu viaje..."}
@@ -101,7 +162,7 @@ const handleLogin = async () => {
 
         <Text style={styles.question}>¿Olvidaste tu contraseña? </Text>
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
+        <TouchableOpacity style={styles.button} onPress={handleLogin2} onLongPress={handleLogin} delayLongPress={1000} >
           <Text style={styles.textButton}>INICIAR SESIÓN</Text>
         </TouchableOpacity>
 
@@ -250,6 +311,7 @@ const styles = StyleSheet.create({
   gif: {
     width: 200,
     height: 200,
+    borderRadius:20
   },
   loaderText: {
     marginTop: 20,

@@ -86,7 +86,7 @@ export default function Register() {
       if (true) {
         //reemplazar por data.success cuando el back este listo revisar heilper para ver configuaracion del contexto
         //setCorreoUsuario(data.mail); activar cuando el back este listo
-        router.replace("/(tabs)") // Redirigir al home
+        router.replace("./Login") // Redirigir al home
       } else {
       }
     } catch (error) {
@@ -94,6 +94,61 @@ export default function Register() {
       Alert.alert("Error de red")
     }
   }
+
+  const handleLogin2 = async () => {
+    // 1. Validaciones locales (mismas que ya tenías)
+    if (!mail || !password || !fullName) {
+      Alert.alert("Error", "Por favor, complete todos los campos.");
+      return;
+    }
+    if (!namePattern.test(fullName)) {
+      Alert.alert("Error", "El nombre solo debe contener letras");
+      return;
+    }
+    if (!emailPattern.test(mail)) {
+      Alert.alert("Error", "Por favor, ingresa un correo electrónico válido");
+      return;
+    }
+    
+    const validation = validatePassword(password);
+    if (!validation.hasSpecialChar || !validation.hasUpperCase || !validation.hasMinLength) {
+      Alert.alert("Error", "La contraseña no cumple con los requisitos");
+      return;
+    }
+
+    try {
+      // 2. Petición POST a tu API de Render
+      const response = await fetch('https://subapp-api.onrender.com/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullName: fullName,
+          email: mail.toLowerCase(),
+          password: password,
+          role: "passenger" // O el rol por defecto que desees asignar
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // 3. Éxito: Registro completado
+        Alert.alert("¡Éxito!", "Cuenta creada correctamente", [
+          { text: "OK", onPress: () => router.replace("./Login") }
+        ]);
+        router.replace("./Login")
+      } else {
+        // 4. Error del servidor (ej: el correo ya existe)
+        Alert.alert("Error de registro", data.message || "No se pudo crear la cuenta");
+      }
+    } catch (error) {
+      // 5. Error de red
+      console.error(error);
+      Alert.alert("Error de red", "Asegúrate de estar conectado a internet o que el servidor esté activo.");
+    }
+  };
 
   const passwordValidation = validatePassword(password)
   const strengthColor =
@@ -193,7 +248,7 @@ export default function Register() {
 
         <Text style={styles.question}>O registrate con redes sociales </Text>
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
+        <TouchableOpacity style={styles.button} onPress={handleLogin2} onLongPress={handleLogin}>
           <Text style={styles.textButton}>CREAR CUENTA</Text>
         </TouchableOpacity>
 
