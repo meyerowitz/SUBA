@@ -27,8 +27,8 @@ const TRACK_API_URL = `${BASE_URL}/track`;
 const BUSES_API_URL = `${BASE_URL}/buses`;
 
 // Intervalos de actualización (en milisegundos)
-const SEND_INTERVAL = 20000; // 20 segundos para enviar mi ubicación
-const FETCH_INTERVAL = 5000; // 5 segundos para cargar las ubicaciones de los demás
+const SEND_INTERVAL = 5000; // 20 segundos para enviar mi ubicación
+const FETCH_INTERVAL = 20000; // 5 segundos para cargar las ubicaciones de los demás
 
 // --- Funciones de Utilidad ---
 
@@ -79,6 +79,20 @@ export default function Home() {
 
   // Mantener las referencias actualizadas
   useEffect(() => {
+    (async () => {
+      let test = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        timeInterval: 1000,
+        distanceInterval: 1,
+      });
+      const newCoords = {
+        latitude: test.coords.latitude,
+        longitude: test.coords.longitude,
+        speed: test.coords.speed || 0, // Asegura que 'speed' exista
+      };
+      setMyLocation(newCoords);
+    })();
+
     myLocationRef.current = myLocation;
     busIdRef.current = busId;
   }, [myLocation, busId]);
@@ -113,8 +127,15 @@ export default function Home() {
     async (locationToSend, currentBusId) => {
       if (!locationToSend || !currentBusId) return;
 
+      console.log(
+        "current bus location: ",
+        locationToSend.latitude,
+        ", ",
+        locationToSend.longitude,
+      );
+
       const payload = {
-        bus_id: currentBusId,
+        bus_id: busId,
         // Usamos 0 para la velocidad ya que es una simulación manual
         latitude: locationToSend.latitude,
         longitude: locationToSend.longitude,
@@ -206,6 +227,8 @@ export default function Home() {
       try {
         let initialLocation = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
+          timeInterval: 1000,
+          distanceInterval: 1,
         });
 
         const initialCoords = {

@@ -19,11 +19,16 @@
         "monochromeImage": "./assets/img/icono.png"
       },
       "package": "com.anonymous.BusTrackerCiudBolivar",
-      "permissions": ["INTERNET", "ACCESS_FINE_LOCATION","ACCESS_COARSE_LOCATION"]
+      "permissions": [
+        "INTERNET",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "086d5cbd-eb33-4cc1-9cfd-740340a8a1ff"
+        "projectId": "87bff092-06ff-47e6-9489-9e6b18b86e4e"
       }
     },
     "plugins": [
