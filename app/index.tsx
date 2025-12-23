@@ -1,10 +1,7 @@
-import { Text, View } from "react-native";
-import Navigation from './pages/Pasajero/Navigation';
-import ChooseRol from './ChoseaRol';
-import SplashScreen from "./SplashScreen";
+import TravelHome from "./TravelHome";
 
 export default function Index() {
   return (
-      <SplashScreen></SplashScreen>
+      <TravelHome></TravelHome>
   );
 }

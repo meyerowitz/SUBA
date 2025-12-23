@@ -1,18 +1,17 @@
-import React, { useState, useEffect } from 'react';
 import * as Location from 'expo-location';
-import { 
-    SafeAreaView, 
-    View, 
-    Text, 
-    TouchableOpacity, 
-    StyleSheet, 
-    StatusBar,
+import React, { useEffect, useState } from 'react';
+import {
     Dimensions,
-    TextInput,
-    ScrollView,
-    ImageBackground, 
-    Image, 
+    Image,
+    ImageBackground,
     Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
@@ -38,15 +37,15 @@ const DESTINATION_STOPS = [
 ];
 
 // Rutas de las imágenes
-const BACKGROUND_IMAGE_SOURCE = require('./assets/images/Travel.png'); 
+const BACKGROUND_IMAGE_SOURCE = require('../assets/images/Travel.png'); 
 
 // Simulamos los iconos de tu carpeta assets:
 const ASSET_IMAGES = {
-    PROFILE_PLACEHOLDER: require('./assets/images/perfil.png'), 
-    NAV_HOME_ACTIVE: require('./assets/images/home_activo.png'), 
-    NAV_LOCATION_ACTIVE: require('./assets/images/ubi_activo.png'), 
-    SEARCH_ICON: require('./assets/images/icono_flechas.png'),
-    ICON_LOCATION: require('./assets/images/icono_ubicacion.png'),
+    PROFILE_PLACEHOLDER: require('../assets/images/perfil.png'), 
+    NAV_HOME_ACTIVE: require('../assets/images/home_activo.png'), 
+    NAV_LOCATION_ACTIVE: require('../assets/images/ubi_activo.png'), 
+    SEARCH_ICON: require('../assets/images/icono_flechas.png'),
+    ICON_LOCATION: require('../assets/images/icono_ubicacion.png'),
 };
 
 
