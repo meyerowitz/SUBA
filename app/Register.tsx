@@ -2,7 +2,7 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
 import { Image } from "expo-image"
 import { useRouter } from "expo-router"
 import { useState } from "react"
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native"
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar } from "react-native"
 
 export default function Register() {
   const router = useRouter()
@@ -163,6 +163,7 @@ export default function Register() {
 
   return (
     <View style={styles.page}>
+      <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
       <View style={styles.container}>
         <View style={styles.logo}>
           <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
@@ -261,7 +262,7 @@ export default function Register() {
 
         <View style={styles.redirect}>
           <Text style={styles.question}>Ya tienes cuenta? </Text>
-          <TouchableOpacity onPress={() => router.push("/login")}>
+          <TouchableOpacity onPress={() => router.replace("/login")}>
             <Text style={styles.register}>Inicia sesión aquí</Text>
           </TouchableOpacity>
         </View>

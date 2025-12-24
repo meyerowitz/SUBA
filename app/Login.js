@@ -2,7 +2,7 @@ import { Image } from "expo-image"
 import { Asset } from 'expo-asset';
 import { useRouter } from "expo-router"
 import { useState , useEffect} from "react"
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View  } from "react-native"
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View , StatusBar, KeyboardAvoidingView, Platform, ScrollView,TouchableWithoutFeedback,Keyboard} from "react-native"
 
 import userData from "./Components/Users.json";
 
@@ -116,7 +116,9 @@ const handleLogin = async () => {
 };
 
 {!isLoading && (
+  
         <View style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }}>
+          <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
           <Image source={require("../assets/img/driver-loading.gif")} priority="high" />
           <Image source={require("../assets/img/passenger-loading.gif")} priority="high" />
         </View>
@@ -125,6 +127,7 @@ const handleLogin = async () => {
   if (isLoading) {
     return (
       <View style={styles.loaderContainer}>
+        <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
         <Image
   source={userRole === "driver" ? require("../assets/img/driver-loading.gif") : require("../assets/img/passenger-loading.gif")}
   style={styles.gif}
@@ -143,6 +146,14 @@ const handleLogin = async () => {
 
   return (
     <View style={styles.page}>
+      <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
+      <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"} 
+          style={{ flex: 1 }}>
+            <ScrollView contentContainerStyle={{ flexGrow: 1 }} 
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}>
+              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
         <View style={styles.logo}>
           <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
@@ -150,14 +161,14 @@ const handleLogin = async () => {
 
         <Text style={styles.title}>¡Bienvenido de nuevo!</Text>
 
-        <TextInput placeholder="Correo electrónico" value={correo} onChangeText={setCorreo} style={styles.input} />
+        <TextInput placeholder="Correo electrónico" autoCapitalize="none" keyboardType="email-address" value={correo} onChangeText={setCorreo} style={styles.input} />
         <TextInput
           textContentType="password"
           placeholder="Contraseña"
           value={password}
           onChangeText={setPassword}
-          secureTextEntry
           style={styles.input}
+          autoCapitalize="none"
         />
 
         <Text style={styles.question}>¿Olvidaste tu contraseña? </Text>
@@ -179,7 +190,11 @@ const handleLogin = async () => {
             <Text style={styles.register}>Regístrate aquí</Text>
           </TouchableOpacity>
         </View>
+      
       </View>
+      </TouchableWithoutFeedback>
+            </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   )
 }

@@ -8,6 +8,9 @@
     "scheme": "bustrackerciudbolivar",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "androidNavigationBar": {
+      "sticky": "sticky-immersive"
+    },
     "ios": {
       "supportsTablet": true
     },
@@ -20,7 +23,11 @@
         "INTERNET",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
-      ]
+      ],
+      "softwareKeyboardLayoutMode": "pan",
+      "splash": {
+          "backgroundColor": "#0a98f6" 
+        }
     },
     "extra": {
       "router": {},

@@ -5,6 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons'; // Para usar íconos, puedes instalar react-native-vector-icons
 
 import Home from './Home';
+import Home2 from './Home2';
 import WebMap from './WebMap';
 
 const Tab = createBottomTabNavigator();
@@ -42,7 +43,7 @@ function MyTabs() {
         headerShown: false, // Oculta el encabezado superior si no lo necesitas
       })}
     >
-      <Tab.Screen name="Home" component={Home} />
+      <Tab.Screen name="Home" component={Home2} />
       <Tab.Screen name="Map" component={WebMap} />
     </Tab.Navigator>
   );

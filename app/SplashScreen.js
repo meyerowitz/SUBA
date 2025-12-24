@@ -3,6 +3,7 @@ import { Animated, StyleSheet, View, Text , Image, ImageBackground, StatusBar} f
 import {LinearGradient} from 'expo-linear-gradient';
 import { Canvas, Circle, RadialGradient, vec , BlurMask} from "@shopify/react-native-skia";
 import { useRouter } from 'expo-router';
+import * as NavigationBar from 'expo-navigation-bar';
 
 export default function SplashScreen () {
   const fadeAnim = useRef(new Animated.Value(0)).current; // Opacidad inicial 0
@@ -36,12 +37,18 @@ export default function SplashScreen () {
     });
   }, [fadeAnim, router]);
 
+  useEffect(() => {
+  NavigationBar.setBackgroundColorAsync("transparent");
+  NavigationBar.setPositionAsync("absolute");
+}, []);
+
   return (
     <View style={{flex:1}}>
-        <StatusBar style="light" />
-      <Animated.View style={{ opacity: fadeAnim, flex:1 }}>
+        <StatusBar translucent={true} backgroundColor="transparent" barStyle="ligth-content"></StatusBar>
+        
+      <Animated.View style={{  flex:1, opacity: fadeAnim }}>
         <LinearGradient
-        colors={[ '#1a5e8cff','#03273eff',  '#03273eff', '#03273eff','#03273eff',  '#022232ff']}
+        colors={[ '#0a98f6ff','#0020abff',  '#001677ff', '#001677ff','#0020abff',  '#002EF9']}
         style={{position:'absolute', top:0, left:0, width:'100%', height:'100%'}}
       />
       <ImageBackground
@@ -58,12 +65,12 @@ export default function SplashScreen () {
 
         <View style={{ marginTop:'60%',width:'100%',justifyContent:'center', alignItems:'center',shadowColor: '#000',shadowOffset: { width: 0, height: 10 },
             shadowOpacity: 0.25,shadowRadius: 10,elevation: 10,}}>
-            <View style={{width:200, height:200, borderRadius:70}}>
-                <Image source={require('../assets/img/icono_android.png')} style={{width:'110%', height:'100%', marginLeft:-10}}></Image>
+            <View style={{width:200, height:200, borderRadius:70,shadowOpacity: 0.25,shadowRadius: 10,elevation: 10,shadowColor: '#000',shadowOffset: { width: 0, height: 10 },}}>
+                <Image source={require('../assets/img/icono_android.png')} style={{width:'110%', height:'100%', marginLeft:-10,}}></Image>
             </View>
             <Image source={require('../assets/img/wordmark.png')} style={{height:100, width:220, margin:10}}></Image>
        </View>
-        <View style={{width:'100%',justifyContent:'center', alignItems:'center', marginTop:'50%'}}>
+        <View style={{width:'100%',justifyContent:'center', alignItems:'center', marginTop:'45%'}}>
             <Text style={{color:'white', }}>Bienvenido a SUBA</Text>
             <Text style={{color:'white'}}>Servicio Urbano de Buses Automatizados</Text>
         </View>
