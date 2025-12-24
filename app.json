@@ -4,7 +4,7 @@
     "slug": "SUBA",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/img/icono.png",
+    "icon": "./assets/img/icono2.png",
     "scheme": "bustrackerciudbolivar",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -16,11 +16,16 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.anonymous.BusTrackerCiudBolivar",
-      "permissions": ["INTERNET", "ACCESS_FINE_LOCATION","ACCESS_COARSE_LOCATION"]
+      "permissions": [
+        "INTERNET",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "086d5cbd-eb33-4cc1-9cfd-740340a8a1ff"
+        "projectId": "54d8f8e5-393d-470b-98ea-a424f73d94cb"
       }
     },
     "plugins": [
