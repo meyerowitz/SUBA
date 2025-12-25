@@ -147,19 +147,25 @@ const handleLogin = async () => {
   return (
     <View style={styles.page}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
-      <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"} 
-          style={{ flex: 1 }}>
-            <ScrollView contentContainerStyle={{ flexGrow: 1 }} 
+     <KeyboardAvoidingView
+      // 'padding' suele ser más consistente para formularios largos
+      behavior={Platform.OS === "ios" ? "padding" : "height"} 
+      // Si el teclado aún tapa el input, sube este número (ej: 80 o 100)
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20} 
+      style={{ flex: 1, width: '100%' }}
+    >
+            <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#e100ffff" }} 
               keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}>
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+              >
               <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <View style={styles.container}>
-        <View style={styles.logo}>
-          <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
-        </View>
+                  <View style={styles.container}>
+                  <View style={styles.logo}>
+                    <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
+                  </View>
 
-        <Text style={styles.title}>¡Bienvenido de nuevo!</Text>
+          <Text style={styles.title}>¡Bienvenido de nuevo!</Text>
 
         <TextInput placeholder="Correo electrónico" autoCapitalize="none" keyboardType="email-address" value={correo} onChangeText={setCorreo} style={styles.input} />
         <TextInput
@@ -204,14 +210,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#ff0000ff",
   },
   container: {
-    height: "100%",
+    flex:1,
     width: "100%",
     justifyContent: "center",
     alignItems: "center",
-    padding:'10%'
+   
   },
   logo: {
     alignItems: "center",
