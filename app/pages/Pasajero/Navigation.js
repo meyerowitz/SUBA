@@ -54,9 +54,8 @@ export default function Navigation() {
   return (
     <>
     <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
-    <SafeAreaView>
+    
       <MyTabs />
-    </SafeAreaView>
       
     </>
   );

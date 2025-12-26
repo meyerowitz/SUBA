@@ -146,14 +146,14 @@ const handleSearch = () => {
   
       <View style={styles.mainContainer}>
       <StatusBar barStyle="light-content" />
-      <ScrollView contentContainerStyle={{ minHeight:'110%', backgroundColor: "#ffffffff", width:'100%' }} 
+      <ScrollView contentContainerStyle={{  backgroundColor: "#ffffffff", width:'100%' }} 
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={true}
               bounces={false}
               >
       {/* SECCIÓN SUPERIOR AZUL */}
       <View style={styles.headerBackground}>
-        <SafeAreaView>
+       
           <View style={styles.headerContent}>
             <Image style={{width:210, height:210, position:'absolute', top:10, left:110}} source={require("../../../assets/img/autobuss.png")}></Image>
             
@@ -167,7 +167,6 @@ const handleSearch = () => {
 
           </View>
 
-        </SafeAreaView>
       </View>
 
   
@@ -285,10 +284,10 @@ const styles = StyleSheet.create({
   },
   headerBackground: {
     backgroundColor: '#003366', // Azul oscuro
-    height: '40%',
+    height: '50%',
     paddingHorizontal: 25,
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
+    borderBottomLeftRadius: 50,
+    borderBottomRightRadius: 50,
   },
   headerContent: {
     flexDirection: 'row',
@@ -405,7 +404,7 @@ const styles = StyleSheet.create({
 
   // ESTILOS DE LA TARJETA TIPO "TIMELINE"
   routeCard: {
-    backgroundColor: 'white',marginHorizontal: 20,marginTop: -70,borderRadius: 15,padding: 15,elevation: 15,
+    backgroundColor: 'white',marginHorizontal: 20,marginTop: -20,borderRadius: 15,padding: 15,elevation: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
