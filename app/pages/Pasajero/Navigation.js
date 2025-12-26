@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { Text, View, StatusBar } from 'react-native';
+import { Text, View, StatusBar} from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons'; // Para usar íconos, puedes instalar react-native-vector-icons
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Home from './Home';
 import WebMap from './WebMap';
@@ -54,7 +54,10 @@ export default function Navigation() {
   return (
     <>
     <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
+    <SafeAreaView>
       <MyTabs />
+    </SafeAreaView>
+      
     </>
   );
 }
