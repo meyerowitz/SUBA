@@ -4,7 +4,7 @@
     "slug": "SUBA",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/img/icono2.png",
+    "icon": "./assets/img/icono3.png",
     "scheme": "bustrackerciudbolivar",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -24,10 +24,9 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
       ],
-      "softwareKeyboardLayoutMode": "pan",
       "splash": {
           "backgroundColor": "#0a98f6" 
-        }
+          }
     },
     "extra": {
       "router": {},

@@ -106,6 +106,26 @@
             to { stroke-dashoffset: 0; }
         }
 
+        .dest-marker-icon {
+    background-color: #FFD700; /* Amarillo Oro */
+    width: 20px;
+    height: 20px;
+    display: block;
+    left: -10px;
+    top: -10px;
+    position: relative;
+    border-radius: 50%;
+    border: 3px solid #b28900;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+    animation: pulseyellow 1.5s infinite;
+}
+
+@keyframes pulseyellow {
+    0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+}
+
     </style>
 </head>
 <body>
@@ -130,7 +150,7 @@
 
             if (isMapInitialized) return;
                 map = L.map('mapid', {zoomControl: false}).setView([initialLat, initialLon], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19,attribution: ''}).addTo(map);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {maxZoom: 19,attribution: ''}).addTo(map);
 
             // Utilizamos map.whenReady para garantizar que Leaflet esté 100% listo.
                 map.whenReady(function() {
@@ -156,7 +176,7 @@
                 userMarker.setLatLng(latlng);
             } else {
                 userMarker = L.marker(latlng, { icon: userIcon }).addTo(map)
-                    .bindPopup("Estás aquí").openPopup();
+                    .bindPopup("Estás aquí", { autoPan: false }).openPopup();
             }
   
         };
@@ -315,7 +335,19 @@ function drawRouteAndAnimate(startLat, startLon, endLat, endLon) {
         map.removeControl(routingControl);
         routingControl = null;
     }
+    // --- NUEVO: Crear o mover el marcador de destino amarillo ---
+    const destIcon = L.divIcon({
+        className: 'dest-marker-icon', // La clase CSS que creamos arriba
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+    });
 
+    if (searchMarker) {
+        searchMarker.setLatLng([endLat, endLon]).setIcon(destIcon).addTo(map);
+    } else {
+        searchMarker = L.marker([endLat, endLon], { icon: destIcon }).addTo(map);
+    }
+    // ------------------------------------------------------------
     // 2. Definir los puntos de inicio y fin
     const startWaypoint = L.latLng(startLat, startLon);
     const endWaypoint = L.latLng(endLat, endLon);
@@ -326,6 +358,9 @@ function drawRouteAndAnimate(startLat, startLon, endLat, endLon) {
         show: false,             // Oculta el panel de texto
         addWaypoints: false, 
         draggableWaypoints: false,
+        createMarker: function(i, wp, nWps) {
+        return null; // Esto evita que se creen los pines por defecto
+    },
         lineOptions: {
             styles: [
                 { 
@@ -352,12 +387,26 @@ function drawRouteAndAnimate(startLat, startLon, endLat, endLon) {
         }
     });
     routingControl.on('routesfound', function(e) {
-    // Llamamos al método collapse() para asegurar que se cierre.
-    // Usamos un pequeño delay (50ms) para que no interfiera con el renderizado del plugin.
+    const route = e.routes[0];
+    const summary = route.summary;
+
+    // Intentamos obtener el nombre de la ruta (por ejemplo "Av. Bolivar")
+    // Leaflet Routing Machine suele ponerlo en el primer o último nombre de instrucción
+    const routeName = route.name || "Ruta calculada";
     setTimeout(function() {
         routingControl.getPlan().set
         routingControl.collapse();
     }, 50);
+    const info = {
+        type: 'ROUTE_INFO',
+        distance: (summary.totalDistance / 1000).toFixed(1), // en km
+        duration: Math.round(summary.totalTime / 60),      // en minutos
+        name: routeName
+    };
+
+    if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify(info));
+    }
 });
     // 4. ANIMACIÓN (Zoom Suave y Acercamiento)
     const bounds = L.latLngBounds([startWaypoint, endWaypoint]);

@@ -2,7 +2,7 @@ import { Image } from "expo-image"
 import { Asset } from 'expo-asset';
 import { useRouter } from "expo-router"
 import { useState , useEffect} from "react"
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View , StatusBar, KeyboardAvoidingView, Platform, ScrollView,TouchableWithoutFeedback,Keyboard} from "react-native"
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View , StatusBar, ScrollView} from "react-native"
 
 import userData from "./Components/Users.json";
 
@@ -96,9 +96,9 @@ const handleLogin = async () => {
       // 4. Mantenemos tu simulación de carga de 4 segundos para el GIF
       setTimeout(() => {
         if (role === "driver") {
-          router.replace("./pages/Conductor/Home");
+          router.replace("/pages/Conductor/Home");
         } else {
-          router.replace("./pages/Pasajero/Navigation");
+          router.replace("/Navigation");
         }
       }, 4000);
 
@@ -113,6 +113,7 @@ const handleLogin = async () => {
     Alert.alert("Error de conexión", "No se pudo conectar con el servidor. Inténtalo más tarde.");
     console.error(error);
   }
+
 };
 
 {!isLoading && (
@@ -129,13 +130,13 @@ const handleLogin = async () => {
       <View style={styles.loaderContainer}>
         <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
         <Image
-  source={userRole === "driver" ? require("../assets/img/driver-loading.gif") : require("../assets/img/passenger-loading.gif")}
-  style={styles.gif}
-  contentMode="contain"
-  cachePolicy="memory-disk" // Prioriza cargar desde la memoria RAM o disco
-  priority="high"           // Le dice al sistema que este recurso es urgente
-  placeholder={{ blurhash: "L6PZfSaD00jE.AyE_3t7t7Rj4n9w" }} // O simplemente una imagen estática
-  transition={10}
+          source={userRole === "driver" ? require("../assets/img/driver-loading.gif") : require("../assets/img/passenger-loading.gif")}
+          style={styles.gif}
+          contentMode="contain"
+          cachePolicy="memory-disk" // Prioriza cargar desde la memoria RAM o disco
+          priority="high"           // Le dice al sistema que este recurso es urgente
+          placeholder={{ blurhash: "L6PZfSaD00jE.AyE_3t7t7Rj4n9w" }} // O simplemente una imagen estática
+          transition={10}
 />
         <Text style={styles.loaderText}>
           {userRole === "driver" ? "Preparando tu ruta..." : "Buscando tu viaje..."}
@@ -147,19 +148,13 @@ const handleLogin = async () => {
   return (
     <View style={styles.page}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
-     <KeyboardAvoidingView
-      // 'padding' suele ser más consistente para formularios largos
-      behavior={Platform.OS === "ios" ? "padding" : "height"} 
-      // Si el teclado aún tapa el input, sube este número (ej: 80 o 100)
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20} 
-      style={{ flex: 1, width: '100%' }}
-    >
-            <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#e100ffff" }} 
+ 
+            <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#ffffffff", width:'100%' }} 
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
               bounces={false}
               >
-              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+             
                   <View style={styles.container}>
                   <View style={styles.logo}>
                     <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
@@ -175,6 +170,7 @@ const handleLogin = async () => {
           onChangeText={setPassword}
           style={styles.input}
           autoCapitalize="none"
+          secureTextEntry={true}
         />
 
         <Text style={styles.question}>¿Olvidaste tu contraseña? </Text>
@@ -198,9 +194,9 @@ const handleLogin = async () => {
         </View>
       
       </View>
-      </TouchableWithoutFeedback>
+      
             </ScrollView>
-      </KeyboardAvoidingView>
+      
     </View>
   )
 }
@@ -210,7 +206,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#ff0000ff",
+    backgroundColor: "#ffffffff",
   },
   container: {
     flex:1,

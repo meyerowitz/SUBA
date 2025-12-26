@@ -4,6 +4,8 @@ import {LinearGradient} from 'expo-linear-gradient';
 import { Canvas, Circle, RadialGradient, vec , BlurMask} from "@shopify/react-native-skia";
 import { useRouter } from 'expo-router';
 import * as NavigationBar from 'expo-navigation-bar';
+import * as SplashScreenNative from 'expo-splash-screen';
+
 
 export default function SplashScreen () {
   const fadeAnim = useRef(new Animated.Value(0)).current; // Opacidad inicial 0
@@ -14,20 +16,20 @@ export default function SplashScreen () {
   const router = useRouter();
 
   useEffect(() => {
-    // Iniciamos la secuencia de animación
+    SplashScreenNative.hideAsync();
     Animated.sequence([
       // 1. Aparecer (Fade In)
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 800,
+        duration: 500,
         useNativeDriver: true,
       }),
       // 2. Mantenerse visible
-      Animated.delay(3500), 
+      Animated.delay(3000), 
       // 3. Desaparecer (Fade Out)
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 800,
+        duration: 400,
         useNativeDriver: true,
       }),
     ]).start(() => {
@@ -48,7 +50,7 @@ export default function SplashScreen () {
         
       <Animated.View style={{  flex:1, opacity: fadeAnim }}>
         <LinearGradient
-        colors={[ '#0a98f6ff','#0020abff',  '#001677ff', '#001677ff','#0020abff',  '#002EF9']}
+        colors={[ '#0a98f6ff','#0020abff',  '#001677ff', '#001677ff','#001677ff',  '#001677ff']}
         style={{position:'absolute', top:0, left:0, width:'100%', height:'100%'}}
       />
       <ImageBackground
@@ -72,7 +74,7 @@ export default function SplashScreen () {
        </View>
         <View style={{width:'100%',justifyContent:'center', alignItems:'center', marginTop:'45%'}}>
             <Text style={{color:'white', }}>Bienvenido a SUBA</Text>
-            <Text style={{color:'white'}}>Servicio Urbano de Buses Automatizados</Text>
+            <Text style={{color:'white',textAlign: 'center'}}>Proyecto realizado por los estudiantes de la Universidad Nacional Experimental de Guayana</Text>
         </View>
        
       </ImageBackground>
