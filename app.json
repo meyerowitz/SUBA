@@ -8,9 +8,6 @@
     "scheme": "bustrackerciudbolivar",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "androidNavigationBar": {
-      "sticky": "sticky-immersive"
-    },
     "ios": {
       "supportsTablet": true
     },
@@ -25,8 +22,9 @@
         "ACCESS_COARSE_LOCATION"
       ],
       "splash": {
-        "backgroundColor": "#0a98f6"
-      }
+        "backgroundColor": "#FFFFFF"
+      },
+      "softwareKeyboardLayoutMode": "adjustResize"
     },
     "extra": {
       "router": {},
@@ -55,9 +53,9 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/img/icono3.png", 
+          "image": "./assets/img/icono4.png", 
           "resizeMode": "contain",
-          "backgroundColor": "#0a98f6"
+          "backgroundColor": "#FFFFFF"
         }
       ]
     ],

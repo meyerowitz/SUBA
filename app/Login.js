@@ -2,7 +2,8 @@ import { Image } from "expo-image"
 import { Asset } from 'expo-asset';
 import { useRouter } from "expo-router"
 import { useState , useEffect} from "react"
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View , StatusBar, ScrollView} from "react-native"
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View , StatusBar, ScrollView,KeyboardAvoidingView, 
+  Platform} from "react-native"
 
 import userData from "./Components/Users.json";
 
@@ -148,7 +149,10 @@ const handleLogin = async () => {
   return (
     <View style={styles.page}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
- 
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"} 
+           style={{ flex: 1, width: '100%' }}
+          >
             <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#ffffffff", width:'100%' }} 
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
@@ -196,7 +200,7 @@ const handleLogin = async () => {
       </View>
       
             </ScrollView>
-      
+        </KeyboardAvoidingView>
     </View>
   )
 }
