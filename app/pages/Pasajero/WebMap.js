@@ -129,6 +129,90 @@ export default function WebMap() {
   const [routeDetails, setRouteDetails] = useState(null);
   //--------------------------------------------------
 
+  // --- NUEVOS ESTADOS PARA ETA BUS -> USUARIO ---
+  const [nearestBusEta, setNearestBusEta] = useState(null);       // e.g. "5 min"
+  const [nearestBusDist, setNearestBusDist] = useState(null);     // e.g. "1.2 km"
+  const [calculatingBusEta, setCalculatingBusEta] = useState(false);
+  // ----------------------------------------------
+
+  // --- HELPER: Distancia Haversine (línea recta) ---
+  const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radio de la tierra en km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const deg2rad = (deg) => {
+    return deg * (Math.PI / 180);
+  };
+  // ------------------------------------------------
+
+  // --- EFECTO: Calcular Bus Más Cercano y su ETA ---
+  useEffect(() => {
+    // Solo calculamos si tenemos ubicación de usuario y buses
+    if (!userLocation || busLocations.length === 0) return;
+
+    const calculateNearestBus = async () => {
+      setCalculatingBusEta(true);
+      try {
+        let minDistance = Infinity;
+        let closestBus = null;
+
+        // 1. Encontrar el bus más cercano en línea recta
+        busLocations.forEach((bus) => {
+          const dist = getDistanceFromLatLonInKm(
+            userLocation.latitude,
+            userLocation.longitude,
+            bus.lat,
+            bus.lon
+          );
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestBus = bus;
+          }
+        });
+
+        if (closestBus) {
+          // 2. Obtener ETA real por calle usando OSRM
+          // OSRM url: http://router.project-osrm.org/route/v1/driving/lon1,lat1;lon2,lat2
+          const url = `http://router.project-osrm.org/route/v1/driving/${closestBus.lon},${closestBus.lat};${userLocation.longitude},${userLocation.latitude}?overview=false`;
+          
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (data.routes && data.routes.length > 0) {
+            const durationSec = data.routes[0].duration; // segundos
+            const distanceMeters = data.routes[0].distance; // metros
+
+            const durationMin = Math.round(durationSec / 60);
+            const distKm = (distanceMeters / 1000).toFixed(1);
+
+            setNearestBusEta(`${durationMin} min`);
+            setNearestBusDist(`${distKm} km`);
+          }
+        }
+      } catch (error) {
+        console.error("Error calculando ETA del bus más cercano:", error);
+      } finally {
+        setCalculatingBusEta(false);
+      }
+    };
+
+    // Throttle simple: Ejecutar cada 10 segundos aprox o cuando cambien drásticamente
+    // Para simplificar, lo ejecutamos cuando busLocations cambie, pero podrías poner un debounce.
+    // Dado que busLocations se actualiza cada 5s, está bien.
+    calculateNearestBus();
+
+  }, [busLocations, userLocation]);
+  // ------------------------------------------------
+
+
   //----------- 1) .UseEffet loadhtmlUri-----------------------
   useEffect(() => {
     //loadMapHtml().then(setMapHtmlUri);
@@ -504,6 +588,55 @@ useEffect(() => {
           allowUniversalAccessFromFileURLs={true}
         />
       </View>
+      
+      {/* CARD FLOTANTE: ETA DEL BUS MÁS CERCANO (Solo si no hay ruta activa) */}
+      {ShowEta && nearestBusEta && (
+         <View
+         style={{
+           backgroundColor: "#ffffff",
+           width: "90%",
+           position: "absolute",
+           bottom: 30, // Un poco separado del borde
+           alignSelf: "center", // Centrado horizontalmente
+           borderRadius: 15,
+           shadowColor: "#000",
+           shadowOffset: { width: 0, height: 4 },
+           shadowOpacity: 0.2,
+           shadowRadius: 5,
+           elevation: 10,
+           padding: 15,
+           flexDirection: 'row',
+           alignItems: 'center',
+           justifyContent: 'space-between'
+         }}
+       >
+         <View style={{flex: 1}}>
+           <Text style={{fontWeight:'bold', color:'#333', fontSize: 16, marginBottom: 4}}>
+             Bus más cercano a ti
+           </Text>
+           <View style={{flexDirection: 'row', alignItems: 'center'}}>
+             <View style={{marginRight: 15}}>
+               <Text style={{color:'#666', fontSize: 12}}>Tiempo estimado</Text>
+               <Text style={{fontWeight:'bold', fontSize: 20, color: '#007bff'}}>
+                 {calculatingBusEta ? "..." : nearestBusEta}
+               </Text>
+             </View>
+             <View>
+               <Text style={{color:'#666', fontSize: 12}}>Distancia</Text>
+               <Text style={{fontWeight:'bold', fontSize: 20, color: '#007bff'}}>
+                 {calculatingBusEta ? "..." : nearestBusDist}
+               </Text>
+             </View>
+           </View>
+         </View>
+         
+         <Image 
+           source={require("../../../assets/img/autobus.png")} 
+           style={{height: 60, width: 60, resizeMode: 'contain'}}
+         />
+       </View>
+      )}
+
       {ShowEta? (<></>):(
         <Animated.View
         style={{
