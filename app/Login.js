@@ -1,3 +1,4 @@
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
 import { Image } from "expo-image"
 import { Asset } from 'expo-asset';
 import { useRouter } from "expo-router"
@@ -11,6 +12,7 @@ export default function Login() {
   const router = useRouter()
   const [correo, setCorreo] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
 
   // Estados para controlar la carga y qué GIF mostrar
   const [isLoading, setIsLoading] = useState(false)
@@ -150,54 +152,61 @@ const handleLogin = async () => {
     <View style={styles.page}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
         <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"} 
-           style={{ flex: 1, width: '100%' }}
+          behavior= "padding" 
+          style={{ flex: 1, width: '100%', height: '100%', overflow:'visible'}}
           >
-            <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#ffffffff", width:'100%' }} 
+            <ScrollView contentContainerStyle={{flexGrow: 1, backgroundColor:"#ffff", width:'100%'}} 
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
               bounces={false}
               >
              
-                  <View style={styles.container}>
-                  <View style={styles.logo}>
-                    <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
-                  </View>
+              <View style={styles.container}>
+                          <View style={styles.logo}>
+                            <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
+                          </View>
 
-          <Text style={styles.title}>¡Bienvenido de nuevo!</Text>
+                <Text style={styles.title}>¡Bienvenido de nuevo!</Text>
 
-        <TextInput placeholder="Correo electrónico" autoCapitalize="none" keyboardType="email-address" value={correo} onChangeText={setCorreo} style={styles.input} />
-        <TextInput
-          textContentType="password"
-          placeholder="Contraseña"
-          value={password}
-          onChangeText={setPassword}
-          style={styles.input}
-          autoCapitalize="none"
-          secureTextEntry={true}
-        />
+                <TextInput placeholder="Correo electrónico" placeholderTextColor="rgba(0, 0, 0, 0.31)" autoCapitalize="none" keyboardType="email-address" value={correo} onChangeText={setCorreo} style={styles.input} />
+               
+               <View style={styles.passwordContainer}>
+                  <TextInput
+                    textContentType="password"
+                    placeholder="Contraseña"
+                    placeholderTextColor="rgba(0, 0, 0, 0.31)"
+                    value={password}
+                    onChangeText={setPassword}
+                    style={styles.input}
+                    autoCapitalize="none"
+                    secureTextEntry={!showPassword}
+                  />
+                  <TouchableOpacity style={styles.toggleButton} onPress={() => setShowPassword(!showPassword)}>
+                    <FontAwesome6 name={showPassword ? "eye-slash" : "eye"} size={20} color="#023A73" />
+                  </TouchableOpacity>
+                </View>
 
-        <Text style={styles.question}>¿Olvidaste tu contraseña? </Text>
+                <Text style={styles.question}>¿Olvidaste tu contraseña? </Text>
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin2} onLongPress={handleLogin} delayLongPress={1000} >
-          <Text style={styles.textButton}>INICIAR SESIÓN</Text>
-        </TouchableOpacity>
+                <TouchableOpacity style={styles.button} onPress={handleLogin2} onLongPress={handleLogin} delayLongPress={1000} >
+                  <Text style={styles.textButton}>INICIAR SESIÓN</Text>
+                </TouchableOpacity>
 
-        <View style={styles.googleContainer}>
-          <TouchableOpacity style={styles.googleButton}>
-            <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
-            <Text style={styles.googleText}>Continuar con Google</Text>
-          </TouchableOpacity>
-        </View>
+                <View style={styles.googleContainer}>
+                  <TouchableOpacity style={styles.googleButton}>
+                    <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
+                    <Text style={styles.googleText}>Continuar con Google</Text>
+                  </TouchableOpacity>
+                </View>
 
-        <View style={styles.redirect}>
-          <Text style={styles.question}>¿No tienes cuenta? </Text>
-          <TouchableOpacity onPress={() => router.replace("/Register")}>
-            <Text style={styles.register}>Regístrate aquí</Text>
-          </TouchableOpacity>
-        </View>
-      
-      </View>
+                <View style={styles.redirect}>
+                  <Text style={styles.question}>¿No tienes cuenta? </Text>
+                  <TouchableOpacity onPress={() => router.replace("/Register")}>
+                    <Text style={styles.register}>Regístrate aquí</Text>
+                  </TouchableOpacity>
+                </View>
+              
+              </View>
       
             </ScrollView>
         </KeyboardAvoidingView>
@@ -210,14 +219,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#ffffffff",
+    backgroundColor: "#ffff",
   },
   container: {
-    flex:1,
+    height: "100%",
     width: "100%",
     justifyContent: "center",
     alignItems: "center",
-   
   },
   logo: {
     alignItems: "center",
@@ -246,8 +254,21 @@ const styles = StyleSheet.create({
     borderColor: "#DFDFDF",
     borderRadius: 100,
     fontFamily: "roboto",
+    color: "black",
+    marginBottom: 20,
     fontSize: 18,
     marginBottom: 20,
+  },
+    passwordContainer: {
+    position: "relative",
+    width: 320,
+    marginBottom: 20,
+  },
+    toggleButton: {
+    position: "absolute",
+    right: 15,
+    top: 18,
+    padding: 5,
   },
   question: {
     color: "#544F4F",
