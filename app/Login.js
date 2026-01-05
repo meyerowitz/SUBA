@@ -1,11 +1,15 @@
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  isSuccessResponse,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
 import { Image } from "expo-image"
 import { Asset } from 'expo-asset';
 import { useRouter } from "expo-router"
 import { useState , useEffect} from "react"
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View , StatusBar, ScrollView,KeyboardAvoidingView, 
-  Platform} from "react-native"
-
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View , StatusBar, ScrollView,KeyboardAvoidingView} from "react-native"
 import userData from "./Components/Users.json";
 
 export default function Login() {
@@ -13,12 +17,76 @@ export default function Login() {
   const [correo, setCorreo] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [state,setState] = useState({email: "",name:""})
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Estados para controlar la carga y qué GIF mostrar
   const [isLoading, setIsLoading] = useState(false)
   const [userRole, setUserRole] = useState(null)
 
+GoogleSignin.configure({
+  webClientId: '159501895592-5oooqd8f4kvcque2n1aacrk9c93bq0op.apps.googleusercontent.com', // client ID of type WEB for your server. Required to get the `idToken` on the user object, and for offline access.
+  offlineAccess: true, // if you want to access Google API on behalf of the user FROM YOUR SERVER
+  iosClientId: '159501895592-rg8n8i2ab5le35m97m3p8b76657cgnal.apps.googleusercontent.com', // [iOS] if you want to specify the client ID of type iOS (otherwise, it is taken from GoogleService-Info.plist)
+});
 
+const signIn = async () => {
+  try {
+    await GoogleSignin.hasPlayServices();
+    const response = await GoogleSignin.signIn();
+    if (isSuccessResponse(response)) {
+      setState({email:response.data.user.email,name: response.data.user.name});
+      setIsAuthenticated(true);
+      console.log("userName:",state);
+    } else {
+      // sign in was cancelled by user
+    }
+  } catch (error) {
+
+    if (isErrorWithCode(error)) {
+      switch (error.code) {
+        case statusCodes.IN_PROGRESS:
+          console.log("error in progress");// operation (eg. sign in) already in progress
+          break;
+        case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+          console.log("eror android only");// Android only, play services not available or outdated
+          break;
+        default:
+        console.log("error default", error);// some other error happened
+      }
+    } else {
+      console.log("error no relacionado");// an error that's not related to google sign in occurred
+    }
+  }
+};
+
+useEffect(() => {
+  if (!isAuthenticated) return;//si es el primer render de state no se ejecuta este codigo
+    // Buscamos al usuario (por email o nombre)
+  const user = userData.users.find(
+    (u) =>
+      (u.email.toLowerCase() === state.email.toLowerCase() ||
+      u.fullName.toLowerCase() === state.name.toLowerCase()) /*&&
+      u.password === password*/ //modificar o activar cuando se pueda manejar y comprobar el idTocken con el backend
+  );
+
+  if (user) {
+    setUserRole(user.role); // Guardamos el rol ('driver' o 'passenger')
+    setIsLoading(true);     // Activamos la vista de carga
+
+    // Simulamos un tiempo de carga para que se vea el GIF
+    setTimeout(() => {
+      if (user.role === "driver") {
+        router.replace("./pages/Conductor/Home");
+      } else {
+        router.replace("./pages/Pasajero/Navigation");
+      }
+    }, 4000); // 4 segundos de animación
+  } else {
+    Alert.alert("Error", "Usuario o contraseña incorrectos");
+    GoogleSignin.signOut();
+  }
+}, [state], isAuthenticated);
 
 useEffect(() => {
   const cacheGifs = async () => {
@@ -193,7 +261,12 @@ const handleLogin = async () => {
                 </TouchableOpacity>
 
                 <View style={styles.googleContainer}>
-                  <TouchableOpacity style={styles.googleButton}>
+                  <TouchableOpacity 
+                  style={styles.googleButton} 
+                  onPress={()=>signIn().catch((e)=>{
+                    console.log("Error al iniciar sesion con google: ",e);
+                    })}
+                    >
                     <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
                     <Text style={styles.googleText}>Continuar con Google</Text>
                   </TouchableOpacity>
