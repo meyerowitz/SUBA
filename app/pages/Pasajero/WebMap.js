@@ -133,6 +133,20 @@ export default function WebMap() {
   const [nearestBusEta, setNearestBusEta] = useState(null);       // e.g. "5 min"
   const [nearestBusDist, setNearestBusDist] = useState(null);     // e.g. "1.2 km"
   const [calculatingBusEta, setCalculatingBusEta] = useState(false);
+  
+  // ESTADO PARA LA PARADA FIJA (EJEMPLO)
+  const [selectedStopLocation, setSelectedStopLocation] = useState(null);
+
+  // FUNCIÓN DE PRUEBA: Simular selección de la parada 8.291479, -62.730539
+  const handleSelectStop = () => {
+    if (selectedStopLocation) {
+        setSelectedStopLocation(null); // Volver a usuario
+        Alert.alert("Modo Usuario", "Buscando buses cerca de ti.");
+    } else {
+        setSelectedStopLocation({ latitude: 8.291479, longitude: -62.730539 });
+        Alert.alert("Modo Parada", "Buscando buses cerca de la parada fija (8.29, -62.73).");
+    }
+  };
   // ----------------------------------------------
 
   // --- HELPER: Distancia Haversine (línea recta) ---
@@ -155,8 +169,11 @@ export default function WebMap() {
 
   // --- EFECTO: Calcular Bus Más Cercano y su ETA ---
   useEffect(() => {
-    // Solo calculamos si tenemos ubicación de usuario y buses
-    if (!userLocation || busLocations.length === 0) return;
+    // Definir el punto de referencia: Parada Seleccionada O Ubicación del Usuario
+    const originLocation = selectedStopLocation || userLocation;
+
+    // Solo calculamos si tenemos un punto de origen y buses
+    if (!originLocation || busLocations.length === 0) return;
 
     const calculateNearestBus = async () => {
       setCalculatingBusEta(true);
@@ -164,11 +181,11 @@ export default function WebMap() {
         let minDistance = Infinity;
         let closestBus = null;
 
-        // 1. Encontrar el bus más cercano en línea recta
+        // 1. Encontrar el bus más cercano en línea recta desde el ORIGEN (Usuario o Parada)
         busLocations.forEach((bus) => {
           const dist = getDistanceFromLatLonInKm(
-            userLocation.latitude,
-            userLocation.longitude,
+            originLocation.latitude,
+            originLocation.longitude,
             bus.lat,
             bus.lon
           );
@@ -181,7 +198,7 @@ export default function WebMap() {
         if (closestBus) {
           // 2. Obtener ETA real por calle usando OSRM
           // OSRM url: http://router.project-osrm.org/route/v1/driving/lon1,lat1;lon2,lat2
-          const url = `http://router.project-osrm.org/route/v1/driving/${closestBus.lon},${closestBus.lat};${userLocation.longitude},${userLocation.latitude}?overview=false`;
+          const url = `http://router.project-osrm.org/route/v1/driving/${closestBus.lon},${closestBus.lat};${originLocation.longitude},${originLocation.latitude}?overview=false`;
           
           const response = await fetch(url);
           const data = await response.json();
@@ -209,7 +226,7 @@ export default function WebMap() {
     // Dado que busLocations se actualiza cada 5s, está bien.
     calculateNearestBus();
 
-  }, [busLocations, userLocation]);
+  }, [busLocations, userLocation, selectedStopLocation]);
   // ------------------------------------------------
 
 
@@ -636,6 +653,23 @@ useEffect(() => {
          />
        </View>
       )}
+
+      {/* BOTÓN FLOTANTE PARA PROBAR PARADA FIJA */}
+      <TouchableOpacity
+        onPress={handleSelectStop}
+        style={{
+          position: "absolute",
+          top: 120, // Ajusta según necesites
+          right: 20,
+          backgroundColor: selectedStopLocation ? "#F54927" : "#444",
+          padding: 10,
+          borderRadius: 20,
+          elevation: 5
+        }}
+      >
+        <Feather name="map-pin" size={24} color="white" />
+      </TouchableOpacity>
+
 
       {ShowEta? (<></>):(
         <Animated.View
