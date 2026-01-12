@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "159501895592-6p3l9akn1msbkq7r1m6dct1o2cgs3ipa.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.anonymous.BusTrackerCiudBolivar",
+            "certificate_hash": "24669776bf419c08f50e6beb512e54da795a2602"
+          }
+        },
+        {
           "client_id": "159501895592-g8gsjlrk3b1kacc31jh48jbtacs7304l.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
