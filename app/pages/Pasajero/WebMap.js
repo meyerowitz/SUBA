@@ -104,6 +104,7 @@ export default function WebMap() {
   const [mapHtmlUri, setMapHtmlUri] = useState(null); //---url y datos del mapa del tiempo real
   const [mapHtmlContent, setMapHtmlContent] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [mapLoading, setMapLoading] = useState(true);
   // Nuevo estado para rastrear si el mapa y las paradas están listos.
   const [isMapReady, setIsMapReady] = useState(false); //espera al flag MAP_LOADED para volverse true y luego false
   const [stopsInjected, setStopsInjected] = useState(false); // es para verificar cuando la inyeccion js a sido exitosa
@@ -136,20 +137,20 @@ export default function WebMap() {
   
   // ESTADO PARA LA PARADA FIJA (EJEMPLO)
   const [selectedStopLocation, setSelectedStopLocation] = useState(null);
+  const [selectedStopName, setSelectedStopName] = useState("");
 
-  // FUNCIÓN DE PRUEBA: Simular selección de la parada 8.291479, -62.730539
-  const handleSelectStop = () => {
-    if (selectedStopLocation) {
-        setSelectedStopLocation(null); // Volver a usuario
-        Alert.alert("Modo Usuario", "Buscando buses cerca de ti.");
-    } else {
-        setSelectedStopLocation({ latitude: 8.291479, longitude: -62.730539 });
-        Alert.alert("Modo Parada", "Buscando buses cerca de la parada fija (8.29, -62.73).");
+  // FUNCIÓN: Limpiar selección de parada
+  const resetSelection = () => {
+    setSelectedStopLocation(null);
+    setSelectedStopName("");
+    // Limpiar indicador en el mapa
+    if (webviewRef.current) {
+        webviewRef.current.injectJavaScript("clearHighlight(); true;");
     }
   };
-  // ----------------------------------------------
 
-  // --- HELPER: Distancia Haversine (línea recta) ---
+
+
   const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
     const R = 6371; // Radio de la tierra en km
     const dLat = deg2rad(lat2 - lat1);
@@ -165,7 +166,6 @@ export default function WebMap() {
   const deg2rad = (deg) => {
     return deg * (Math.PI / 180);
   };
-  // ------------------------------------------------
 
   // --- EFECTO: Calcular Bus Más Cercano y su ETA ---
   useEffect(() => {
@@ -245,6 +245,8 @@ export default function WebMap() {
         setMapHtmlContent(htmlString);
       } catch (error) {
         console.error("Error cargando el mapa en APK:", error);
+      } finally {
+        setMapLoading(false);
       }
     };
     loadHTML();
@@ -254,29 +256,34 @@ export default function WebMap() {
     console.log("-----Solicitando permisos de Locacion------");
     let locationSubscription = null;
     const requestPermissionsAndGetLocation = async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        //Alert.alert(
-          //"Permiso denegado",
-         // "Necesitamos permiso para acceder a la ubicación y mostrar tu posición en el mapa.",
-        //);
-        console.log("Permiso denegado")
-        setLoading(false);
-        return;
-      }
-      console.log("--------> Permisos de ubicacion aprobados ♿ ☑️------");
-      locationSubscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 5000, // Actualiza cada 5 segundos
-          distanceInterval: 2, // Actualiza cada 10 metros
-        },
-        (location) => {
-          const { latitude, longitude } = location.coords;
-          setUserLocation({ latitude, longitude });
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          //Alert.alert(
+            //"Permiso denegado",
+           // "Necesitamos permiso para acceder a la ubicación y mostrar la posición en el mapa.",
+          //);
+          console.log("Permiso denegado")
           setLoading(false);
-        },
-      );
+          return;
+        }
+        console.log("--------> Permisos de ubicacion aprobados ♿ ☑️------");
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.BestForNavigation,
+            timeInterval: 5000, // Actualiza cada 5 segundos
+            distanceInterval: 2, // Actualiza cada 10 metros
+          },
+          (location) => {
+            const { latitude, longitude } = location.coords;
+            setUserLocation({ latitude, longitude });
+            setLoading(false);
+          },
+        );
+      } catch (error) {
+        console.error("Error obteniendo ubicación:", error);
+        setLoading(false);
+      }
     };
     requestPermissionsAndGetLocation();
     // Limpieza: detener la suscripción cuando el componente se desmonte
@@ -310,7 +317,7 @@ export default function WebMap() {
     // Depende SOLAMENTE de userLocation para el tiempo real.
   }, [userLocation, isMapReady]);
   //-------------- 4) .UseEffect para cargar las paradas dentro de un pequeño BBOX------
-  /*useEffect(() => {
+  useEffect(() => {
     console.log()
     console.log(' marcador de las paradas de buses 📍 ')
     console.log()
@@ -331,7 +338,6 @@ export default function WebMap() {
     }
 // Depende de isMapReady (espera a que el WebView termine de cargar el mapa) y stopsInjected.
 }, [isMapReady, stopsInjected]);
-*/
 
   //----------------- IGNORAR ESTE) .UseEffect para cargar y renderizar la ubicación de los buses 🚌 --------------------
   useEffect(() => {
@@ -437,6 +443,12 @@ useEffect(() => {
     // Caso 2: Intentar parsear como JSON (para la info de la ruta)
     try {
       const data = JSON.parse(message);
+
+      if (data.type === 'STOP_SELECTED') {
+         console.log("Parada seleccionada:", data.name);
+         setSelectedStopLocation({ latitude: data.lat, longitude: data.lon });
+         setSelectedStopName(data.name || "Parada seleccionada");
+      }
 
       if (data.type === 'ROUTE_INFO') {
         // Actualizamos tus estados existentes
@@ -568,11 +580,11 @@ useEffect(() => {
 
   // --- Renderizado ---
 
-  if (loading) {
+  if (loading || mapLoading) {
     return (
       <View style={[styles.container, styles.center]}>
         <ActivityIndicator size="large" color="#ffffffff" />
-        <Text style={styles.loadingText}>Buscando tu ubicación...</Text>
+        <Text style={styles.loadingText}>{mapLoading ? "Cargando mapa..." : "Buscando tu ubicación..."}</Text>
       </View>
     );
   }
@@ -629,7 +641,7 @@ useEffect(() => {
        >
          <View style={{flex: 1}}>
            <Text style={{fontWeight:'bold', color:'#333', fontSize: 16, marginBottom: 4}}>
-             Bus más cercano a ti
+             {selectedStopLocation ? "Bus más cercano a la parada" : "Bus más cercano a ti"}
            </Text>
            <View style={{flexDirection: 'row', alignItems: 'center'}}>
              <View style={{marginRight: 15}}>
@@ -654,21 +666,42 @@ useEffect(() => {
        </View>
       )}
 
-      {/* BOTÓN FLOTANTE PARA PROBAR PARADA FIJA */}
-      <TouchableOpacity
-        onPress={handleSelectStop}
-        style={{
-          position: "absolute",
-          top: 120, // Ajusta según necesites
-          right: 20,
-          backgroundColor: selectedStopLocation ? "#F54927" : "#444",
-          padding: 10,
-          borderRadius: 20,
-          elevation: 5
-        }}
-      >
-        <Feather name="map-pin" size={24} color="white" />
-      </TouchableOpacity>
+      {/* BOTÓN/BANNER PARA CANCELAR SELECCIÓN DE PARADA */}
+      {selectedStopLocation && (
+        <View style={{
+            position: "absolute",
+            top: 100, // Debajo del buscador
+            left: 20,
+            right: 20,
+            backgroundColor: "rgba(255, 255, 255, 0.95)",
+            padding: 10,
+            borderRadius: 10,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            shadowColor: "#000",
+            elevation: 5
+        }}>
+            <View style={{flex: 1}}>
+                <Text style={{fontSize: 10, color: "#666"}}>BUSCANDO CERCA DE:</Text>
+                <Text style={{fontWeight: "bold", color: "#333"}} numberOfLines={1}>
+                    {selectedStopName}
+                </Text>
+            </View>
+            <TouchableOpacity 
+                onPress={resetSelection}
+                style={{
+                    backgroundColor: "#ff4444",
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                    marginLeft: 10
+                }}
+            >
+                <Text style={{color: "white", fontWeight: "bold", fontSize: 12}}>Volver a mí</Text>
+            </TouchableOpacity>
+        </View>
+      )}
 
 
       {ShowEta? (<></>):(

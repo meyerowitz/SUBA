@@ -43,14 +43,14 @@ export default function RootLayout() {
         }} 
       />
       <Stack.Screen 
-      name="Home" 
+      name="pages/Conductor/Home" 
       options={{ 
         animation: 'none', // Esta subirá como un panel
        
         }} 
       />
             <Stack.Screen 
-      name="WebMap" 
+      name="pages/Pasajero/WebMap" 
       options={{ 
         animation: 'none', // Esta subirá como un panel
        

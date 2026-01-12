@@ -3,7 +3,6 @@ import { Animated, StyleSheet, View, Text , Image, ImageBackground, StatusBar} f
 import {LinearGradient} from 'expo-linear-gradient';
 import { Canvas, Circle, RadialGradient, vec , BlurMask} from "@shopify/react-native-skia";
 import { useRouter } from 'expo-router';
-import * as NavigationBar from 'expo-navigation-bar';
 import * as SplashScreenNative from 'expo-splash-screen';
 
 
@@ -39,10 +38,7 @@ export default function SplashScreen () {
     });
   }, [fadeAnim, router]);
 
-  useEffect(() => {
-  NavigationBar.setBackgroundColorAsync("transparent");
-  NavigationBar.setPositionAsync("absolute");
-}, []);
+
 
   return (
     <View style={{flex:1}}>

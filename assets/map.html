@@ -126,6 +126,26 @@
     100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
 }
 
+        .selected-stop-icon {
+            background-color: #00FF7F; /* Verde Primavera */
+            width: 16px;
+            height: 16px;
+            display: block;
+            left: -8px;
+            top: -8px;
+            position: relative;
+            border-radius: 50%;
+            border: 3px solid #ffffff;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            animation: pulseselected 1.5s infinite;
+        }
+
+        @keyframes pulseselected {
+            0% { box-shadow: 0 0 0 0 rgba(0, 255, 127, 0.6); }
+            70% { box-shadow: 0 0 0 15px rgba(0, 255, 127, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 255, 127, 0); }
+        }
+
     </style>
 </head>
 <body>
@@ -138,6 +158,7 @@
         let userMarker = null;
         let allBusStopsData = null;
         let busStopsLayer = null;
+        let selectedStopLayer = null; // Capa para el indicador de parada seleccionada
         let searchMarker = null; // Nuevo marcador para la ubicación buscada
         let isMapInitialized = false;
         let hasCenteredOnUser = false;
@@ -215,6 +236,29 @@
             });
             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SEARCH_UPDATED', lat, lon, address }));
         };
+
+        // Función para resaltar visualmente una parada
+        window.highlightStop = function(lat, lon) {
+            window.clearHighlight(); // Limpiar anterior si existe
+
+            const highlightIcon = L.divIcon({
+                className: 'selected-stop-icon',
+                iconSize: [16, 16],
+                iconAnchor: [8, 8] // Centrado
+            });
+            
+            // Usamos un zIndexOffset alto para que se vea por encima de otros marcadores
+            selectedStopLayer = L.marker([lat, lon], { icon: highlightIcon, zIndexOffset: 1000 }).addTo(map);
+        };
+
+        // Función para quitar el resaltado
+        window.clearHighlight = function() {
+            if (selectedStopLayer) {
+                map.removeLayer(selectedStopLayer);
+                selectedStopLayer = null;
+            }
+        };
+
         // 3. Función de Renderizado de Paradas (Nueva)
         window.renderBusStops = function(overpassData) {
         // Limpiar paradas anteriores
@@ -239,9 +283,26 @@
                     const lon = element.lon;
                     const name = (element.tags && element.tags.name) ? element.tags.name : 'Parada de bus';
                     
-                    L.marker([lat, lon], { icon: stopIcon })
-                        .bindPopup(`<b>Parada:</b> ${name}`)
-                        .addTo(busStopsLayer);
+                    const marker = L.marker([lat, lon], { icon: stopIcon })
+                        .bindPopup(`<b>Parada:</b> ${name}`);
+                    
+                    // AÑADIR EVENTO CLICK A CADA PARADA
+                    marker.on('click', function(e) {
+                        // 1. Resaltar visualmente aquí mismo
+                        window.highlightStop(lat, lon);
+
+                        // 2. Avisar a React Native
+                        if (window.ReactNativeWebView) {
+                            window.ReactNativeWebView.postMessage(JSON.stringify({
+                                type: 'STOP_SELECTED',
+                                lat: lat,
+                                lon: lon,
+                                name: name
+                            }));
+                        }
+                    });
+
+                    marker.addTo(busStopsLayer);
                 }
             });
             
