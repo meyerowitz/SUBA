@@ -28,42 +28,60 @@ let busesxd = []
 // -------------------------------------------------------------
 // 2) .FUNCIÓN DE CONSULTA A OVERPASS
 // -------------------------------------------------------------
+const OVERPASS_SERVERS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+];
+
 const fetchGuayanaBusStops = async (retry = 0) => {
-  // retry: contador de reintentos
-  const MAX_RETRIES = 3;
-  const DELAY_MS = 10000 * (retry + 1); // 10s, 20s, 30s de demora
+  const MAX_RETRIES = 5;
+  const DELAY_MS = 2000 * (retry + 1); 
+
+  // Selección de servidor Round-Robin basado en el número de intento
+  const serverUrl = OVERPASS_SERVERS[retry % OVERPASS_SERVERS.length];
+
   console.log("");
-  console.log("---> fetchGuayanaBusStops en acción");
-  console.log("--->       Ejecutando consultas Http Overpass");
+  console.log(`---> fetchGuayanaBusStops (Intento ${retry + 1}/${MAX_RETRIES + 1})`);
+  console.log(`--->       Servidor: ${serverUrl}`);
   console.log("");
+
+  // Reducimos timeout del query a 25s para fallar rápido y cambiar de servidor si está colgado
   const overpassQuery = `
-        [out:json][timeout:60];
+        [out:json][timeout:25];
         node[highway=bus_stop](${GUAYANA_BBOX});
         out center;
     `;
   const encodedQuery = encodeURIComponent(overpassQuery);
-  const url = `https://overpass-api.de/api/interpreter?data=${encodedQuery}`;
+  const url = `${serverUrl}?data=${encodedQuery}`;
 
   try {
     const response = await fetch(url);
     if (response.ok) {
-      console.log(`Paradas obtenidas exitosamente en el intento ${retry + 1}.`);
+      console.log(`Paradas obtenidas exitosamente.`);
       return await response.json();
     }
 
-    // Manejo específico del error 429
-    if (response.status === 429 && retry < MAX_RETRIES) {
+    // Manejo de errores: 429 (Too Many Requests) y 5xx (Server Errors: 504, 502, 503)
+    if ((response.status === 429 || response.status >= 500) && retry < MAX_RETRIES) {
       console.warn(
-        `Error 429 (Demasiadas solicitudes). Reintentando en ${DELAY_MS / 1000} segundos... (Intento ${retry + 1}/${MAX_RETRIES})`,
+        `Error HTTP ${response.status}. Cambiando servidor/reintentando en ${DELAY_MS / 1000}s...`,
       );
       await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
-      return fetchGuayanaBusStops(retry + 1); // Llamada recursiva para reintentar
+      return fetchGuayanaBusStops(retry + 1); 
     }
 
     throw new Error(`Error HTTP: ${response.status}`);
   } catch (error) {
     console.error("Error al obtener paradas de Overpass:", error);
-    // Si el error persiste después de los reintentos, lanzamos el error original
+    
+    // Si es un error de red (fetch falló) y quedan intentos, reintentamos
+    if (retry < MAX_RETRIES) {
+       console.warn(`Error de conexión. Reintentando en ${DELAY_MS / 1000}s...`);
+       await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+       return fetchGuayanaBusStops(retry + 1);
+    }
+
     return null;
   }
 };
