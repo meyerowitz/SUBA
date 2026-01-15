@@ -6,7 +6,10 @@ import Destinos from "../../Components/Destinos.json";
 import { Picker } from "@react-native-picker/picker";
 import Feather from 'react-native-vector-icons/Feather';
 import { useRouter } from 'expo-router';
+import { createClient } from '@supabase/supabase-js';
 
+
+const supabase = createClient(EXPO_PUBLIC_SUPABASE_URL , EXPO_PUBLIC_SUPABASE_ANON_KEY);
 
 export default function Home() {
   const [ubicacionActual, setUbicacionActual] = useState('');
@@ -15,10 +18,10 @@ export default function Home() {
   const [cargandoOrigen, setCargandoOrigen] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
 
-  const [DolarBcv,setPrecioBCV ]=useState('');
+  const [DolarBcv,setPrecioBCV ]=useState('1');
   const [DolarBcvLoading,setPrecioBCVLoad ]=useState(true);
 
-  const [TicketBs,setTicketBs]=useState();
+  const [TicketBs,setTicketBs]=useState(1);
   const [TicketBsLoad,setTicketBsLoad]=useState(true);
 
   const [TicketDolar,setTicketDolar]=useState('');
@@ -69,11 +72,47 @@ export default function Home() {
   }
 };
 
-  const PreciodelTicketbs = async () => {
-    setTicketBs(40);
-    setTicketBsLoad(false);
-    console.log("false setTicketBsLoad")
+const obtenerDatoPasaje = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pasaje_y_tarifas')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      console.log(data);
+      if (error) throw error;
+      return data ? data.pasaje : 0;
+    } catch (error) {
+      console.error("Error Supabase:", error);
+      return 0;
+    }
   };
+
+const PreciodelTicketbs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('pasaje_y_tarifas')
+      .select('pasaje')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (data) {
+      setTicketBs(data.pasaje);
+      setTicketBsLoad(false);
+      return data.pasaje; // Retornamos el número
+    }
+    return 0;
+  } catch (error) {
+    console.error("Error en Supabase:", error);
+    setTicketBsLoad(false);
+    return 0;
+  }
+};
+
   const PreciodelTicketdolar = async () => {
       if(TicketBsLoad === false){
         console.log("false setTicketDolarLoad false")
@@ -85,40 +124,49 @@ export default function Home() {
       
 };
 
-  useEffect(() => {
-  obtenerUbicacionOrigen();
-  
-  // Ejecutamos la carga de datos financieros en orden
-  const cargarDatosFinancieros = async () => {
-    try {
-      // 1. Obtener Dólar
-      const respuesta = await fetch('https://ve.dolarapi.com/v1/dolares');
-      const datos = await respuesta.json();
-      const oficial = datos.find(d => d.fuente === 'oficial');
-      const valorDolar = oficial.promedio;
-      
-      setPrecioBCV(valorDolar);
-      setPrecioBCVLoad(false);
+ useEffect(() => {
+    // A. Cargar Ubicación
+    obtenerUbicacionOrigen();
 
-      // 2. Establecer Ticket BS (Hardcoded por ahora)
-      const valorTicketBs = 40;
-      setTicketBs(valorTicketBs);
-      setTicketBsLoad(false);
+    // B. Cargar Datos Financieros de forma secuencial
+    const cargarFinanzas = async () => {
+      try {
+        // I. Obtener Dólar
+        const resDolar = await fetch('https://ve.dolarapi.com/v1/dolares');
+        const jsonDolar = await resDolar.json();
+        const oficial = jsonDolar.find(d => d.fuente === 'oficial');
+        const valorDolarActual = oficial.promedio;
 
-      // 3. Calcular Dólar inmediatamente con los valores locales, no con el estado
-      // porque el estado aún no se ha "refrescado" en esta vuelta del ciclo
-      const calculoDolar = valorTicketBs / valorDolar;
-      setTicketDolar(calculoDolar.toFixed(2));
-      setTicketDolarLoad(false);
+        // II. Obtener Pasaje (Esperamos a Supabase)
+        const valorPasajeBs = await obtenerDatoPasaje();
 
-    } catch (error) {
-      console.error("Error en carga financiera:", error);
-    }
-  };
+        // III. Calcular el equivalente en Dólares
+        let calculoDolar = 0;
+        if (valorPasajeBs > 0 && valorDolarActual > 0) {
+          calculoDolar = (valorPasajeBs / valorDolarActual).toFixed(2);
+        }
 
-  cargarDatosFinancieros();
-}, []); // Solo se ejecuta al montar
+        // IV. ACTUALIZACIÓN ÚNICA DE ESTADOS (Evita el loop)
+        setPrecioBCV(valorDolarActual);
+        setPrecioBCVLoad(false);
 
+        setTicketBs(valorPasajeBs);
+        setTicketBsLoad(false);
+
+        setTicketDolar(calculoDolar);
+        setTicketDolarLoad(false);
+
+      } catch (error) {
+        console.error("Fallo masivo en carga:", error);
+        // Fallback para evitar loaders infinitos si falla el internet
+        setPrecioBCVLoad(false);
+        setTicketBsLoad(false);
+        setTicketDolarLoad(false);
+      }
+    };
+
+    cargarFinanzas();
+  }, []);
 
 
 const handleSearch = () => {

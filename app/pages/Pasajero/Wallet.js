@@ -1,30 +1,134 @@
-import React,{useState} from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Modal,  Linking, Alert ,Image} from 'react-native';
+import React,{useState, useEffect} from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Modal,  Linking, Alert ,Image, TextInput} from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import Volver from '../../Components/Botones_genericos/Volver';
+import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const supabase = createClient(EXPO_PUBLIC_SUPABASE_URL , EXPO_PUBLIC_SUPABASE_ANON_KEY);
 
 export default function WalletScreen() {
-  // Datos de ejemplo para la lista de transacciones
-  const operaciones = [
+ const [operaciones, setOperaciones] = useState([
     { id: '1', titulo: 'Pago', subtitulo: 'san felix', hora: '1:00 pm', monto: '$503.12' },
     { id: '2', titulo: 'pago', subtitulo: 'alta vista', hora: '6:00 am', monto: '$26927' },
     { id: '3', titulo: 'Pago', subtitulo: 'Atlantico', hora: '11:00 am', monto: '$90' },
     { id: '4', titulo: 'PAGO', subtitulo: 'Villa asia', hora: '7:00 am', monto: '$100' },
-  ];
+  ]); // Ahora es un estado vacío
+const [cargandoHistorial, setCargandoHistorial] = useState(true);
+
 
 const [modalVisible, setModalVisible] = useState(false);
 const [step, setStep] = useState(1); // Paso 1: Copiar, Paso 2: Registro
 const [image, setImage] = useState(null);
 const [saldo, setSaldo] = useState(0.01); // Saldo inicial
 
+const [referencia, setReferencia] = useState('');
+  const [montoInput, setMontoInput] = useState('');
+  const [cargando, setCargando] = useState(false);
+
+  useEffect(() => {
+  cargarHistorial();
+}, []);
+
+const cargarHistorial = async () => {
+  try {
+    const userid = await getuserid(); // Obtenemos el ID del usuario activo
+    
+    const { data, error } = await supabase
+      .from('validaciones_pago')
+      .select('*')
+      .eq('external_user_id', userid) // FILTRO CRÍTICO
+      .order('created_at', { ascending: false }); // Más recientes primero
+
+    if (error) throw error;
+    setOperaciones(data || [{id: '1', titulo: 'Pago', subtitulo: 'san felix', hora: '1:00 pm', monto: '$503.12'}]);
+  } catch (error) {
+    console.error("Error cargando historial:", error);
+  } finally {
+    setCargandoHistorial(false);
+  }
+};
+
+  const getuserid = async ()=>{
+      const userid = await AsyncStorage.getItem('@Sesion_usuario');
+      const Jsonuserid = JSON.parse(userid)
+      console.log(Jsonuserid._id);
+      return Jsonuserid._id
+  }
+
+    const getusername = async ()=>{
+      const userid = await AsyncStorage.getItem('@Sesion_usuario');
+      const Jsonuserid = JSON.parse(userid)
+      console.log(Jsonuserid.fullName);
+      return Jsonuserid.fullName
+  }
+  const registrarYValidar = async () => {
+    if (!image || !referencia || !montoInput) {
+      Alert.alert("Error", "Completa todos los campos y sube el capture.");
+      return;
+    }
+
+    setCargando(true);
+
+    try {
+      // 1. Subir imagen al Storage
+      const fileName = `captures/${Date.now()}.jpg`;
+      const formData = new FormData();
+      formData.append('file', {
+        uri: image,
+        name: fileName,
+        type: 'image/jpeg',
+      });
+      const userid = await getuserid();
+      const { data: storageData, error: storageError } = await supabase.storage
+        .from('comprobantes')
+        .upload(fileName, formData);
+
+      if (storageError) throw storageError;
+
+      // 2. Insertar registro en la tabla de validaciones
+      const { error: dbError } = await supabase
+        .from('validaciones_pago')
+        .insert([{
+          external_user_id: userid, // Aquí pasas el ID del usuario
+          referencia: referencia,
+          monto_informado: parseFloat(montoInput),
+          evidencia_url: fileName,
+          estado: 'pendiente'
+        }]);
+
+      if (dbError) throw dbError;
+
+      // 3. Suscribirse al cambio en tiempo real (Para la magia de la demo)
+      const channel = supabase
+        .channel('cambios-pago')
+        .on('postgres_changes', 
+          { event: 'UPDATE', schema: 'public', table: 'validaciones_pago', filter: `referencia=eq.${referencia}` },
+          (payload) => {
+            if (payload.new.estado === 'completado') {
+              Alert.alert("¡Éxito!", "El SMS ha sido validado automáticamente. Tu saldo se ha actualizado.");
+              setSaldo(prev => prev + parseFloat(montoInput));
+              setModalVisible(false);
+              supabase.removeChannel(channel);
+            }
+          }
+        ).subscribe();
+
+      Alert.alert("Pendiente", "Estamos esperando el SMS de confirmación del banco.");
+      
+    } catch (error) {
+      Alert.alert("Error", error.message);
+    } finally {
+      setCargando(false);
+    }
+  };
   // Datos bancarios (puedes editarlos)
   const datosBancarios = {
     banco: "Banco de Venezuela",
-    rif: "J-00000000-0",
-    telefono: "04120000000",
-    pagoMovil: "V-30366440"
+    telefono: "04128695918",
+    identidad: "30366440"
   };
 
   // Función para seleccionar la captura
@@ -38,20 +142,6 @@ const [saldo, setSaldo] = useState(0.01); // Saldo inicial
     if (!result.canceled) {
       setImage(result.assets[0].uri);
     }
-  };
-
-  const registrarYValidar = () => {
-    if (!image) {
-      Alert.alert("Error", "Por favor sube el capture del depósito.");
-      return;
-    }
-
-    // Simulamos validación inmediata
-    Alert.alert("¡Validado!", "Tu pago ha sido procesado con éxito. +15 BS añadidos.");
-    setSaldo(prev => prev + 15);
-    setModalVisible(false);
-    setStep(1); // Reset para la próxima vez
-    setImage(null);
   };
 
 const copiarTodo = async () => {
@@ -74,7 +164,7 @@ const copiarTodo = async () => {
     // Intenta abrir la app, si no, abre la web
     const urlApp = "bdvenlinea://"; 
     const urlWeb = "https://bdvenlinea.banvenez.com/";
-
+/*
     Linking.canOpenURL(urlApp).then(supported => {
       if (supported) {
         Linking.openURL(urlApp);
@@ -82,13 +172,14 @@ const copiarTodo = async () => {
         Linking.openURL(urlWeb);
       }
     });
+    */
   };
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         
-        <Text style={[styles.greeting,{marginLeft:20}]}>Hola , usuario</Text>
+        <Text style={[styles.greeting,{marginLeft:20}]}>Wallet { getusername()}</Text>
 
         {/* Tarjeta de Saldo */}
         <View style={styles.balanceCard}>
@@ -164,7 +255,7 @@ const copiarTodo = async () => {
               <Ionicons name="copy" size={20} color="#003366" />
             </TouchableOpacity>
                 <TouchableOpacity style={styles.bdvButton} onPress={() => {
-                  Linking.openURL("https://bdvenlinea.banvenez.com/");
+                 // Linking.openURL("https://bdvenlinea.banvenez.com/");
                   setStep(2); // Pasamos automáticamente al paso de registro
                 }}>
                   <Text style={styles.bdvButtonText}>IR AL BANCO Y REGISTRAR</Text>
@@ -186,7 +277,20 @@ const copiarTodo = async () => {
                     </View>
                   )}
                 </TouchableOpacity>
-
+                  <TextInput
+                      placeholder="Últimos 6 dígitos de la referencia"
+                      style={styles.input} // Crea este estilo
+                      value={referencia}
+                      onChangeText={setReferencia}
+                      keyboardType="numeric"
+                  />
+                  <TextInput
+                      placeholder="Monto enviado (Bs)"
+                      style={styles.input}
+                      value={montoInput}
+                      onChangeText={setMontoInput}
+                      keyboardType="numeric"
+                  />
                 <TouchableOpacity style={styles.validarButton} onPress={registrarYValidar}>
                   <Text style={styles.validarButtonText}>CONFIRMAR PAGO</Text>
                 </TouchableOpacity>
@@ -228,6 +332,17 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     justifyContent: 'space-around',
     alignItems: 'center',
+  },
+  input: {
+    width: 270,
+    height: 60,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#DFDFDF",
+    borderRadius: 10,
+    fontFamily: "roboto",
+    fontSize: 18,
+    marginVertical: 10,
   },
   actionButton: { alignItems: 'center' },
   actionText: { color: 'white', fontSize: 10, marginTop: 5, fontWeight: 'bold' },

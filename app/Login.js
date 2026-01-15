@@ -5,19 +5,41 @@ import { useState , useEffect} from "react"
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View , StatusBar, ScrollView,KeyboardAvoidingView, 
   Platform} from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context";
-
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import userData from "./Components/Users.json";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Login() {
   const router = useRouter()
   const [correo, setCorreo] = useState("")
   const [password, setPassword] = useState("")
-
+  const [showPassword, setShowPassword] = useState(false)
   // Estados para controlar la carga y qué GIF mostrar
   const [isLoading, setIsLoading] = useState(false)
   const [userRole, setUserRole] = useState(null)
 
+useEffect(()=>{
+  
+  const cerrar_sesion_anterior = async () => {
 
+    try {
+    const valor = await AsyncStorage.getItem('@Sesion_usuario');
+
+    if (valor !== null) {
+      // Si hay datos, procedemos a borrar
+      await AsyncStorage.removeItem('@Sesion_usuario');
+      console.log("Existían datos y han sido borrados.");
+    } else {
+      // Si es null, el almacenamiento ya estaba vacío
+      console.log("El almacenamiento ya está vacío, nada que borrar.");
+    }
+  } catch (e) {
+    console.error("Error al verificar:", e);
+  
+  }
+  }; cerrar_sesion_anterior()
+
+},[])
 
 useEffect(() => {
   const cacheGifs = async () => {
@@ -36,6 +58,11 @@ useEffect(() => {
 
   cacheGifs().catch(err => console.log("Error precargando GIFs:", err));
 }, []);
+ const handlePasswordChange = (text) => {
+    setPassword(text)
+    const validation = validatePassword(text)
+    setPasswordStrength(validation.strength)
+  }
 
 const handleLogin = async () => {
     // Buscamos al usuario (por email o nombre)
@@ -45,6 +72,15 @@ const handleLogin = async () => {
          u.fullName.toLowerCase() === correo.toLowerCase()) &&
         u.password === password
     );
+    try {
+      const jsonValue = JSON.stringify(user);
+      await AsyncStorage.setItem('@Sesion_usuario', jsonValue);
+      console.log("Sesion guardada con éxito");
+      const jsonValue2 = await AsyncStorage.getItem('@Sesion_usuario');
+      console.log(jsonValue2);
+    } catch (e) {
+      console.error("Error al guardar:", e);
+    }
 
     if (user) {
       setUserRole(user.role); // Guardamos el rol ('driver' o 'passenger')
@@ -64,6 +100,7 @@ const handleLogin = async () => {
   }
 
   const handleLogin2 = async () => {
+    console.log('consultando a la API principal')
   // 1. Validación inicial
   if (!correo || !password) {
     Alert.alert("Error", "Por favor, completa todos los campos");
@@ -148,11 +185,11 @@ const handleLogin = async () => {
   }
 
   return (
-    <SafeAreaView style={styles.page}>
+    <SafeAreaView style={{ flex: 1,justifyContent: "center",alignItems: "center",backgroundColor: "rgb(255, 3, 3)",}}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
         <KeyboardAvoidingView 
           behavior={Platform.OS === "ios" ? "padding" : "height"} 
-           style={{ flex: 1, width: '100%' }}
+           style={{ flex: 1, width: '100%', backgroundColor:'blue' }}
           >
             <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#ffffffff", width:'100%' }} 
               keyboardShouldPersistTaps="handled"
@@ -168,15 +205,19 @@ const handleLogin = async () => {
           <Text style={styles.title}>¡Bienvenido de nuevo!</Text>
 
         <TextInput placeholder="Correo electrónico" autoCapitalize="none" keyboardType="email-address" value={correo} onChangeText={setCorreo} style={styles.input} />
-        <TextInput
-          textContentType="password"
-          placeholder="Contraseña"
-          value={password}
-          onChangeText={setPassword}
-          style={styles.input}
-          autoCapitalize="none"
-          secureTextEntry={true}
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            textContentType="password"
+            placeholder="contraseña"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            style={styles.passwordInput}
+          />
+          <TouchableOpacity style={styles.toggleButton} onPress={() => setShowPassword(!showPassword)}>
+            <FontAwesome6 name={showPassword ? "eye-slash" : "eye"} size={20} color="#023A73" />
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.question}>¿Olvidaste tu contraseña? </Text>
 
@@ -208,10 +249,7 @@ const handleLogin = async () => {
 
 const styles = StyleSheet.create({
   page: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#ffffffff",
+    flex: 1,justifyContent: "center",alignItems: "center",backgroundColor: "#ffffffff",
   },
   container: {
     flex:1,
@@ -227,6 +265,17 @@ const styles = StyleSheet.create({
     height: 88.28,
     marginTop: 50,
     marginBottom: 50,
+  },
+    passwordContainer: {
+    position: "relative",
+    width: 320,
+    marginBottom: 20,
+  },
+   toggleButton: {
+    position: "absolute",
+    right: 15,
+    top: 18,
+    padding: 5,
   },
   wordmark: {
     width: 320,
@@ -255,6 +304,17 @@ const styles = StyleSheet.create({
     fontFamily: "roboto",
     fontWeight: "bold",
     fontSize: 16,
+  },
+   passwordInput: {
+    width: 320,
+    height: 60,
+    padding: 10,
+    paddingRight: 50,
+    borderWidth: 1,
+    borderColor: "#DFDFDF",
+    borderRadius: 100,
+    fontFamily: "roboto",
+    fontSize: 18,
   },
   button: {
     display: "flex",
