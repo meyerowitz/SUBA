@@ -4,6 +4,7 @@ import { useRouter } from "expo-router"
 import { useState , useEffect} from "react"
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View , StatusBar, ScrollView,KeyboardAvoidingView, 
   Platform} from "react-native"
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import userData from "./Components/Users.json";
 
@@ -147,7 +148,7 @@ const handleLogin = async () => {
   }
 
   return (
-    <View style={styles.page}>
+    <SafeAreaView style={styles.page}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
         <KeyboardAvoidingView 
           behavior={Platform.OS === "ios" ? "padding" : "height"} 
@@ -201,7 +202,7 @@ const handleLogin = async () => {
       
             </ScrollView>
         </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   )
 }
 

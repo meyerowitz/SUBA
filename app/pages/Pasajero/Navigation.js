@@ -3,7 +3,7 @@ import { Text, View, StatusBar} from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons'; // Para usar íconos, puedes instalar react-native-vector-icons
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Home from './Home';
 import WebMap from './WebMap';
@@ -12,6 +12,8 @@ const Tab = createBottomTabNavigator();
 
 // --- Componente del Navegador de Pestañas ---
 function MyTabs() {
+  const insets = useSafeAreaInsets();
+  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -36,10 +38,9 @@ function MyTabs() {
         // Estilo de la barra de navegación inferior
         tabBarStyle: { 
           backgroundColor: 'white', 
-          paddingTop:20,
-          height: 120, // Ajusta la altura si es necesario
-          paddingBottom: 50, // Un pequeño padding en la parte inferior es común
-          position: 'absolute',
+          height: 60 + insets.bottom, 
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+          paddingTop: 10,
         },
         // Opciones de las pestañas
         headerShown: false, // Oculta el encabezado superior si no lo necesitas

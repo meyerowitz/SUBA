@@ -4,7 +4,7 @@ import { useRouter } from "expo-router"
 import { useState } from "react"
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar ,ScrollView } from "react-native"
 import Volver from './Components/Botones_genericos/Volver'
-
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Register() {
   const router = useRouter()
@@ -164,7 +164,7 @@ export default function Register() {
   const strengthPercentage = (passwordStrength / 3) * 100
 
   return (
-    <View style={styles.page}>
+    <SafeAreaView style={styles.page}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
       
       <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#ffffff", width:'100%' }} 
@@ -279,7 +279,7 @@ export default function Register() {
       </ScrollView>
 
       <Volver route="/Login" color={null} style={{top:50, left:10}}/>
-    </View>
+    </SafeAreaView>
   )
 }
 
