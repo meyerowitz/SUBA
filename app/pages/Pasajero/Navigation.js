@@ -37,8 +37,9 @@ function MyTabs() {
         tabBarStyle: { 
           backgroundColor: 'white', 
           paddingTop:20,
-          height: 70, // Ajusta la altura si es necesario
+          height: 120, // Ajusta la altura si es necesario
           paddingBottom: 50, // Un pequeño padding en la parte inferior es común
+          position: 'absolute',
         },
         // Opciones de las pestañas
         headerShown: false, // Oculta el encabezado superior si no lo necesitas
@@ -53,10 +54,14 @@ function MyTabs() {
 export default function Navigation() {
   return (
     <>
-    <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
-    
-      <MyTabs />
-      
+   <View style={{ flex: 1}}> 
+      <StatusBar 
+        translucent={true} 
+        backgroundColor="transparent" 
+        barStyle="dark-content" 
+      />
+        <MyTabs />
+    </View>
     </>
   );
 }

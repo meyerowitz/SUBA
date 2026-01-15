@@ -184,7 +184,7 @@ const handleLogin = async () => {
         </TouchableOpacity>
 
         <View style={styles.googleContainer}>
-          <TouchableOpacity style={styles.googleButton}>
+          <TouchableOpacity onPress={()=>{ router.replace("./pages/Pasajero/Navigation");}} style={styles.googleButton}>
             <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
             <Text style={styles.googleText}>Continuar con Google</Text>
           </TouchableOpacity>

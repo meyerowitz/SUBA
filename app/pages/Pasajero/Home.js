@@ -161,7 +161,7 @@ const handleSearch = () => {
               <Text style={styles.userName}>¡Bienvenido!</Text>
               <Text style={styles.welcomeSub}>¡A Ciudad Guayana Bus!</Text>
             </View>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={()=>{router.replace("./Profile")}}>
               <Ionicons name="person-circle-outline" size={50} color="white" />
             </TouchableOpacity>
 
