@@ -9,7 +9,7 @@ import { useRouter } from 'expo-router';
 import { createClient } from '@supabase/supabase-js';
 
 
-const supabase = createClient(EXPO_PUBLIC_SUPABASE_URL , EXPO_PUBLIC_SUPABASE_ANON_KEY);
+const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL , process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
 
 export default function Home() {
   const [ubicacionActual, setUbicacionActual] = useState('');
