@@ -154,7 +154,7 @@ const registrarYValidar = async () => {
     return;
   }
   setCargando(true);
-
+//lalalalalllalal
   try {
     const userid = await getuserid();
     
