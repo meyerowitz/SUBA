@@ -2,7 +2,7 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
 import { Image } from "expo-image"
 import { useRouter } from "expo-router"
 import { useState } from "react"
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar , ScrollView,KeyboardAvoidingView , Platform} from "react-native"
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar ,KeyboardAvoidingView,ScrollView , Platform} from "react-native"
 import Volver from './Components/Botones_genericos/Volver'
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -170,107 +170,103 @@ export default function Register() {
                 behavior={Platform.OS === "ios" ? "height" : "padding"} 
                  style={{ flex: 1, width: '100%'}}
                 >
-          <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#ffffff", width:'100%' }} 
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              bounces={false}
-              >
-      <View style={styles.container}>
-        
-        <View style={styles.logo}>
-          <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
-        </View>
-
-        <Text style={styles.title}>¡Registrate!</Text>
-
-        <View>
-          <TextInput
-            placeholder="Nombre Completo"
-            value={fullName}
-            onChangeText={handleNameChange}
-            style={styles.input}
-          />
-          {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
-        </View>
-
-        <View>
-          <TextInput
-            placeholder="Correo electrónico"
-            value={mail}
-            onChangeText={handleEmailChange}
-            style={styles.input}
-            keyboardType="email-address"
-          />
-          {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-        </View>
-
-        <View style={styles.passwordContainer}>
-          <TextInput
-            textContentType="password"
-            placeholder="Introduce tu contraseña"
-            value={password}
-            onChangeText={handlePasswordChange}
-            secureTextEntry={!showPassword}
-            style={styles.passwordInput}
-          />
-          <TouchableOpacity style={styles.toggleButton} onPress={() => setShowPassword(!showPassword)}>
-            <FontAwesome6 name={showPassword ? "eye-slash" : "eye"} size={20} color="#023A73" />
-          </TouchableOpacity>
-        </View>
-
-        {password.length > 0 && (
-          <View>
-            <View style={styles.strengthBarContainer}>
-              <View style={[styles.strengthBar, { width: `${strengthPercentage}%`, backgroundColor: strengthColor }]} />
-            </View>
-
-            <View style={styles.requirementsContainer}>
-              <View style={styles.requirementRow}>
-                <Text
-                  style={[
-                    styles.requirementText,
-                    passwordValidation.hasSpecialChar ? styles.requirementMet : styles.requirementUnmet,
-                  ]}
+        <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#ffffff", width:'100%'}} 
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                bounces={false}
                 >
-                  ✓ Carácter especial (!@#$%^&*)
-                </Text>
-              </View>
-              <View style={styles.requirementRow}>
-                <Text
-                  style={[
-                    styles.requirementText,
-                    passwordValidation.hasUpperCase ? styles.requirementMet : styles.requirementUnmet,
-                  ]}
-                >
-                  ✓ Una mayúscula
-                </Text>
-              </View>
-              <View style={styles.requirementRow}>
-                <Text
-                  style={[
-                    styles.requirementText,
-                    passwordValidation.hasMinLength ? styles.requirementMet : styles.requirementUnmet,
-                  ]}
-                >
-                  ✓ Mínimo 8 caracteres
-                </Text>
-              </View>
-            </View>
+        <View style={styles.container}>
+          
+          <View style={styles.logo}>
+            <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
           </View>
-        )}
 
-        <Text style={styles.question}>O registrate con redes sociales </Text>
+          <Text style={styles.title}>¡Registrate!</Text>
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin2} onLongPress={handleLogin}>
-          <Text style={styles.textButton}>CREAR CUENTA</Text>
-        </TouchableOpacity>
+          <View>
+            <TextInput
+              placeholder="Nombre Completo"
+              placeholderTextColor="rgba(0, 0, 0, 0.31)" 
+              value={fullName}
+              onChangeText={handleNameChange}
+              style={styles.input}
+            />
+            {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+          </View>
 
-        <View style={styles.googleContainer}>
-          <TouchableOpacity style={styles.googleButton}>
-            <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
-            <Text style={styles.googleText}>Continuar con Google</Text>
+          <View>
+            <TextInput
+              placeholder="Correo electrónico"
+              placeholderTextColor="rgba(0, 0, 0, 0.31)" 
+              value={mail}
+              onChangeText={handleEmailChange}
+              style={styles.input}
+              keyboardType="email-address"
+            />
+            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+          </View>
+
+          <View style={styles.passwordContainer}>
+            <TextInput
+              textContentType="password"
+              placeholder="Introduce tu contraseña"
+              placeholderTextColor="rgba(0, 0, 0, 0.31)" 
+              value={password}
+              onChangeText={handlePasswordChange}
+              secureTextEntry={!showPassword}
+              style={styles.passwordInput}
+            />
+            <TouchableOpacity style={styles.toggleButton} onPress={() => setShowPassword(!showPassword)}>
+              <FontAwesome6 name={showPassword ? "eye-slash" : "eye"} size={20} color="#023A73" />
+            </TouchableOpacity>
+          </View>
+
+          {password.length > 0 && (
+            <View>
+              <View style={styles.strengthBarContainer}>
+                <View style={[styles.strengthBar, { width: `${strengthPercentage}%`, backgroundColor: strengthColor }]} />
+              </View>
+
+              <View style={styles.requirementsContainer}>
+                <View style={styles.requirementRow}>
+                  <Text
+                    style={[
+                      styles.requirementText,
+                      passwordValidation.hasSpecialChar ? styles.requirementMet : styles.requirementUnmet,
+                    ]}
+                  >
+                    ✓ Carácter especial (!@#$%^&*)
+                  </Text>
+                </View>
+                <View style={styles.requirementRow}>
+                  <Text
+                    style={[
+                      styles.requirementText,
+                      passwordValidation.hasUpperCase ? styles.requirementMet : styles.requirementUnmet,
+                    ]}
+                  >
+                    ✓ Una mayúscula
+                  </Text>
+                </View>
+                <View style={styles.requirementRow}>
+                  <Text
+                    style={[
+                      styles.requirementText,
+                      passwordValidation.hasMinLength ? styles.requirementMet : styles.requirementUnmet,
+                    ]}
+                  >
+                    ✓ Mínimo 8 caracteres
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          <Text style={styles.question}>O registrate con redes sociales </Text>
+
+          <TouchableOpacity style={styles.button} onPress={handleLogin2} onLongPress={handleLogin}>
+            <Text style={styles.textButton}>CREAR CUENTA</Text>
           </TouchableOpacity>
-        </View>
 
         <View style={styles.redirect}>
           <Text style={styles.question}>Ya tienes cuenta? </Text>
@@ -278,8 +274,22 @@ export default function Register() {
             <Text style={styles.register}>Inicia sesión aquí</Text>
           </TouchableOpacity>
         </View>
-      </View>
-          </ScrollView>
+  
+          <View style={styles.googleContainer}>
+            <TouchableOpacity style={styles.googleButton}>
+              <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
+              <Text style={styles.googleText}>Continuar con Google</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.redirect}>
+            <Text style={styles.question}>Ya tienes cuenta? </Text>
+            <TouchableOpacity onPress={() => router.replace("/Login")}>
+              <Text style={styles.register}>Inicia sesión aquí</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
       <Volver route="/Login" color={null} style={{top:50, left:10}}/>
     </SafeAreaView>
@@ -326,6 +336,7 @@ const styles = StyleSheet.create({
     borderColor: "#DFDFDF",
     borderRadius: 100,
     fontFamily: "roboto",
+    color: "black",
     fontSize: 18,
     marginBottom: 20,
   },
@@ -342,6 +353,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#DFDFDF",
     borderRadius: 100,
+    color: "black",
     fontFamily: "roboto",
     fontSize: 18,
   },
