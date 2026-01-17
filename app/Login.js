@@ -185,11 +185,11 @@ const handleLogin = async () => {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1,justifyContent: "center",alignItems: "center",backgroundColor: "rgb(255, 3, 3)",}}>
+    <SafeAreaView style={{ flex: 1,justifyContent: "center",alignItems: "center",  backgroundColor: "#ffffffff"}}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
         <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"} 
-           style={{ flex: 1, width: '100%', backgroundColor:'blue' }}
+          behavior={Platform.OS === "ios" ? "height" : "padding"} 
+           style={{ flex: 1, width: '100%'}}
           >
             <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#ffffffff", width:'100%' }} 
               keyboardShouldPersistTaps="handled"

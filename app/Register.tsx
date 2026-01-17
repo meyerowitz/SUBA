@@ -2,7 +2,7 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
 import { Image } from "expo-image"
 import { useRouter } from "expo-router"
 import { useState } from "react"
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar ,ScrollView } from "react-native"
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar , ScrollView,KeyboardAvoidingView , Platform} from "react-native"
 import Volver from './Components/Botones_genericos/Volver'
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -166,8 +166,11 @@ export default function Register() {
   return (
     <SafeAreaView style={styles.page}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
-      
-      <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#ffffff", width:'100%' }} 
+      <KeyboardAvoidingView 
+                behavior={Platform.OS === "ios" ? "height" : "padding"} 
+                 style={{ flex: 1, width: '100%'}}
+                >
+          <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#ffffff", width:'100%' }} 
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
               bounces={false}
@@ -276,8 +279,8 @@ export default function Register() {
           </TouchableOpacity>
         </View>
       </View>
-      </ScrollView>
-
+          </ScrollView>
+      </KeyboardAvoidingView>
       <Volver route="/Login" color={null} style={{top:50, left:10}}/>
     </SafeAreaView>
   )
