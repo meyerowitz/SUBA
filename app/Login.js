@@ -1,6 +1,6 @@
 //import {GoogleSignin,isErrorWithCode,isSuccessResponse,statusCodes,} from '@react-native-google-signin/google-signin';
 
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
+
 import { Image } from "expo-image"
 import { Asset } from 'expo-asset';
 import { useRouter } from "expo-router"
@@ -10,6 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import userData from "./Components/Users.json";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { v4 as uuidv4 } from "uuid";
 
 export default function Login() {
   const router = useRouter()
@@ -41,10 +42,9 @@ useEffect(()=>{
     }
   } catch (e) {
     console.error("Error al verificar:", e);
-  
   }
   }; cerrar_sesion_anterior()
-
+  
 },[])
 
 /*
@@ -168,7 +168,8 @@ const handleLogin = async () => {
       // Simulamos un tiempo de carga para que se vea el GIF
       setTimeout(() => {
         if (user.role === "driver") {
-          router.replace("./pages/Conductor/Home");
+          //router.replace("./pages/Conductor/Home");
+          router.replace("./pages/Conductor/Home2");
         } else {
           router.replace("./pages/Pasajero/Navigation");
         }
@@ -211,14 +212,14 @@ const handleLogin = async () => {
       const role = 'passenger'; 
       setUserRole(role);
 
-      // 4. Mantenemos tu simulación de carga de 4 segundos para el GIF
-      setTimeout(() => {
+    
         if (role === "driver") {
-          router.replace("/pages/Conductor/Home");
+          //router.replace("./pages/Conductor/Home");
+          router.replace("./pages/Conductor/Home2");
         } else {
-          router.replace("/Navigation");
+          router.replace("./pages/Pasajero/Navigation");
         }
-      }, 4000);
+    
 
     } else {
       // 5. Si la API devuelve error (401, 404, etc.)
@@ -310,8 +311,22 @@ const handleLogin = async () => {
                 <View style={styles.googleContainer}>
                   <TouchableOpacity 
                   style={styles.googleButton} 
-                  onPress={()=>{
+                  onPress={async()=>{
                     console.log("Error al iniciar sesion con google: ");
+                    
+                     const user = userData.users.find(
+                                (u) => u.email === "meyerowitzrebeca@gmail.com"
+                            );
+                        try {
+                            const jsonValue = JSON.stringify(user);
+                            await AsyncStorage.setItem('@Sesion_usuario', jsonValue);
+                            console.log("Sesion guardada con éxito");
+                            const jsonValue2 = await AsyncStorage.getItem('@Sesion_usuario');
+                            console.log(jsonValue2);
+                        } catch (e) {
+                          console.error("Error al guardar:", e);
+                        }
+                      router.replace('./pages/Pasajero/Navigation')
                     }}
                     >
                     <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />

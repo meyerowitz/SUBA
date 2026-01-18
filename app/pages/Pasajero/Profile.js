@@ -5,9 +5,11 @@ import { SafeAreaView } from 'react-native-web';
 import Volver from '../../Components/Botones_genericos/Volver';
 import { router } from 'expo-router';
 
+import {getuserid,getusername} from '../../Components/AsyncStorage';
+
 export default function Profile() {
   return (
-    <View style={styles.container}>
+    <SafeAreaView  style={styles.container}>
       <View style={styles.card}>
         {/* Sección Superior Naranja */}
         <View style={styles.orangeHeader} />
@@ -40,7 +42,7 @@ export default function Profile() {
         </TouchableOpacity>
       </View>
       <Volver route={"./Navigation"} color={"white"} style={{top:20, left:10}}></Volver>
-    </View>
+    </SafeAreaView >
   );
 }
 

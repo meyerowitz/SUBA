@@ -7,6 +7,7 @@ import { Picker } from "@react-native-picker/picker";
 import Feather from 'react-native-vector-icons/Feather';
 import { useRouter } from 'expo-router';
 import { createClient } from '@supabase/supabase-js';
+import {getuserid,getusername} from '../../Components/AsyncStorage';
 
 
 const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL , process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
@@ -28,6 +29,7 @@ export default function Home() {
   const [TicketDolarLoad,setTicketDolarLoad]=useState(true);
 
   const[Load,SetLoad]=useState(false);
+  const [saldo, setSaldo] = useState(0.00);
 
   const router= useRouter();
   // === LÓGICA DE GEOLOCALIZACIÓN (Mantenemos tu lógica original) ===
@@ -124,6 +126,44 @@ const PreciodelTicketbs = async () => {
       
 };
 
+// --- 1. NUEVA FUNCIÓN PARA OBTENER EL SALDO DESDE "Saldo_usuarios" ---
+const obtenerSaldoReal = async () => {
+  try {
+    const userid = await getuserid();
+    if (!userid) return;
+
+    // Cambiamos .single() por .maybeSingle() para evitar el error de "0 o múltiples filas"
+    const { data, error } = await supabase
+      .from('Saldo_usuarios')
+      .select('saldo')
+      .eq('external_user_id', userid.trim())
+      .maybeSingle(); 
+
+    if (error) {
+      console.log("Error consultando saldo:", error.message);
+      return;
+    }
+
+    if (data) {
+      // Si existe el registro, cargamos el saldo
+      setSaldo(data.saldo);
+    } else {
+      // Si data es null, significa que el usuario no tiene fila en esa tabla todavía
+      console.log("El usuario no tiene registro de saldo. Iniciando en 0.");
+      setSaldo(0.00);
+      
+      // OPCIONAL: Podrías crear la fila automáticamente aquí si quieres
+      /*
+      await supabase.from('Saldo_usuarios').insert([
+        { external_user_id: userid.trim(), saldo: 0.00 }
+      ]);
+      */
+    }
+  } catch (error) {
+    console.log("Error crítico en obtenerSaldoReal:", error);
+  }
+};
+
  useEffect(() => {
     // A. Cargar Ubicación
     obtenerUbicacionOrigen();
@@ -155,6 +195,7 @@ const PreciodelTicketbs = async () => {
 
         setTicketDolar(calculoDolar);
         setTicketDolarLoad(false);
+        obtenerSaldoReal();
 
       } catch (error) {
         console.error("Fallo masivo en carga:", error);
@@ -194,18 +235,27 @@ const handleSearch = () => {
   
       <View style={styles.mainContainer}>
       <StatusBar barStyle="light-content" />
+      {/* BOTÓN DE ESCÁNER FLOTANTE */}
+ 
       <ScrollView contentContainerStyle={{  backgroundColor: "#ffffffff", width:'100%' }} 
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={true}
               bounces={false}
               >
+
       {/* SECCIÓN SUPERIOR AZUL */}
       <View style={styles.headerBackground}>
-       
+
+            <TouchableOpacity 
+              style={{position: 'absolute',top: 45,left: 15,zIndex: 100}} 
+              onPress={() => console.log("Abrir Escáner")}
+            >
+              <Ionicons name="barcode-outline" size={23} color="white" />
+            </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Image style={{width:210, height:210, position:'absolute', top:10, left:110}} source={require("../../../assets/img/autobuss.png")}></Image>
+            <Image style={{width:210, height:210, position:'absolute', top:13, left:110}} source={require("../../../assets/img/autobuss.png")}></Image>
             
-            <View>
+            <View style={{marginTop:23, marginLeft:13}}>
               <Text style={styles.userName}>¡Bienvenido!</Text>
               <Text style={styles.welcomeSub}>¡A Ciudad Guayana Bus!</Text>
             </View>
@@ -304,7 +354,7 @@ const handleSearch = () => {
         {/* TARJETA DE SALDO (NARANJA) */}
       <View style={styles.balanceCard}>
         <Text style={styles.balanceLabel}>Saldo actual</Text>
-        <Text style={styles.balanceAmount}>Bs. 54.59</Text>
+        <Text style={styles.balanceAmount}>{saldo ? `Bs.${saldo.toFixed(1)}`:`Bs. ${saldo.toFixed(2)}` }</Text>
       </View>
 
       </ScrollView>
@@ -326,6 +376,18 @@ const handleSearch = () => {
 }
 
 const styles = StyleSheet.create({
+  scannerButton: {
+    position: 'absolute',top: 45,left: 15,zIndex: 100
+  },
+  loaderFull: {
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#ffffff95",
+    height: '100%',
+    position: 'absolute',
+    width: '100%',
+    zIndex: 200
+  },
   mainContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -344,9 +406,7 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   welcomeText: {
-    fontSize: 28,
-    color: 'white',
-    fontWeight: 'bold',
+    fontSize: 28,color: 'white',fontWeight: 'bold',
   },
   userName: {
     fontSize: 28,

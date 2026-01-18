@@ -13,6 +13,19 @@
         "method": "google"
       }
     },
+        {
+      "_id": "6581f1a2b3c4d5e6f7a8b901",
+      "fullName": "pasajero",
+      "email": "conductor@gmail.com",
+      "password": "pasajero_123",
+      "role": "passenger",
+      "credit": 500,
+      "createdAt": "2023-10-15T10:30:00Z",
+      "updatedAt": "2023-12-01T15:20:00Z",
+      "auth": {
+        "method": "google"
+      }
+    },
     {
       "_id": "6581f1a2b3c4d5e6f7a8b904",
       "fullName": "Lucia Fernandez",
