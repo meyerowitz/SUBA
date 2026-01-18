@@ -252,6 +252,7 @@ const handleSearch = () => {
             >
               <Ionicons name="barcode-outline" size={23} color="white" />
             </TouchableOpacity>
+            
           <View style={styles.headerContent}>
             <Image style={{width:210, height:210, position:'absolute', top:13, left:110}} source={require("../../../assets/img/autobuss.png")}></Image>
             

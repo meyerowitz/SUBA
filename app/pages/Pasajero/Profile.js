@@ -1,7 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity} from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, StatusBar} from 'react-native';
 import { Ionicons } from '@expo/vector-icons'; // Viene por defecto en Expo
-import { SafeAreaView } from 'react-native-web';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Volver from '../../Components/Botones_genericos/Volver';
 import { router } from 'expo-router';
 
@@ -10,6 +10,7 @@ import {getuserid,getusername} from '../../Components/AsyncStorage';
 export default function Profile() {
   return (
     <SafeAreaView  style={styles.container}>
+        <StatusBar translucent={true} backgroundColor='#D99015' barStyle="ligth-content"></StatusBar>
       <View style={styles.card}>
         {/* Sección Superior Naranja */}
         <View style={styles.orangeHeader} />
@@ -41,7 +42,7 @@ export default function Profile() {
           <Text style={styles.logoutText}>CERRAR SESIÓN</Text>
         </TouchableOpacity>
       </View>
-      <Volver route={"./Navigation"} color={"white"} style={{top:20, left:10}}></Volver>
+      <Volver route={"./Navigation"} color={"white"} style={{top:50, left:10}}></Volver>
     </SafeAreaView >
   );
 }
