@@ -259,33 +259,33 @@
             }
         };
 
-        // 3. Función de Renderizado de Paradas (Nueva)
-        window.renderBusStops = function(overpassData) {
-        // Limpiar paradas anteriores
-        if (busStopsLayer) {
-            map.removeLayer(busStopsLayer);
-        }
+        // 3. Función de Renderizado de Paradas (Nueva - Optimizada)
+        const canvasRenderer = L.canvas({ padding: 0.5 });
         
-        busStopsLayer = L.layerGroup().addTo(map);
-
-        if (overpassData && overpassData.elements) {
+        window.renderBusStops = function(simpleStopsData) {
+            // Limpiar paradas anteriores
+            if (busStopsLayer) {
+                map.removeLayer(busStopsLayer);
+            }
             
-            const stopIcon = L.divIcon({
-                className: 'bus-stop-icon',
-                html: '<div style="background-color: #F54927; border-radius: 50%; width: 12px; height: 12px; border: 2px solid white;"></div>', 
-                iconSize: [8, 8],
-                iconAnchor: [8, 8]
-            });
+            busStopsLayer = L.layerGroup(); // No lo añadimos al mapa inmediatamente
 
-            overpassData.elements.forEach(element => {
-                if (element.type === 'node') {
-                    const lat = element.lat;
-                    const lon = element.lon;
-                    const name = (element.tags && element.tags.name) ? element.tags.name : 'Parada de bus';
+            if (simpleStopsData && Array.isArray(simpleStopsData)) {
+                
+                simpleStopsData.forEach(stop => {
+                    const lat = stop.lat;
+                    const lon = stop.lon;
+                    const name = stop.name || 'Parada de bus';
                     
-                    const marker = L.marker([lat, lon], { icon: stopIcon })
-                        .bindPopup(`<b>Parada:</b> ${name}`);
-                    
+                    const marker = L.circleMarker([lat, lon], {
+                        renderer: canvasRenderer,
+                        radius: 6,
+                        fillColor: "#F54927",
+                        color: "#FFFFFF",
+                        weight: 2,
+                        fillOpacity: 0.8
+                    });
+
                     // AÑADIR EVENTO CLICK A CADA PARADA
                     marker.on('click', function(e) {
                         // 1. Resaltar visualmente aquí mismo
@@ -303,12 +303,29 @@
                     });
 
                     marker.addTo(busStopsLayer);
+                });
+            }
+
+            // Lógica inicial de visibilidad basada en el zoom actual
+            if (map.getZoom() > 14) {
+                map.addLayer(busStopsLayer);
+            }
+        };
+
+        // Control de Zoom para Visualización de Paradas
+        map.on('zoomend', function() {
+            if (busStopsLayer) {
+                if (map.getZoom() > 14) {
+                    if (!map.hasLayer(busStopsLayer)) {
+                        map.addLayer(busStopsLayer);
+                    }
+                } else {
+                    if (map.hasLayer(busStopsLayer)) {
+                        map.removeLayer(busStopsLayer);
+                    }
                 }
-            });
-            
-        }
-    
-    };
+            }
+        });
         
         // 4. Función para Renderizar los buses ubicados en la API
         window.renderBusLocations = function(busData) {
