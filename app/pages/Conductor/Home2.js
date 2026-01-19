@@ -12,7 +12,7 @@ import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
 import mqtt from "mqtt";
 
-const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL, process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
 // Constante para el storage
 const BUS_ID_KEY = "@MyBusId";
