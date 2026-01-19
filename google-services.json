@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "159501895592",
+    "project_id": "suba-483203",
+    "storage_bucket": "suba-483203.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:159501895592:android:8ef1bae4fd36c2b8b5ff9d",
+        "android_client_info": {
+          "package_name": "com.anonymous.BusTrackerCiudBolivar"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "159501895592-g8gsjlrk3b1kacc31jh48jbtacs7304l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.anonymous.BusTrackerCiudBolivar",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "159501895592-5oooqd8f4kvcque2n1aacrk9c93bq0op.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDq6bqiPQC_lS51N2VpUyLy0ZI7s7pcf6U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "159501895592-5oooqd8f4kvcque2n1aacrk9c93bq0op.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "159501895592-rg8n8i2ab5le35m97m3p8b76657cgnal.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.anonymous.BusTrackerCiudBolivar"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

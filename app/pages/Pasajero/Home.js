@@ -6,7 +6,11 @@ import Destinos from "../../Components/Destinos.json";
 import { Picker } from "@react-native-picker/picker";
 import Feather from 'react-native-vector-icons/Feather';
 import { useRouter } from 'expo-router';
+import { createClient } from '@supabase/supabase-js';
+import {getuserid,getusername} from '../../Components/AsyncStorage';
 
+
+const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
 export default function Home() {
   const [ubicacionActual, setUbicacionActual] = useState('');
@@ -15,16 +19,17 @@ export default function Home() {
   const [cargandoOrigen, setCargandoOrigen] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
 
-  const [DolarBcv,setPrecioBCV ]=useState('');
+  const [DolarBcv,setPrecioBCV ]=useState('1');
   const [DolarBcvLoading,setPrecioBCVLoad ]=useState(true);
 
-  const [TicketBs,setTicketBs]=useState();
+  const [TicketBs,setTicketBs]=useState(1);
   const [TicketBsLoad,setTicketBsLoad]=useState(true);
 
   const [TicketDolar,setTicketDolar]=useState('');
   const [TicketDolarLoad,setTicketDolarLoad]=useState(true);
 
   const[Load,SetLoad]=useState(false);
+  const [saldo, setSaldo] = useState(0.00);
 
   const router= useRouter();
   // === LÓGICA DE GEOLOCALIZACIÓN (Mantenemos tu lógica original) ===
@@ -69,11 +74,47 @@ export default function Home() {
   }
 };
 
-  const PreciodelTicketbs = async () => {
-    setTicketBs(40);
-    setTicketBsLoad(false);
-    console.log("false setTicketBsLoad")
+const obtenerDatoPasaje = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pasaje_y_tarifas')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      console.log(data);
+      if (error) throw error;
+      return data ? data.pasaje : 0;
+    } catch (error) {
+      console.error("Error Supabase:", error);
+      return 0;
+    }
   };
+
+const PreciodelTicketbs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('pasaje_y_tarifas')
+      .select('pasaje')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (data) {
+      setTicketBs(data.pasaje);
+      setTicketBsLoad(false);
+      return data.pasaje; // Retornamos el número
+    }
+    return 0;
+  } catch (error) {
+    console.error("Error en Supabase:", error);
+    setTicketBsLoad(false);
+    return 0;
+  }
+};
+
   const PreciodelTicketdolar = async () => {
       if(TicketBsLoad === false){
         console.log("false setTicketDolarLoad false")
@@ -85,40 +126,88 @@ export default function Home() {
       
 };
 
-  useEffect(() => {
-  obtenerUbicacionOrigen();
-  
-  // Ejecutamos la carga de datos financieros en orden
-  const cargarDatosFinancieros = async () => {
-    try {
-      // 1. Obtener Dólar
-      const respuesta = await fetch('https://ve.dolarapi.com/v1/dolares');
-      const datos = await respuesta.json();
-      const oficial = datos.find(d => d.fuente === 'oficial');
-      const valorDolar = oficial.promedio;
-      
-      setPrecioBCV(valorDolar);
-      setPrecioBCVLoad(false);
+// --- 1. NUEVA FUNCIÓN PARA OBTENER EL SALDO DESDE "Saldo_usuarios" ---
+const obtenerSaldoReal = async () => {
+  try {
+    const userid = await getuserid();
+    if (!userid) return;
 
-      // 2. Establecer Ticket BS (Hardcoded por ahora)
-      const valorTicketBs = 40;
-      setTicketBs(valorTicketBs);
-      setTicketBsLoad(false);
+    // Cambiamos .single() por .maybeSingle() para evitar el error de "0 o múltiples filas"
+    const { data, error } = await supabase
+      .from('Saldo_usuarios')
+      .select('saldo')
+      .eq('external_user_id', userid.trim())
+      .maybeSingle(); 
 
-      // 3. Calcular Dólar inmediatamente con los valores locales, no con el estado
-      // porque el estado aún no se ha "refrescado" en esta vuelta del ciclo
-      const calculoDolar = valorTicketBs / valorDolar;
-      setTicketDolar(calculoDolar.toFixed(2));
-      setTicketDolarLoad(false);
-
-    } catch (error) {
-      console.error("Error en carga financiera:", error);
+    if (error) {
+      console.log("Error consultando saldo:", error.message);
+      return;
     }
-  };
 
-  cargarDatosFinancieros();
-}, []); // Solo se ejecuta al montar
+    if (data) {
+      // Si existe el registro, cargamos el saldo
+      setSaldo(data.saldo);
+    } else {
+      // Si data es null, significa que el usuario no tiene fila en esa tabla todavía
+      console.log("El usuario no tiene registro de saldo. Iniciando en 0.");
+      setSaldo(0.00);
+      
+      // OPCIONAL: Podrías crear la fila automáticamente aquí si quieres
+      /*
+      await supabase.from('Saldo_usuarios').insert([
+        { external_user_id: userid.trim(), saldo: 0.00 }
+      ]);
+      */
+    }
+  } catch (error) {
+    console.log("Error crítico en obtenerSaldoReal:", error);
+  }
+};
 
+ useEffect(() => {
+    // A. Cargar Ubicación
+    obtenerUbicacionOrigen();
+
+    // B. Cargar Datos Financieros de forma secuencial
+    const cargarFinanzas = async () => {
+      try {
+        // I. Obtener Dólar
+        const resDolar = await fetch('https://ve.dolarapi.com/v1/dolares');
+        const jsonDolar = await resDolar.json();
+        const oficial = jsonDolar.find(d => d.fuente === 'oficial');
+        const valorDolarActual = oficial.promedio;
+
+        // II. Obtener Pasaje (Esperamos a Supabase)
+        const valorPasajeBs = await obtenerDatoPasaje();
+
+        // III. Calcular el equivalente en Dólares
+        let calculoDolar = 0;
+        if (valorPasajeBs > 0 && valorDolarActual > 0) {
+          calculoDolar = (valorPasajeBs / valorDolarActual).toFixed(2);
+        }
+
+        // IV. ACTUALIZACIÓN ÚNICA DE ESTADOS (Evita el loop)
+        setPrecioBCV(valorDolarActual);
+        setPrecioBCVLoad(false);
+
+        setTicketBs(valorPasajeBs);
+        setTicketBsLoad(false);
+
+        setTicketDolar(calculoDolar);
+        setTicketDolarLoad(false);
+        obtenerSaldoReal();
+
+      } catch (error) {
+        console.error("Fallo masivo en carga:", error);
+        // Fallback para evitar loaders infinitos si falla el internet
+        setPrecioBCVLoad(false);
+        setTicketBsLoad(false);
+        setTicketDolarLoad(false);
+      }
+    };
+
+    cargarFinanzas();
+  }, []);
 
 
 const handleSearch = () => {
@@ -146,22 +235,32 @@ const handleSearch = () => {
   
       <View style={styles.mainContainer}>
       <StatusBar barStyle="light-content" />
+      {/* BOTÓN DE ESCÁNER FLOTANTE */}
+ 
       <ScrollView contentContainerStyle={{  backgroundColor: "#ffffffff", width:'100%' }} 
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={true}
               bounces={false}
               >
+
       {/* SECCIÓN SUPERIOR AZUL */}
       <View style={styles.headerBackground}>
-       
-          <View style={styles.headerContent}>
-            <Image style={{width:210, height:210, position:'absolute', top:10, left:110}} source={require("../../../assets/img/autobuss.png")}></Image>
+
+            <TouchableOpacity 
+              style={{position: 'absolute',top: 45,left: 15,zIndex: 100}} 
+              onPress={() => console.log("Abrir Escáner")}
+            >
+              <Ionicons name="barcode-outline" size={23} color="white" />
+            </TouchableOpacity>
             
-            <View>
+          <View style={styles.headerContent}>
+            <Image style={{width:210, height:210, position:'absolute', top:13, left:110}} source={require("../../../assets/img/autobuss.png")}></Image>
+            
+            <View style={{marginTop:23, marginLeft:13}}>
               <Text style={styles.userName}>¡Bienvenido!</Text>
               <Text style={styles.welcomeSub}>¡A Ciudad Guayana Bus!</Text>
             </View>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={()=>{router.replace("./Profile")}}>
               <Ionicons name="person-circle-outline" size={50} color="white" />
             </TouchableOpacity>
 
@@ -256,7 +355,7 @@ const handleSearch = () => {
         {/* TARJETA DE SALDO (NARANJA) */}
       <View style={styles.balanceCard}>
         <Text style={styles.balanceLabel}>Saldo actual</Text>
-        <Text style={styles.balanceAmount}>Bs. 54.59</Text>
+        <Text style={styles.balanceAmount}>{saldo ? `Bs.${saldo.toFixed(1)}`:`Bs. ${saldo.toFixed(2)}` }</Text>
       </View>
 
       </ScrollView>
@@ -278,6 +377,18 @@ const handleSearch = () => {
 }
 
 const styles = StyleSheet.create({
+  scannerButton: {
+    position: 'absolute',top: 45,left: 15,zIndex: 100
+  },
+  loaderFull: {
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#ffffff95",
+    height: '100%',
+    position: 'absolute',
+    width: '100%',
+    zIndex: 200
+  },
   mainContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -296,9 +407,7 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   welcomeText: {
-    fontSize: 28,
-    color: 'white',
-    fontWeight: 'bold',
+    fontSize: 28,color: 'white',fontWeight: 'bold',
   },
   userName: {
     fontSize: 28,

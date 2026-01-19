@@ -42,6 +42,22 @@ export default function RootLayout() {
        
         }} 
       />
+       <Stack.Screen 
+      name="pages/Pasajero/Profile" 
+      options={{ 
+        animation: 'slide_from_right', // Esta subirá como un panel
+       
+        }} 
+      />
+
+            <Stack.Screen 
+      name="pages/Pasajero/Wallet" 
+      options={{ 
+        animation: 'none', // Esta subirá como un panel
+       
+        }} 
+      />
+
       <Stack.Screen 
       name="pages/Conductor/Home" 
       options={{ 

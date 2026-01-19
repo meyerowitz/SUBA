@@ -13,11 +13,35 @@
         "method": "google"
       }
     },
+        {
+      "_id": "6581f1a2b3c4d5e6f7a8b901",
+      "fullName": "pasajero",
+      "email": "conductor@gmail.com",
+      "password": "pasajero_123",
+      "role": "passenger",
+      "credit": 500,
+      "createdAt": "2023-10-15T10:30:00Z",
+      "updatedAt": "2023-12-01T15:20:00Z",
+      "auth": {
+        "method": "google"
+      }
+    },
     {
       "_id": "6581f1a2b3c4d5e6f7a8b904",
-      "fullName": "pasajero",
+      "fullName": "Lucia Fernandez",
       "email": "lucia.fer@example.com",
       "password": "pasajero_123",
+      "role": "passenger",
+      "status": "inactive",
+      "visibility": false,
+      "route_id": "route_005",
+      "createdAt": "2023-12-12T11:20:00Z"
+    },
+      {
+      "_id": "6581f1a2b3c4d5e6f7a8b904",
+      "fullName": "Rebeca Meyerowitz",
+      "email": "meyerowitzrebeca@gmail.com",
+      "password": "Rbk1234#",
       "role": "passenger",
       "status": "inactive",
       "visibility": false,

@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,17 +20,20 @@
       "permissions": [
         "INTERNET",
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "splash": {
         "backgroundColor": "#FFFFFF"
       },
       "softwareKeyboardLayoutMode": "adjustResize"
+      
     },
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "54d8f8e5-393d-470b-98ea-a424f73d94cb"
+        "projectId": "c66c9288-e9ff-4d2d-bc16-26a995e42e6a"
       }
     },
     "plugins": [
@@ -51,9 +55,12 @@
         }
       ],
       [
+        "@react-native-google-signin/google-signin"
+      ],
+      [
         "expo-splash-screen",
         {
-          "image": "./assets/img/icono4.png", 
+          "image": "./assets/img/icono4.png",
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"
         }

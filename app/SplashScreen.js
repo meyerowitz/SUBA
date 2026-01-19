@@ -38,8 +38,6 @@ export default function SplashScreen () {
     });
   }, [fadeAnim, router]);
 
-
-
   return (
     <View style={{flex:1}}>
         <StatusBar translucent={true} backgroundColor="transparent" barStyle="ligth-content"></StatusBar>
