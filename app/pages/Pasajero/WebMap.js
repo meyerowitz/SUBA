@@ -342,8 +342,17 @@ export default function WebMap() {
     if (isMapReady && webviewRef.current && !stopsInjected) {
         fetchGuayanaBusStops()
             .then(overpassData => {
-                if (overpassData) {
-                    const dataString = JSON.stringify(overpassData);
+                if (overpassData && overpassData.elements) {
+                    // Filtrar y aligerar los datos antes de enviarlos al Bridge
+                    const simpleStops = overpassData.elements
+                        .filter(el => el.type === 'node')
+                        .map(el => ({
+                            lat: el.lat,
+                            lon: el.lon,
+                            name: (el.tags && el.tags.name) ? el.tags.name : 'Parada'
+                        }));
+
+                    const dataString = JSON.stringify(simpleStops);
 
                     // Inyectar JavaScript en el WebView
                     const stopsJsCode = `renderBusStops(${dataString}); true;`;
