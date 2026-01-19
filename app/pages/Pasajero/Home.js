@@ -10,7 +10,7 @@ import { createClient } from '@supabase/supabase-js';
 import {getuserid,getusername} from '../../Components/AsyncStorage';
 
 
-const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL , process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
 export default function Home() {
   const [ubicacionActual, setUbicacionActual] = useState('');

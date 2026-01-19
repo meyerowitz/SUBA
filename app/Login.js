@@ -191,6 +191,7 @@ const handleLogin = async () => {
     setIsLoading(true); // Iniciamos el estado de carga (para ver tu GIF)
 
     // 2. Petición POST a la API
+
     const response = await fetch('https://subapp-api.onrender.com/auth/login', {
       method: 'POST',
       headers: {
@@ -221,7 +222,9 @@ const handleLogin = async () => {
         }
     
 
-    } else {
+    
+      
+      } else {
       // 5. Si la API devuelve error (401, 404, etc.)
       setIsLoading(false);
       Alert.alert("Error", data.message || "Usuario o contraseña incorrectos");

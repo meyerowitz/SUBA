@@ -1,56 +1,110 @@
-import React, { useState, useEffect , useRef} from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Switch,StatusBar } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Alert, StatusBar } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { createClient } from '@supabase/supabase-js';
-import {getuserid,getusername} from '../../Components/AsyncStorage';
+import { getusername } from '../../Components/AsyncStorage';
 import * as Location from "expo-location";
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
 import mqtt from "mqtt";
 
-const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL , process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
+
+// Constante para el storage
+const BUS_ID_KEY = "@MyBusId";
 
 export default function HomeConductor() {
   const [enLinea, setEnLinea] = useState(false);
   const [resumenHoy, setResumenHoy] = useState({ pasajeros: 0, totalBs: 0 });
   const [saldoTotal, setSaldoTotal] = useState(0.00);
-  const [DriverName, setDriverName] =useState("");
+  const [DriverName, setDriverName] = useState("");
   const router = useRouter();
 
-
-  const [errorMsg, setErrorMsg] = useState(null);
+  // --- ESTADOS DE RASTREO ---
   const [myLocation, setMyLocation] = useState(null);
+  const [myRuta, setMyRuta] = useState(null);
   const [busId, setBusId] = useState("CARGANDO...");
-  
+  const [errorMsg, setErrorMsg] = useState(null);
 
- 
-  // --- ESTADOS ---
-  const [ubicacionText, setUbicacionText] = useState("Desconectado");
-  const [saldo, setSaldo] = useState(0.0);
-  
   // --- REFS PARA LÓGICA DE FONDO ---
   const mqttClientRef = useRef(null);
   const locationIntervalRef = useRef(null);
-  // Usamos useRef para acceder a los valores más recientes dentro de setInterval
-    const myLocationRef = useRef(myLocation);
-    const busIdRef = useRef(busId);
+  const busIdRef = useRef(busId);
 
-  // --- FUNCIÓN: INICIAR TRANSMISIÓN (MQTT + GPS) ---
+  // Mantener la referencia del ID actualizada para el intervalo
+  useEffect(() => {
+    busIdRef.current = busId;
+  }, [busId]);
+
+  // --- FUNCIÓN: CARGAR O GENERAR ID ---
+  const loadBusId = async () => {
+    let storedId = await AsyncStorage.getItem(BUS_ID_KEY);
+    if (storedId) {
+      setBusId(storedId);
+      return storedId;
+    }
+    const newId = uuidv4();
+    await AsyncStorage.setItem(BUS_ID_KEY, newId);
+    setBusId(newId);
+    return newId;
+  };
+
+  // --- FUNCIÓN: INICIAR TRANSMISIÓN ---
   const iniciarTurno = async () => {
-    // 1. Pedir permisos
     let { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert("Error", "Se requieren permisos de ubicación para trabajar.");
+      Alert.alert("Error", "Se requieren permisos de ubicación.");
       setEnLinea(false);
       return;
     }
 
-    // 2. Conectar MQTT
+    // 1. Obtener ubicación inicial y convertir a nombre de calle (solo una vez)
+    let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    setMyLocation(location.coords);
+
+    let geocode = await Location.reverseGeocodeAsync({
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude
+    });
+
+    if (geocode && geocode.length > 0) {
+      const addr = geocode[0];
+      
+      // Creamos una jerarquía: 
+      // 1. Calle (street)
+      // 2. Barrio/Distrito (district/subregion)
+      // 3. Si todo lo anterior falla, el código que ya conoces (name)
+      
+      const calle = addr.street;
+      const sector = addr.district || addr.subregion;
+      const ciud = addr.city;
+      const codigo = addr.name;
+
+      let direccionFinal = "";
+
+      if (calle && !calle.includes('+')) { 
+        // Si hay calle y no parece un código (no tiene el signo +)
+        if(sector){
+        direccionFinal = calle+", "+sector+", "+ciud;} 
+        else{
+          
+          direccionFinal = calle+", "+ciud;
+        }
+      } else if (sector) {
+        // Si la calle es nula o es un código, usamos el nombre del Barrio/Sector
+        direccionFinal = sector+", "+ciud;
+      } else {
+        // Como último recurso, el código numérico
+        direccionFinal = codigo || "Ruta en movimiento";
+      }
+
+      setMyRuta(direccionFinal);
+    }
+
     const client = mqtt.connect("wss://3ef878324832459c8b966598a4c58112.s1.eu.hivemq.cloud:8884/mqtt", {
       username: "testeo",
       password: "123456Abc",
@@ -61,116 +115,104 @@ export default function HomeConductor() {
       mqttClientRef.current = client;
     });
 
-    // 3. Iniciar bucle de ubicación
+    // Intervalo de envío cada 5 segundos
     locationIntervalRef.current = setInterval(async () => {
-      let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      myLocationRef.current = loc.coords;
-      setUbicacionText(`${loc.coords.latitude.toFixed(4)}, ${loc.coords.longitude.toFixed(4)}`);
-
-      if (mqttClientRef.current?.connected) {
-        const payload = {
-          bus_id: busId,
+      try {
+        let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        const coords = {
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
           speed: loc.coords.speed || 0,
-          status: "active"
         };
-        mqttClientRef.current.publish("subapp/driver", JSON.stringify(payload));
+        
+        setMyLocation(coords);
+
+        if (mqttClientRef.current?.connected) {
+          const payload = {
+            bus_id: busIdRef.current,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            speed: coords.speed,
+            status: "active"
+          };
+          mqttClientRef.current.publish("subapp/driver", JSON.stringify(payload));
+          console.log("📤 Ubicación enviada");
+        }
+      } catch (e) {
+        console.error("Error obteniendo ubicación:", e);
       }
-    }, 5000); // Cada 5 segundos
+    }, 5000);
   };
 
-  // --- FUNCIÓN: DETENER TODO ---
   const detenerTurno = () => {
     if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
     if (mqttClientRef.current) mqttClientRef.current.end();
     mqttClientRef.current = null;
-    setUbicacionText("Desconectado");
+    setMyRuta(null); // <--- Agrega esto
+    setMyLocation(null);
     console.log("🛑 Turno finalizado");
   };
 
-  // Función para cargar o generar el ID del Bus
-    const getOrGenerateBusId = async () => {
-  let storedId = await AsyncStorage.getItem(BUS_ID_KEY);
-  if (storedId) {
-    console.log("ID cargada:", storedId);
-    return storedId;
-  }
-  const newId = uuidv4();
-  await AsyncStorage.setItem(BUS_ID_KEY, newId);
-  console.log("ID generada y guardada:", newId);
-  return newId;
-    };
-  // --- EFECTO DEL SWITCH ---
+  // --- EFECTOS ---
+  useEffect(() => {
+    loadBusId();
+    const username = getusername();
+    setDriverName(username);
+    setSaldoTotal(1250.50);
+    setResumenHoy({ pasajeros: 24, totalBs: 480.00 });
+  }, []);
+
   useEffect(() => {
     if (enLinea) {
       iniciarTurno();
     } else {
       detenerTurno();
     }
-    return () => detenerTurno(); // Limpieza al salir
+    return () => detenerTurno();
   }, [enLinea]);
-  //----UseEffects cargar ubicacion del bus----
-    useEffect(() => {
-      (async () => {
-        let test = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-          timeInterval: 1000,
-          distanceInterval: 1,
-        });
-        const newCoords = {
-          latitude: test.coords.latitude,
-          longitude: test.coords.longitude,
-          speed: test.coords.speed || 0, // Asegura que 'speed' exista
-        };
-        setMyLocation(newCoords);
-      })();
-  
-      myLocationRef.current = myLocation;
-      busIdRef.current = busId;
-    }, [myLocation, busId]);
-    
-  useEffect(() => {
-    // Aquí llamarías a tus funciones de Supabase como 'obtenerSaldoReal'
-    const username = getusername();
-    setDriverName(username);
-    setSaldoTotal(1250.50); 
-    setResumenHoy({ pasajeros: 24, totalBs: 480.00 });
-  }, []);
 
   return (
     <SafeAreaView style={styles.mainContainer}>
+      <StatusBar barStyle="light-content" />
       <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
         
         {/* HEADER CONDUCTOR */}
         <View style={styles.headerConductor}>
-          <View style={{flexDirection: 'row', justifyContent: 'space-between',marginBottom:-40 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: -40 }}>
             <TouchableOpacity onPress={() => router.push("./Profile")}>
               <Ionicons name="person-circle-outline" size={45} color="white" />
             </TouchableOpacity>
-            <View style={{}}>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>{enLinea ? "EN RUTA" : "DESCONECTADO"}</Text>
-              <Switch 
-                value={enLinea} 
-                onValueChange={setEnLinea}
-                trackColor={{ false: "#767577", true: "#34C759" }}
-              />
+            
+            <View>
+              <View style={styles.statusBadge}>
+                <Text style={styles.statusText}>{enLinea ? "ONLINE" : "OFFLINE"}</Text>
+                <Switch 
+                  value={enLinea} 
+                  onValueChange={setEnLinea}
+                  trackColor={{ false: "#767577", true: "#34C759" }}
+                />
+              </View>
               
-            </View>
-                <Text style={{color: 'white', fontSize: 10, fontWeight: 'bold', marginLeft:45}}>Operador: {busId}</Text>
-                <Text style={{color: 'white', fontSize: 8, fontWeight: 'bold', marginLeft:50 , color:"#767577"}}>Lat: {busId} Long:</Text>
-                
+              {/* ID DEL DISPOSITIVO */}
+              <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold', marginLeft: 15, marginTop: 5 }}>
+                Operador: {busId.slice(-6)}
+              </Text>
+              
+              {/* COORDENADAS EN TIEMPO REAL */}
+              <Text style={{ color: "#767577", fontSize: 9, fontWeight: 'bold', marginLeft: 15 }}>
+                Lat: {myLocation ? myLocation.latitude.toFixed(6) : "---"} Long: {myLocation ? myLocation.longitude.toFixed(6) : "---"}
+              </Text>
             </View>
           </View>
           
           <View style={styles.welcomeContainer}>
-            <Text style={styles.driverName}>Hola,{DriverName !== "" ? DriverName : "undefined"}</Text>
-            <Text style={styles.unitText}>Unidad: #104 - Ruta Troncal 1</Text>
+            <Text style={styles.driverName}>Hola, {DriverName || "Conductor"}</Text>
+            <Text style={styles.unitText}>Unidad: #104 - {myRuta || (enLinea ? "Obteniendo calle..." : "En espera")}</Text>
           </View>
         </View>
 
-        {/* TARJETAS DE MÉTRICAS RÁPIDAS */}
+        {/* ... Resto de tus componentes (Métricas, Saldo, Acciones) se mantienen igual ... */}
+        
         <View style={styles.statsContainer}>
           <View style={[styles.statCard, { borderLeftColor: '#34C759', borderLeftWidth: 5 }]}>
             <Text style={styles.statLabel}>Pasajeros Hoy</Text>
@@ -182,7 +224,6 @@ export default function HomeConductor() {
           </View>
         </View>
 
-        {/* SALDO PRINCIPAL */}
         <View style={styles.mainBalanceCard}>
           <View>
             <Text style={styles.mainBalanceLabel}>Saldo Acumulado</Text>
@@ -193,12 +234,8 @@ export default function HomeConductor() {
           </TouchableOpacity>
         </View>
 
-        {/* SECCIÓN DE ACCIONES */}
         <View style={styles.actionGrid}>
-          <TouchableOpacity 
-            style={styles.actionCard} 
-            onPress={() => router.push("./GenerarQR")} // Aquí iría tu vista de QR
-          >
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push("./GenerarQR")}>
             <View style={[styles.iconCircle, { backgroundColor: '#E3F2FD' }]}>
               <Ionicons name="qr-code" size={30} color="#007AFF" />
             </View>
@@ -206,30 +243,13 @@ export default function HomeConductor() {
             <Text style={styles.actionDesc}>Mostrar para cobrar</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.actionCard}
-            onPress={() => router.push("./MapaRuta")}
-          >
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push("./MapaRuta")}>
             <View style={[styles.iconCircle, { backgroundColor: '#F1F8E9' }]}>
               <Ionicons name="map" size={30} color="#34C759" />
             </View>
             <Text style={styles.actionTitle}>Iniciar Ruta</Text>
             <Text style={styles.actionDesc}>Ver mapa y paradas</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* ÚLTIMOS MOVIMIENTOS */}
-        <View style={styles.recentSection}>
-          <Text style={styles.sectionTitle}>Últimos Cobros</Text>
-          {/* Mapear transacciones de Supabase aquí */}
-          <View style={styles.transactionItem}>
-            <Ionicons name="checkmark-circle" size={24} color="#34C759" />
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.transUser}>Usuario #4521</Text>
-              <Text style={styles.transTime}>Hace 2 min</Text>
-            </View>
-            <Text style={styles.transAmount}>+ Bs. 20.00</Text>
-          </View>
         </View>
 
       </ScrollView>

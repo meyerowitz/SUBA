@@ -27,8 +27,8 @@
       "splash": {
         "backgroundColor": "#FFFFFF"
       },
-      "softwareKeyboardLayoutMode": "adjustResize",
-       "googleServicesFile": "./google-services.json"
+      "softwareKeyboardLayoutMode": "adjustResize"
+      
     },
     "extra": {
       "router": {},
