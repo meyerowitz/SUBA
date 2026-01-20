@@ -10,7 +10,7 @@ import {getuserid,getusername} from '../../Components/AsyncStorage';
 export default function Profile() {
   return (
     <SafeAreaView  style={styles.container}>
-        <StatusBar translucent={true} backgroundColor='#D99015' barStyle="ligth-content"></StatusBar>
+        <StatusBar  backgroundColor='#D99015' barStyle="ligth-content"></StatusBar>
       <View style={styles.card}>
         {/* Sección Superior Naranja */}
         <View style={styles.orangeHeader} />

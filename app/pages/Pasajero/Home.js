@@ -248,7 +248,7 @@ const handleSearch = () => {
 
             <TouchableOpacity 
               style={{position: 'absolute',top: 45,left: 15,zIndex: 100}} 
-              onPress={() => console.log("Abrir Escáner")}
+              onPress={() => router.push("/Components/ScannerQR")}
             >
               <Ionicons name="barcode-outline" size={23} color="white" />
             </TouchableOpacity>
