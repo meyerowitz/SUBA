@@ -6,6 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { Asset } from "expo-asset";
 import * as Location from "expo-location";
 import * as FileSystem from "expo-file-system/legacy";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
@@ -34,7 +35,29 @@ const OVERPASS_SERVERS = [
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
 ];
 
+const STOP_CACHE_KEY = "guayana_bus_stops_cache";
+const STOP_CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 horas
+
 const fetchGuayanaBusStops = async (retry = 0) => {
+  // 1. Intentar cargar desde caché primero (solo en el primer intento)
+  if (retry === 0) {
+    try {
+      const cached = await AsyncStorage.getItem(STOP_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const now = Date.now();
+        if (now - parsed.timestamp < STOP_CACHE_EXPIRY) {
+          console.log("✅ Paradas cargadas desde caché local (AsyncStorage).");
+          return parsed.data;
+        } else {
+          console.log("⚠️ Caché de paradas expirado. Descargando nuevo...");
+        }
+      }
+    } catch (e) {
+      console.warn("Error leyendo caché de paradas:", e);
+    }
+  }
+
   const MAX_RETRIES = 5;
   const DELAY_MS = 2000 * (retry + 1); 
 
@@ -57,9 +80,29 @@ const fetchGuayanaBusStops = async (retry = 0) => {
 
   try {
     const response = await fetch(url);
+    
+    // Verificar Content-Type para evitar "Unexpected character <"
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("text/html")) {
+        throw new Error(`Respuesta HTML inesperada (posible error 502/504 o Captive Portal). Status: ${response.status}`);
+    }
+
     if (response.ok) {
       console.log(`Paradas obtenidas exitosamente.`);
-      return await response.json();
+      const data = await response.json();
+      
+      // Guardar en caché
+      try {
+          await AsyncStorage.setItem(STOP_CACHE_KEY, JSON.stringify({
+              timestamp: Date.now(),
+              data: data
+          }));
+          console.log("💾 Paradas guardadas en caché.");
+      } catch (e) {
+          console.warn("No se pudo guardar en caché:", e);
+      }
+      
+      return data;
     }
 
     // Manejo de errores: 429 (Too Many Requests) y 5xx (Server Errors: 504, 502, 503)
@@ -80,6 +123,17 @@ const fetchGuayanaBusStops = async (retry = 0) => {
        console.warn(`Error de conexión. Reintentando en ${DELAY_MS / 1000}s...`);
        await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
        return fetchGuayanaBusStops(retry + 1);
+    }
+
+    // Fallback final: Si falla todo, intentar devolver caché expirado si existe
+    if (retry === MAX_RETRIES) {
+        try {
+            const cached = await AsyncStorage.getItem(STOP_CACHE_KEY);
+            if (cached) {
+                console.log("⚠️ Usando caché expirado como fallback por error de red.");
+                return JSON.parse(cached).data;
+            }
+        } catch (e) {}
     }
 
     return null;
