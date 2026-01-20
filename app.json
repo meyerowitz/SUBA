@@ -6,8 +6,8 @@
     "orientation": "portrait",
     "icon": "./assets/img/icono3.png",
     "scheme": "bustrackerciudbolivar",
-    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
        "googleServicesFile": "./GoogleService-Info.plist"

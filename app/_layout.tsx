@@ -73,6 +73,30 @@ export default function RootLayout() {
         }} 
       />
 
+      <Stack.Screen 
+      name="pages/Pasajero/Notificaciones" 
+      options={{ 
+        animation: 'slide_from_right', // Esta subirá como un panel
+       
+        }} 
+      />
+      <Stack.Screen 
+      name="pages/Pasajero/Configuracion" 
+      options={{ 
+        animation: 'slide_from_right', // Esta subirá como un panel
+       
+        }} 
+      />
+      <Stack.Screen 
+      name="pages/Pasajero/Privacidad" 
+      options={{ 
+        animation: 'slide_from_right', // Esta subirá como un panel
+       
+        }} 
+      />
+      
+      
+
 
     </Stack>
     
