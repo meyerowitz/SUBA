@@ -13,3 +13,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
     if (!session) return "";
     return JSON.parse(session).fullName;
   };
+
+   export const getuseremail = async () => {
+    const session = await AsyncStorage.getItem('@Sesion_usuario');
+    if (!session) return "";
+    return JSON.parse(session).email;
+  };

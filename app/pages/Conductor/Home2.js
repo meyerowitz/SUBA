@@ -115,6 +115,7 @@ export default function HomeConductor() {
       mqttClientRef.current = client;
     });
 
+
     // Intervalo de envío cada 5 segundos
     locationIntervalRef.current = setInterval(async () => {
       try {
@@ -170,6 +171,22 @@ export default function HomeConductor() {
     }
     return () => detenerTurno();
   }, [enLinea]);
+
+    const handleLogout = () => {
+  Alert.alert(
+    "Cerrar Sesión",
+    "¿Estás segura de que quieres salir?",
+    [
+      { text: "Cancelar", style: "cancel" },
+      { 
+        text: "Sí, salir", 
+        onPress: async () => {
+          await AsyncStorage.removeItem('@Sesion_usuario');
+          router.replace('/Login');
+        } 
+      }
+    ]
+  );}
 
   return (
     <SafeAreaView style={styles.mainContainer}>
@@ -251,7 +268,11 @@ export default function HomeConductor() {
             <Text style={styles.actionDesc}>Ver mapa y paradas</Text>
           </TouchableOpacity>
         </View>
-
+               {/* Botón de Cerrar Sesión al final del scroll */}
+                <TouchableOpacity onPress={handleLogout} style={{backgroundColor: '#D99015', marginHorizontal: 25, marginTop: 30,
+    paddingVertical: 16, borderRadius: 20, alignItems: 'center'}}>
+                  <Text style={styles.logoutText}>CERRAR SESIÓN</Text>
+                </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );

@@ -178,64 +178,53 @@ const handleLogin = async () => {
       Alert.alert("Error", "Usuario o contraseña incorrectos");
     }
   }
-
-  const handleLogin2 = async () => {
-    console.log('consultando a la API principal')
-  // 1. Validación inicial
+  
+const handleLogin2 = async () => {
   if (!correo || !password) {
     Alert.alert("Error", "Por favor, completa todos los campos");
     return;
   }
 
-  try {
-    setIsLoading(true); // Iniciamos el estado de carga (para ver tu GIF)
+  // 1. Creamos el controlador para abortar la petición
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos
 
-    // 2. Petición POST a la API
+  try {
+    setIsLoading(true);
 
     const response = await fetch('https://subapp-api.onrender.com/auth/login', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal, // 2. Pasamos la señal al fetch
       body: JSON.stringify({
-        // Enviamos 'correo' como email. Si tu API acepta nombre o email en el mismo campo,
-        // asegúrate de que el backend esté preparado para recibirlo así.
-        email: correo.toLowerCase(), 
+        email: correo.toLowerCase(),
         password: password,
       }),
     });
 
+    clearTimeout(timeoutId); // 3. Si responde a tiempo, limpiamos el contador
     const data = await response.json();
 
     if (response.ok) {
-      // 3. Si el login es exitoso, extraemos el usuario y el rol que devuelve tu API
-      // Nota: Ajusta 'data.user' o 'data.role' según cómo responda tu servidor
       const role = 'passenger'; 
       setUserRole(role);
-
-    
-        if (role === "driver") {
-          //router.replace("./pages/Conductor/Home");
-          router.replace("./pages/Conductor/Home2");
-        } else {
-          router.replace("./pages/Pasajero/Navigation");
-        }
-    
-
-    
-      
-      } else {
-      // 5. Si la API devuelve error (401, 404, etc.)
+      role === "driver" ? router.replace("./pages/Conductor/Home2") : router.replace("./pages/Pasajero/Navigation");
+    } else {
       setIsLoading(false);
-      Alert.alert("Error", data.message || "Usuario o contraseña incorrectos");
+      Alert.alert("Error", data.message || "Credenciales incorrectas");
     }
+
   } catch (error) {
-    // Error de red o del servidor caído
     setIsLoading(false);
-    Alert.alert("Error de conexión", "No se pudo conectar con el servidor. Inténtalo más tarde.");
+    
+    // 4. Verificamos si el error fue por el tiempo agotado
+    if (error.name === 'AbortError') {
+      console.log("Servidor lento", "El servidor está tardando en despertar. Por favor, intenta de nuevo en unos segundos.");
+    } else {
+      Alert.alert("Error de conexión", "No se pudo conectar con el servidor.");
+    }
     console.error(error);
   }
-
 };
 
 {!isLoading && (
@@ -363,17 +352,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   logo: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: 320,
-    height: 88.28,
-    marginTop: 50,
-    marginBottom: 50,
+    alignItems: "center",justifyContent: "center",width: 320, height: 88.28,marginTop: 50, marginBottom: 50,
   },
     passwordContainer: {
     position: "relative",
-    width: 320,
-    marginBottom: 20,
+    width: 320,marginBottom: 20,
   },
    toggleButton: {
     position: "absolute",
@@ -482,41 +465,22 @@ const styles = StyleSheet.create({
   googleText: {
     fontSize: 16,
     fontFamily: "roboto",
-    fontWeight: "bold",
-    color: "#212121",
+    fontWeight: "bold", color: "#212121",
   },
   redirect: {
-    width: 320,
-    marginTop: 20,
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 320,marginTop: 20,display: "flex",flexDirection: "row",justifyContent: "center",alignItems: "center",
   },
   register: {
-    color: "#0661BC",
-    fontFamily: "roboto",
-    fontWeight: "bold",
-    fontSize: 16,
-    textDecorationLine: "underline",
+    color: "#0661BC",fontFamily: "roboto",fontWeight: "bold",fontSize: 16, textDecorationLine: "underline",
   },
 
   loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    flex: 1, justifyContent: "center",alignItems: "center",backgroundColor: "#FFFFFF",
   },
   gif: {
-    width: 200,
-    height: 200,
-    borderRadius:20
+    width: 200,height: 200, borderRadius:20
   },
   loaderText: {
-    marginTop: 20,
-    fontSize: 18,
-    color: "#023A73",
-    fontWeight: "bold",
-    fontFamily: "roboto",
+    marginTop: 20,fontSize: 18,color: "#023A73", fontWeight: "bold",fontFamily: "roboto",
   },
 })

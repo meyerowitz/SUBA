@@ -222,8 +222,8 @@ const handleSearch = () => {
   
     console.log("Navegando a WebMap con destino a", selectedDestinationName);
     SetLoad(false)
-    router.replace({
-      pathname: "./WebMap", 
+    router.push({
+      pathname: "/pages/Pasajero/WebMap", 
       params: { destino: selectedDestinationName }
     });
   },3000)
@@ -260,7 +260,7 @@ const handleSearch = () => {
               <Text style={styles.userName}>¡Bienvenido!</Text>
               <Text style={styles.welcomeSub}>¡A Ciudad Guayana Bus!</Text>
             </View>
-            <TouchableOpacity onPress={()=>{router.replace("./Profile")}}>
+            <TouchableOpacity onPress={()=>{router.push("/pages/Pasajero/Profile")}}>
               <Ionicons name="person-circle-outline" size={50} color="white" />
             </TouchableOpacity>
 
