@@ -1,5 +1,18 @@
 import React, { useRef, useEffect, useState } from "react";
-import { Image, StyleSheet,View,ActivityIndicator,Alert,Text,Platform,TextInput,TouchableOpacity, StatusBar,Animated, Dimensions} from "react-native";
+import {
+  Image,
+  StyleSheet,
+  View,
+  ActivityIndicator,
+  Alert,
+  Text,
+  Platform,
+  TextInput,
+  TouchableOpacity,
+  StatusBar,
+  Animated,
+  Dimensions,
+} from "react-native";
 import WebView from "react-native-webview";
 import { Picker } from "@react-native-picker/picker";
 import { Feather } from "@expo/vector-icons";
@@ -7,27 +20,27 @@ import { Asset } from "expo-asset";
 import * as Location from "expo-location";
 import * as FileSystem from "expo-file-system/legacy";
 
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 import SearchRoot from "../../Components/SearchRoot";
 import Destinos from "../../Components/Destinos.json";
 import mqtt from "mqtt";
-import Volver from '../../Components/Botones_genericos/Volver';
+import Volver from "../../Components/Botones_genericos/Volver";
 
-
-const { height } = Dimensions.get('window');
+const { height } = Dimensions.get("window");
 // --- CONSTANTES DE LA API DEL BUS ---
 const BASE_URL = "https://api-bus-w29v.onrender.com/api/v1";
 const BUSES_API_URL = `${BASE_URL}/buses`; // GET para obtener todas las ubicaciones
 const FETCH_INTERVAL = 5000; // Cargar buses cada 5 segundos (500ms)
 // BBOX estático para Ciudad Guayana: [LatSur, LonOeste, LatNorte, LonEste]
 const GUAYANA_BBOX = "8.21,-62.88,8.39,-62.60";
-let buses = []
-let busesxd = []
+let buses = [];
+let busesxd = [];
 
 // -------------------------------------------------------------
 // 2) .FUNCIÓN DE CONSULTA A OVERPASS
 // -------------------------------------------------------------
+
 const fetchGuayanaBusStops = async (retry = 0) => {
   // retry: contador de reintentos
   const MAX_RETRIES = 3;
@@ -68,23 +81,21 @@ const fetchGuayanaBusStops = async (retry = 0) => {
   }
 };
 
-
 //Cambiar bus_id por _id
-function createOrUpdateBusData(busData){
-    const exists = buses.some(bus=> bus.bus_id=== busData.bus_id);
-    if (exists){
-       const busIndex = buses.findIndex(bus => bus.bus_id === busData.bus_id);
-       console.log("Updating data for bus: ", buses[busIndex].bus_id)
-       buses[busIndex]=busData;
-    }
-    else if(!exists){
-        console.log("New bus created: ", busData.bus_id)
-        buses.push(busData);
-    }
+function createOrUpdateBusData(busData) {
+  const exists = buses.some((bus) => bus.bus_id === busData.bus_id);
+  if (exists) {
+    const busIndex = buses.findIndex((bus) => bus.bus_id === busData.bus_id);
+    console.log("Updating data for bus: ", buses[busIndex].bus_id);
+    buses[busIndex] = busData;
+  } else if (!exists) {
+    console.log("New bus created: ", busData.bus_id);
+    buses.push(busData);
+  }
 }
 
 //--------------------------------------------------------
-// ---3) .FUNCIÓN DE CONSULTA A LA API RET / BUSES ---
+// ---3) .FUNCIÓN DE CONSULTA A LA API RET / BUSES --- codigo de manuel y cesar
 const fetchBusLocations = async () => {
   console.log("---> fetchBusLocation en la API()");
   try {
@@ -121,11 +132,11 @@ export default function WebMap() {
   const { destino } = useLocalSearchParams();
   const [hasCenteredOnce, setHasCenteredOnce] = useState(false);
 
-  const [ShowEta, setShowEta]= useState(true);
-//-----------Todo lo relacionado al Eta--------
-  const [Eta, SetEta]= useState("10min");
-  const [Distancia, SetDistancia]= useState("35Km");
-  const [RouteName, SetRouteName]= useState("Route Name");
+  const [ShowEta, setShowEta] = useState(true);
+  //-----------Todo lo relacionado al Eta--------
+  const [Eta, SetEta] = useState("10min");
+  const [Distancia, SetDistancia] = useState("35Km");
+  const [RouteName, SetRouteName] = useState("Route Name");
   const [routeDetails, setRouteDetails] = useState(null);
   //--------------------------------------------------
 
@@ -156,10 +167,10 @@ export default function WebMap() {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         //Alert.alert(
-          //"Permiso denegado",
-         // "Necesitamos permiso para acceder a la ubicación y mostrar tu posición en el mapa.",
+        //"Permiso denegado",
+        // "Necesitamos permiso para acceder a la ubicación y mostrar tu posición en el mapa.",
         //);
-        console.log("Permiso denegado")
+        console.log("Permiso denegado");
         setLoading(false);
         return;
       }
@@ -185,6 +196,55 @@ export default function WebMap() {
       }
     };
   }, []);
+  // 3. FUNCIÓN: Carga datos de MongoDB y los envía al WebView
+  const cargarRutasDesdeServidor = async () => {
+    try {
+      const respuesta = await fetch("http://10.0.2.2:3000/api/rutas"); /* cambiar por la url que estara en la nube  */
+      const rutasMongo = await respuesta.json();
+
+      // Procesamos cada ruta para que siga las calles
+      const rutasMejoradas = await Promise.all(
+        rutasMongo.map(async (ruta) => {
+          // Creamos el string de coordenadas: lng,lat;lng,lat
+          const coordsString = ruta.puntos_gps
+            .map((p) => `${p.lng},${p.lat}`)
+            .join(";");
+
+          try {
+            const osrmRes = await fetch(
+              `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`,
+            );
+            const osrmData = await osrmRes.json();
+
+            if (osrmData.routes && osrmData.routes.length > 0) {
+              // Extraemos el camino exacto por la calle
+              const puntosCalle = osrmData.routes[0].geometry.coordinates.map(
+                (c) => ({
+                  lat: c[1],
+                  lng: c[0],
+                }),
+              );
+
+              return { ...ruta, puntos_gps: puntosCalle };
+            }
+          } catch (err) {
+            console.error("Error con OSRM en ruta:", ruta.nombre, err);
+            return ruta; // Si falla, devolvemos la original
+          }
+        }),
+      );
+
+      // Enviamos las rutas "suavizadas" al mapa
+      if (webviewRef.current) {
+        webviewRef.current.injectJavaScript(`
+        window.dibujarRutasMobiles(${JSON.stringify(rutasMejoradas)});
+        true;
+      `);
+      }
+    } catch (error) {
+      console.error("Error general:", error);
+    }
+  };
   //----------------- 3) .UseEffect para actualizar el marcador del usuario ✅ --------------------
   useEffect(() => {
     console.log();
@@ -239,12 +299,11 @@ export default function WebMap() {
     console.log(" marcador de los BUSES 📍 ");
     console.log();
     const loadAndRenderBuses = async () => {
-
       const transformedData = buses.map((bus) => ({
         bus_id: bus.bus_id,
         //route: bus.route || "Desconocida",
         //velocity:
-          //bus.speed!== undefined ? bus.last_speed.toFixed(1) : "N/A",
+        //bus.speed!== undefined ? bus.last_speed.toFixed(1) : "N/A",
         // Coordenadas GeoJSON [lon, lat] -> Invertir a [lat, lon] para JS
         lat: bus.latitude,
         lon: bus.longitude,
@@ -278,9 +337,9 @@ export default function WebMap() {
   }, [isMapReady]);
 
   //----------------- 5) .UseEffect para cargar y renderizar la ubicación de los buses 🚌 usando websockets --------------------
-  
+
   useEffect(() => {
-  console.log("conectando al broker")
+    console.log("conectando al broker");
     const mqttClient = mqtt.connect(
       "wss://3ef878324832459c8b966598a4c58112.s1.eu.hivemq.cloud:8884/mqtt",
       {
@@ -296,34 +355,34 @@ export default function WebMap() {
     mqttClient.on("error", (err) => {
       console.error("Error MQTT:", err);
     });
-    mqttClient.on("message",(topic,message)=>{
+    mqttClient.on("message", (topic, message) => {
       const datos = JSON.parse(message.toString());
       console.log(` Mensaje recibido en ${topic}:`, datos._id);
-      createOrUpdateBusData(datos)
-    })
-    setClient(mqttClient)
+      createOrUpdateBusData(datos);
+    });
+    setClient(mqttClient);
     return () => {
       if (mqttClient) mqttClient.end();
-      console.log("mqtt client destroyed")
+      console.log("mqtt client destroyed");
     };
   }, []);
   //----------------- 6) .UseEffect para mover la ubicacion de la camara a la del usuario --------------------
-  useEffect(()=>{
-    console.log('HasCenteredOnce:'+hasCenteredOnce)
+  useEffect(() => {
+    console.log("HasCenteredOnce:" + hasCenteredOnce);
     if (isMapReady && userLocation && !hasCenteredOnce) {
       MoveToUser();
       setHasCenteredOnce(true); // Bloqueamos futuras ejecuciones automáticas
       console.log("✅ Cámara centrada inicialmente en el usuario");
     }
-  },[isMapReady]);
+  }, [isMapReady]);
 
-useEffect(() => {
-  if (destino) {
-    console.log("📍 Destino recibido por URL/Params:", destino);
-    setSelectedDestinationName(destino);
-    handleSearch()
-  }
-}, [destino,isMapReady, userLocation]);
+  useEffect(() => {
+    if (destino) {
+      console.log("📍 Destino recibido por URL/Params:", destino);
+      setSelectedDestinationName(destino);
+      handleSearch();
+    }
+  }, [destino, isMapReady, userLocation]);
 
   // 1. Manejador de Mensajes (No cambiar)
   const handleWebViewMessage = (event) => {
@@ -332,49 +391,53 @@ useEffect(() => {
       setIsMapReady(true); // El mapa está listo
       setStopsInjected(false); // <--- AÑADE ESTO
       // Si el mapa se recarga, debemos volver a inyectar las paradas.
+
+      cargarRutasDesdeServidor(); // Cargar rutas desde el backend
+      console.log("✅ Mapa cargado y listo.");
+      return;
     }
     // Caso 2: Intentar parsear como JSON (para la info de la ruta)
     try {
       const data = JSON.parse(message);
 
-      if (data.type === 'ROUTE_INFO') {
+      if (data.type === "ROUTE_INFO") {
         // Actualizamos tus estados existentes
         SetEta(`${data.duration} min`);
         SetDistancia(`${data.distance} Km`);
         SetRouteName(data.name);
-        
+
         // También puedes guardar el objeto completo si lo necesitas
         setRouteDetails(data);
       }
-      
-      if (data.type === 'SEARCH_UPDATED') {
-          console.log("Búsqueda actualizada en el mapa:", data.address);
+
+      if (data.type === "SEARCH_UPDATED") {
+        console.log("Búsqueda actualizada en el mapa:", data.address);
       }
     } catch (e) {
       // Si no es JSON ni MAP_LOADED, simplemente lo ignoramos o lo logueamos
       console.log("Mensaje de texto recibido:", message);
     }
   };
-const slideAnim = useRef(new Animated.Value(height)).current;
+  const slideAnim = useRef(new Animated.Value(height)).current;
 
-useEffect(() => {
-  if (!ShowEta) {
-    // Cuando ShowEta es falso (quieres mostrarlo), sube
-    Animated.spring(slideAnim, {
-      toValue: 0, // Posición final (la que definiste en tus estilos)
-      useNativeDriver: true,
-      friction: 8,
-      tension: 40,
-    }).start();
-  } else {
-    // Cuando quieres ocultarlo, vuelve a bajar
-    Animated.timing(slideAnim, {
-      toValue: height,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }
-}, [ShowEta]);
+  useEffect(() => {
+    if (!ShowEta) {
+      // Cuando ShowEta es falso (quieres mostrarlo), sube
+      Animated.spring(slideAnim, {
+        toValue: 0, // Posición final (la que definiste en tus estilos)
+        useNativeDriver: true,
+        friction: 8,
+        tension: 40,
+      }).start();
+    } else {
+      // Cuando quieres ocultarlo, vuelve a bajar
+      Animated.timing(slideAnim, {
+        toValue: height,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [ShowEta]);
 
   // --- 2. MANEJADOR DE BÚSQUEDA Y RUTEO ---
   const handleSearch = () => {
@@ -388,7 +451,7 @@ useEffect(() => {
       // Alerta si falta la ubicación del usuario
       if (!userLocation) {
         //Alert.alert("Error", "No se ha podido obtener tu ubicación actual.");
-        console.log("No se ha podido obtener tu ubicación actual.")
+        console.log("No se ha podido obtener tu ubicación actual.");
       }
       return;
     }
@@ -427,7 +490,6 @@ useEffect(() => {
           `Solicitud de ruteo y animación inyectada: (${userLat},${userLon}) a (${destLat},${destLon})`,
         );
         setShowEta(false);
-
       } else {
         Alert.alert("Error", "El destino seleccionado no fue encontrado.");
       }
@@ -443,17 +505,17 @@ useEffect(() => {
   };
 
   //----- 3. MOVER CAMARA A LA POSICION DEL USUARIO----
-  const MoveToUser = () =>{
+  const MoveToUser = () => {
     console.log("📷--> MoveToUser ");
-      if (userLocation && webviewRef.current && isMapReady) {
-      
+    if (userLocation && webviewRef.current && isMapReady) {
       const { latitude, longitude } = userLocation;
       const userJsCode = `moveTo(${latitude}, ${longitude}); true;`;
       webviewRef.current.injectJavaScript(userJsCode);
-       console.log("📷--> desplazamos la camara lat:"+latitude+" lon: "+longitude);
+      console.log(
+        "📷--> desplazamos la camara lat:" + latitude + " lon: " + longitude,
+      );
     }
-
-  }
+  };
   // en el caso de que maphtmlUri se encuentre vacio se graficara una pantalla de carga
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -463,7 +525,6 @@ useEffect(() => {
     }, 10000); // 10 segundos
     return () => clearTimeout(timer);
   }, [mapHtmlContent]);
-
 
   // --- Renderizado ---
 
@@ -477,7 +538,11 @@ useEffect(() => {
   }
   return (
     <View style={styles.container}>
-      <StatusBar translucent={true} backgroundColor="transparent" barStyle="ligth-content"></StatusBar>
+      <StatusBar
+        translucent={true}
+        backgroundColor="transparent"
+        barStyle="ligth-content"
+      ></StatusBar>
       <View
         style={{
           flex: 1,
@@ -504,102 +569,126 @@ useEffect(() => {
           allowUniversalAccessFromFileURLs={true}
         />
       </View>
-      {ShowEta? (<></>):(
+      {ShowEta ? (
+        <></>
+      ) : (
         <Animated.View
-        style={{
-          backgroundColor: "#f4f4f4ff",
-          height: "35%",
-          width: "95%",
-          position: "absolute",
-          bottom: "-1%",
-          left: "4%",
-          borderRadius: 12,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 5,
-          elevation: 55,
-          padding: "5%",
-          transform: [{ translateY: slideAnim }]
-        }}
-      >
-        <Text style={{fontWeight:'bold',color:'gray', marginBottom:20}}>{RouteName}</Text>
-        <View style={{borderBottomColor:'gray', borderBottomWidth:1, width:'100%'}}></View>
-          <View style={{ width:'90%', flexDirection:'row'}}>
-            <View style={{marginRight:10, marginTop:20}}>
-              <Text style={{fontWeight:'bold',color:'gray'}}>Travel time</Text>
-              <Text style={{fontWeight:'bold',fontSize:25}}>{Eta}</Text>
-            </View>
-            <View style={{ marginTop:20}}>
-              <Text style={{fontWeight:'bold',color:'gray'}}>Distancia</Text>
-              <Text style={{fontWeight:'bold', fontSize:25}}>{Distancia}</Text>
-            </View>
-            
-          </View>
-          <Image source={require("../../../assets/img/autobus3.png")} style={{height:140, width:300, position:'absolute', top:40, left:160}}/>
-          <TouchableOpacity></TouchableOpacity>
-      </Animated.View>
-      )}
-      
-        <View
           style={{
-            flexDirection: "row",
-            position:'absolute',
-            padding: 5,
-            backgroundColor: "#fff",
-            borderRadius: 15,
-            elevation: 2,
+            backgroundColor: "#f4f4f4ff",
+            height: "35%",
+            width: "95%",
+            position: "absolute",
+            bottom: "-1%",
+            left: "4%",
+            borderRadius: 12,
             shadowColor: "#000",
-            shadowOffset: { width: 0, height: 1 },
+            shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.1,
-            shadowRadius: 3,
-            top:45,
-            left:30
+            shadowRadius: 5,
+            elevation: 55,
+            padding: "5%",
+            transform: [{ translateY: slideAnim }],
           }}
         >
-          <Picker
-            selectedValue={selectedDestinationName}
-            onValueChange={(itemValue) => setSelectedDestinationName(itemValue)}
-            style={{ height: 50, width: "80%" }}
-            enabled={!isSearching}
-          >
-            <Picker.Item
-              label="Selecciona un destino..."
-              value=""
-              enabled={false}
-            />
-            {Destinos.map((dest) => (
-              <Picker.Item
-                key={dest.name}
-                label={dest.name}
-                value={dest.name}
-              />
-            ))}
-          </Picker>
-
-          <TouchableOpacity
+          <Text style={{ fontWeight: "bold", color: "gray", marginBottom: 20 }}>
+            {RouteName}
+          </Text>
+          <View
             style={{
-              backgroundColor: "#007bff",
-              borderRadius: 9,
-              paddingHorizontal: 8,
-              paddingVertical: 8,
-              justifyContent: "center",
-              alignItems: "center",
-              minWidth: 45,
-              marginTop: 5,
-              marginRight:-20
+              borderBottomColor: "gray",
+              borderBottomWidth: 1,
+              width: "100%",
             }}
-            onPress={handleSearch}
-            disabled={isSearching || !selectedDestinationName}
-          >
-            {isSearching ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Feather name="search" size={24} color="#ffffffff" />
-            )}
-          </TouchableOpacity>
-        </View>
-      <Volver route="/pages/Pasajero/Navigation" color={"white"} style={{top:60, left:1}}/>
+          ></View>
+          <View style={{ width: "90%", flexDirection: "row" }}>
+            <View style={{ marginRight: 10, marginTop: 20 }}>
+              <Text style={{ fontWeight: "bold", color: "gray" }}>
+                Travel time
+              </Text>
+              <Text style={{ fontWeight: "bold", fontSize: 25 }}>{Eta}</Text>
+            </View>
+            <View style={{ marginTop: 20 }}>
+              <Text style={{ fontWeight: "bold", color: "gray" }}>
+                Distancia
+              </Text>
+              <Text style={{ fontWeight: "bold", fontSize: 25 }}>
+                {Distancia}
+              </Text>
+            </View>
+          </View>
+          <Image
+            source={require("../../../assets/img/autobus3.png")}
+            style={{
+              height: 140,
+              width: 300,
+              position: "absolute",
+              top: 40,
+              left: 160,
+            }}
+          />
+          <TouchableOpacity></TouchableOpacity>
+        </Animated.View>
+      )}
+
+      <View
+        style={{
+          flexDirection: "row",
+          position: "absolute",
+          padding: 5,
+          backgroundColor: "#fff",
+          borderRadius: 15,
+          elevation: 2,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 3,
+          top: 45,
+          left: 30,
+        }}
+      >
+        <Picker
+          selectedValue={selectedDestinationName}
+          onValueChange={(itemValue) => setSelectedDestinationName(itemValue)}
+          style={{ height: 50, width: "80%" }}
+          enabled={!isSearching}
+        >
+          <Picker.Item
+            label="Selecciona un destino..."
+            value=""
+            enabled={false}
+          />
+          {Destinos.map((dest) => (
+            <Picker.Item key={dest.name} label={dest.name} value={dest.name} />
+          ))}
+        </Picker>
+
+        <TouchableOpacity
+          style={{
+            backgroundColor: "#007bff",
+            borderRadius: 9,
+            paddingHorizontal: 8,
+            paddingVertical: 8,
+            justifyContent: "center",
+            alignItems: "center",
+            minWidth: 45,
+            marginTop: 5,
+            marginRight: -20,
+          }}
+          onPress={handleSearch}
+          disabled={isSearching || !selectedDestinationName}
+        >
+          {isSearching ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Feather name="search" size={24} color="#ffffffff" />
+          )}
+        </TouchableOpacity>
+      </View>
+      <Volver
+        route="/pages/Pasajero/Navigation"
+        color={"white"}
+        style={{ top: 60, left: 1 }}
+      />
     </View>
   );
 }
