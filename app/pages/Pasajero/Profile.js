@@ -1,128 +1,219 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, StatusBar} from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // Viene por defecto en Expo
+import React, { useState , useEffect} from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, StatusBar, ScrollView , Alert} from 'react-native';
+import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Volver from '../../Components/Botones_genericos/Volver';
 import { router } from 'expo-router';
-
-import {getuserid,getusername} from '../../Components/AsyncStorage';
+import {getuseremail,getusername} from '../../Components/AsyncStorage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Profile() {
+  // Simulación de estados
+  const [isStudent, setIsStudent] = useState(true);
+  const [isSenior, setIsSenior] = useState(true);
+
+  const [UserName, setUserName] = useState("---");
+  const [UserEmail, setUserEmail] = useState("---");
+
+
+  
+    
+  useEffect(()=>{
+    const name = getusername();
+    const email = getuseremail();
+
+    setUserName(name);
+    setUserEmail(email);
+
+  },[])
+
+  const handleLogout = () => {
+  Alert.alert(
+    "Cerrar Sesión",
+    "¿Estás segura de que quieres salir?",
+    [
+      { text: "Cancelar", style: "cancel" },
+      { 
+        text: "Sí, salir", 
+        onPress: async () => {
+          await AsyncStorage.removeItem('@Sesion_usuario');
+          router.replace('/Login');
+        } 
+      }
+    ]
+  );}
+
   return (
-    <SafeAreaView  style={styles.container}>
-        <StatusBar  backgroundColor='#D99015' barStyle="ligth-content"></StatusBar>
-      <View style={styles.card}>
-        {/* Sección Superior Naranja */}
+    <SafeAreaView style={styles.container}>
+      <StatusBar  backgroundColor='#D99015' barStyle="light-content" />
+      
+      {/* ScrollView para que toda la pantalla sea deslizable */}
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Cabecera Naranja */}
         <View style={styles.orangeHeader} />
 
-        {/* Caja de Perfil Blanca */}
+        {/* Caja de Perfil Blanca (Insignias dentro) */}
         <View style={styles.profileBox}>
           <View style={styles.avatarCircle}>
             <Ionicons name="person-outline" size={60} color="white" />
           </View>
-          <Text style={styles.userName}>Christian Vasquez</Text>
+          
+          <Text style={styles.userName}>{UserName}</Text>
+          <Text style={styles.userEmail}>{UserEmail}</Text>
+
+          {/* Sección de Insignias/Roles con estilo de la imagen */}
+          {(isStudent || isSenior) && (
+            <View style={styles.badgesWrapper}>
+              {isStudent && (
+                <View style={styles.badgeItem}>
+                  <View style={[styles.iconCircle, { backgroundColor: '#4A90E2' }]}>
+                    <FontAwesome5 name="graduation-cap" size={12} color="white" />
+                  </View>
+                  <Text style={styles.badgeText}>Estudiante</Text>
+                </View>
+              )}
+
+              {isSenior && (
+                <View style={styles.badgeItem}>
+                  <View style={[styles.iconCircle, { backgroundColor: '#FF7043' }]}>
+                    <MaterialCommunityIcons name="heart" size={14} color="white" />
+                  </View>
+                  <Text style={styles.badgeText}>Adulto Mayor</Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
-        {/* Cuerpo de la Tarjeta */}
-        <View style={styles.content}>
-          <TouchableOpacity style={styles.settingsRow}>
-            <Ionicons name="settings-outline" size={24} color="#555" />
-            <Text style={styles.settingsText}>settings</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.content}>
-          <TouchableOpacity onPress={()=>{router.replace("./Wallet")}} style={styles.settingsRow}>
-            <Ionicons name="wallet" size={24} color="#555" />
-            <Text style={styles.settingsText}>Wallet</Text>
+        {/* Sección de Opciones */}
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>GENERAL</Text>
+          
+          <MenuOption 
+            icon="settings-sharp" 
+            color="#1976D2" 
+            bgColor="#E3F2FD"
+            title="Configuración" 
+            subtitle="Actualiza y modifica tu perfil" 
+            onPress={()=>{router.push("/pages/Pasajero/Configuracion")}}
+          />
+
+          <MenuOption 
+            icon="shield-checkmark" 
+            color="#2E7D32" 
+            bgColor="#E8F5E9"
+            title="Privacidad" 
+            subtitle="Cambia tu contraseña" 
+            onPress={()=>{router.push("/pages/Pasajero/Privacidad")}}
+          />
+
+          <MenuOption 
+            icon="notifications" 
+            color="#FBC02D" 
+            bgColor="#FFFDE7"
+            title="Notificaciones" 
+            subtitle="Configura tus alertas" 
+            onPress={()=>{router.push("/pages/Pasajero/Notificaciones")}}
+          />
+
+          <Text style={[styles.sectionTitle, { marginTop: 20 }]}>BILLETERA</Text>
+
+          <TouchableOpacity 
+            onPress={() => router.replace("./Wallet")} 
+            style={styles.menuItem}
+          >
+            <View style={[styles.menuIconBox, { backgroundColor: '#F3E5F5' }]}>
+              <Ionicons name="wallet" size={20} color="#7B1FA2" />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuMainText}>Mi Wallet</Text>
+              <Text style={styles.menuSubText}>Ver saldo y movimientos</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#CCC" />
           </TouchableOpacity>
         </View>
 
-        {/* Botón de Cerrar Sesión */}
-        <TouchableOpacity style={styles.logoutButton}>
+        {/* Botón de Cerrar Sesión al final del scroll */}
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
           <Text style={styles.logoutText}>CERRAR SESIÓN</Text>
         </TouchableOpacity>
-      </View>
-      <Volver route={"./Navigation"} color={"white"} style={{top:50, left:10}}></Volver>
-    </SafeAreaView >
+
+      </ScrollView>
+
+      {/* Botón Volver fijo arriba */}
+      <Volver route={"./Navigation"} color={"white"} style={styles.btnVolver} />
+    </SafeAreaView>
   );
+
 }
 
+// Componente pequeño para no repetir código de los botones del menú
+const MenuOption = ({ icon, title, subtitle, color, bgColor, onPress }) => (
+  <TouchableOpacity onPress={onPress} style={styles.menuItem}>
+    <View style={[styles.menuIconBox, { backgroundColor: bgColor }]}>
+      <Ionicons name={icon} size={20} color={color} />
+    </View>
+    <View style={styles.menuTextContainer}>
+      <Text style={styles.menuMainText}>{title}</Text>
+      <Text style={styles.menuSubText}>{subtitle}</Text>
+    </View>
+    <Ionicons name="chevron-forward" size={20} color="#CCC" />
+  </TouchableOpacity>
+);
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#E0E0E0', // Fondo gris de la app
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  card: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#F5F5F5',
-    
-    overflow: 'hidden', // Para que el header naranja respete el borde redondeado
-    elevation: 10, // Sombra en Android
-    shadowColor: '#000', // Sombra en iOS
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-  },
-  orangeHeader: {
-    backgroundColor: '#D99015',
-    height: '25%',
-    width: '100%',
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  scrollContent: { paddingBottom: 40 },
+  orangeHeader: { 
+    backgroundColor: '#D99015', height: 180, 
+    borderBottomRightRadius: 40 
   },
   profileBox: {
-    backgroundColor: 'white',
-    width: '85%',
-    alignSelf: 'center',
-    marginTop: -70, // Eleva la caja blanca sobre el fondo naranja
-    borderRadius: 15,
-    padding: 20,
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
+    backgroundColor: 'white', width: '90%', alignSelf: 'center',
+    marginTop: -110, borderRadius: 25, padding: 20, alignItems: 'center',
+    elevation: 8, shadowColor: '#000', shadowOpacity: 0.1, 
+    shadowRadius: 10, shadowOffset: { width: 0, height: 4 }
   },
   avatarCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#003366', // Azul oscuro del icono
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
+    width: 90, height: 90, borderRadius: 45, backgroundColor: '#003366',
+    justifyContent: 'center', alignItems: 'center', marginBottom: 10,
+    borderWidth: 4, borderColor: 'white'
   },
-  userName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
+  userName: { fontSize: 22, fontWeight: '700', color: '#2D3436' },
+  userEmail: { fontSize: 14, color: '#636E72', marginBottom: 15 },
+  badgesWrapper: {
+    flexDirection: 'row', backgroundColor: '#F1F2F6', borderRadius: 15,
+    padding: 12, width: '100%', justifyContent: 'space-evenly'
   },
-  content: {
-    paddingHorizontal: 25,
-    paddingTop: 30,
+  badgeItem: { flexDirection: 'row', alignItems: 'center' },
+  iconCircle: {
+    width: 24, height: 24, borderRadius: 12, justifyContent: 'center',
+    alignItems: 'center', marginRight: 8
   },
-  settingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  badgeText: { fontSize: 13, fontWeight: '700', color: '#2D3436' },
+  menuSection: { paddingHorizontal: 20, marginTop: 25 },
+  sectionTitle: { 
+    fontSize: 12, fontWeight: '800', color: '#B2BEC3', 
+    marginBottom: 10, marginLeft: 5, letterSpacing: 1 
   },
-  settingsText: {
-    fontSize: 18,
-    marginLeft: 10,
-    color: '#333',
+  menuItem: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: 'white',
+    padding: 15, borderRadius: 18, marginBottom: 10, elevation: 2
   },
+  menuIconBox: {
+    width: 42, height: 42, borderRadius: 12, 
+    justifyContent: 'center', alignItems: 'center'
+  },
+  menuTextContainer: { flex: 1, marginLeft: 15 },
+  menuMainText: { fontSize: 16, fontWeight: '600', color: '#2D3436' },
+  menuSubText: { fontSize: 12, color: '#636E72' },
   logoutButton: {
-    backgroundColor: '#D99015',
-    marginHorizontal: 30,
-    marginBottom: 40,
-    paddingVertical: 15,
-    borderRadius: 30,
-    alignItems: 'center',
-    marginTop:220
+    backgroundColor: '#D99015', marginHorizontal: 25, marginTop: 30,
+    paddingVertical: 16, borderRadius: 20, alignItems: 'center'
   },
-  logoutText: {
-    color: '#003366', // Color de texto oscuro como en la imagen
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
+  logoutText: { color: '#003366', fontWeight: '800', fontSize: 16 },
+  btnVolver: { position: 'absolute', top: 50, left: 10 }
 });

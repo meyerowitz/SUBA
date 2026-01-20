@@ -1,43 +1,57 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, View, Text , Image, ImageBackground, StatusBar} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import { Canvas, Circle, RadialGradient, vec , BlurMask} from "@shopify/react-native-skia";
 import { useRouter } from 'expo-router';
 import * as SplashScreenNative from 'expo-splash-screen';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SplashScreen () {
   const fadeAnim = useRef(new Animated.Value(0)).current; // Opacidad inicial 0
   const size = 806;
   const center = size / 2;
-
+  
  
   const router = useRouter();
 
-  useEffect(() => {
-    SplashScreenNative.hideAsync();
-    Animated.sequence([
-      // 1. Aparecer (Fade In)
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      // 2. Mantenerse visible
-      Animated.delay(3000), 
-      // 3. Desaparecer (Fade Out)
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      // Esta función se ejecuta cuando TODA la secuencia termina
-      // Asegúrate de que el nombre coincida con tu archivo en la carpeta /app
-      router.replace('/Login'); 
-    });
-  }, [fadeAnim, router]);
+useEffect(() => {
+  SplashScreenNative.hideAsync();
+  
+  Animated.sequence([
+    Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+    Animated.delay(3000),
+    Animated.timing(fadeAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
+  ]).start(async () => { // Hacemos el callback asíncrono
+    
+    try {
+      const sessionData = await AsyncStorage.getItem('@Sesion_usuario');
+      
+      if (sessionData) {
+        // PARSEO SEGURO: Plan de contingencia para atributos desconocidos
+        const rawUser = JSON.parse(sessionData);
+        
+        // Aquí mapeamos lo que sea que mande el backend a nuestro estándar local
+        // Si mañana el backend usa "user_role", solo cambias la parte derecha
+        const normalizedRole = rawUser.role || rawUser.tipo || rawUser.user_type || 'passenger';
 
+        console.log("Sesión activa detectada. Rol:", normalizedRole);
+
+        // NAVEGACIÓN SEGÚN ROL
+        if (normalizedRole === 'driver' || normalizedRole === 'conductor') {
+          router.replace('./pages/Conductor/Home2');
+        } else {
+          router.replace('/pages/Pasajero/Navigation');
+        }
+      } else {
+        console.log("Sin sesión. Al Login.");
+        router.replace('/Login');
+      }
+    } catch (e) {
+      console.error("Error en Splash:", e);
+      router.replace('/Login'); // Ante la duda, al Login
+    }
+  });
+}, [fadeAnim, router]);
 
   return (
     <View style={{flex:1}}>
