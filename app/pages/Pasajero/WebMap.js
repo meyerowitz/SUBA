@@ -13,7 +13,7 @@ import SearchRoot from "../../Components/SearchRoot";
 import Destinos from "../../Components/Destinos.json";
 import mqtt from "mqtt";
 import Volver from '../../Components/Botones_genericos/Volver';
-
+import Rutas from "../../Components/RutasBuses.json"; 
 
 const { height } = Dimensions.get('window');
 // --- CONSTANTES DE LA API DEL BUS ---
@@ -25,7 +25,11 @@ const GUAYANA_BBOX = "8.21,-62.88,8.39,-62.60";
 let buses = []
 let busesxd = []
 
-// -------------------------------------------------------------
+// ---
+const getDistance = (lat1, lon1, lat2, lon2) => {
+  return Math.sqrt(Math.pow(lat2 - lat1, 2) + Math.pow(lon2 - lon1, 2));
+};
+// ----------------------------------------------------------
 // 2) .FUNCIÓN DE CONSULTA A OVERPASS
 // -------------------------------------------------------------
 const fetchGuayanaBusStops = async (retry = 0) => {
@@ -231,6 +235,45 @@ export default function WebMap() {
 // Depende de isMapReady (espera a que el WebView termine de cargar el mapa) y stopsInjected.
 }, [isMapReady, stopsInjected]);
 */
+/*const BUS_WAYPOINTS = [
+  [8.293853734473132, -62.731331519481074],
+  [8.29143991148122, -62.73045463817505],
+  [8.289247591391884, -62.729621704967286],
+  [8.285261565265827, -62.722594134791464],
+  [8.282606566318663, -62.7237881744295],
+  [8.279615383541639, -62.7277281487587],
+  [8.27135183557236, -62.73685929928567]
+];
+
+useEffect(() => {
+  if (isMapReady && webviewRef.current) {
+    const waypointsString = JSON.stringify(BUS_WAYPOINTS);
+    
+    const drawSnappedRouteJs = `
+      //  eliminar ruta previa si existe para no duplicar
+      if (window.busRoutingControl) {
+          map.removeControl(window.busRoutingControl);
+      }
+
+      
+      window.busRoutingControl = L.Routing.control({
+        waypoints: ${waypointsString}.map(p => L.latLng(p[0], p[1])),
+        lineOptions: {
+          styles: [{ color: '#a81c23', opacity: 0.3, weight: 3 }]
+        },
+        createMarker: function() { return null; }, // No marcadores en cada punto yes piz
+        addWaypoints: false,
+        routeWhileDragging: false,
+        draggableWaypoints: false,
+        fitSelectedRoutes: false,
+        show: false // No cuadro de texto con instrucciones pq es feo
+      }).addTo(map);
+      true;
+    `;
+    
+    webviewRef.current.injectJavaScript(drawSnappedRouteJs);
+  }
+}, [isMapReady]);*/
 
   //----------------- IGNORAR ESTE) .UseEffect para cargar y renderizar la ubicación de los buses 🚌 --------------------
   useEffect(() => {
@@ -314,8 +357,7 @@ export default function WebMap() {
       MoveToUser();
       setHasCenteredOnce(true); // Bloqueamos futuras ejecuciones automáticas
       console.log("✅ Cámara centrada inicialmente en el usuario");
-    }
-  },[isMapReady]);
+    }  },[isMapReady]);
 
 useEffect(() => {
   if (destino) {
@@ -377,71 +419,77 @@ useEffect(() => {
 }, [ShowEta]);
 
   // --- 2. MANEJADOR DE BÚSQUEDA Y RUTEO ---
-  const handleSearch = () => {
-    // 1. Validar pre-requisitos
-    if (
-      !selectedDestinationName ||
-      !isMapReady ||
-      !webviewRef.current ||
-      !userLocation
-    ) {
-      // Alerta si falta la ubicación del usuario
-      if (!userLocation) {
-        //Alert.alert("Error", "No se ha podido obtener tu ubicación actual.");
-        console.log("No se ha podido obtener tu ubicación actual.")
-      }
-      return;
+ // Función auxiliar para encontrar el índice del punto más cercano en un arreglo
+const findClosestIndex = (lat, lon, points) => {
+  let closestIndex = 0;
+  let minDistance = Infinity;
+  points.forEach((p, index) => {
+    const dist = Math.sqrt(Math.pow(lat - p[0], 2) + Math.pow(lon - p[1], 2));
+    if (dist < minDistance) {
+      minDistance = dist;
+      closestIndex = index;
     }
+  });
+  return { index: closestIndex, distance: minDistance };
+};
 
-    setIsSearching(true);
+const handleSearch = () => {
+  if (!selectedDestinationName || !isMapReady || !webviewRef.current || !userLocation) return;
 
-    try {
-      console.log(`Buscando destino seleccionado: ${selectedDestinationName}`);
+  setIsSearching(true);
 
-      // 2. Buscar destino
-      const destination = Destinos.find(
-        (dest) => dest.name === selectedDestinationName,
+  try {
+    const destination = Destinos.find(dest => dest.name === selectedDestinationName);
+    if (destination) {
+      const { latitude: userLat, longitude: userLon } = userLocation;
+      const { lat: destLat, lon: destLon } = destination;
+
+      let routeSegment = [];
+      const threshold = 0.005; // Radio de cercanía (aprox 500m)
+
+      // 1. Buscamos si EL USUARIO está cerca de alguna ruta
+      const matchedRoute = Rutas.find(ruta => 
+        ruta.puntos.some(p => getDistance(userLat, userLon, p[0], p[1]) < threshold)
       );
 
-      if (destination) {
-        const userLat = userLocation.latitude;
-        const userLon = userLocation.longitude;
-        const destLat = destination.lat;
-        const destLon = destination.lon;
+      if (matchedRoute) {
+        // 2. Encontrar el punto de la ruta más cercano al USUARIO (Entrada)
+        const startResult = findClosestIndex(userLat, userLon, matchedRoute.puntos);
+        
+        // 3. Encontrar el punto de la ruta más cercano al DESTINO (Salida)
+        const endResult = findClosestIndex(destLat, destLon, matchedRoute.puntos);
 
-        // 3. Crear código JS para dibujar la ruta y animar la vista
-        // Se asume la existencia de una función 'drawRouteAndAnimate' en tu map.html
-        const routeJsCode = `
-                drawRouteAndAnimate(
-                    ${userLat},
-                    ${userLon},
-                    ${destLat},
-                    ${destLon}
-                );
-                true;
-            `;
-
-        // 4. Inyectar el código
-        webviewRef.current.injectJavaScript(routeJsCode);
-        console.log(
-          `Solicitud de ruteo y animación inyectada: (${userLat},${userLon}) a (${destLat},${destLon})`,
-        );
-        setShowEta(false);
-
-      } else {
-        Alert.alert("Error", "El destino seleccionado no fue encontrado.");
+        // 4. Cortar el arreglo para que solo incluya el trayecto necesario
+        // Usamos min y max por si la ruta en el JSON viene en sentido contrario al que viajas
+        const i1 = Math.min(startResult.index, endResult.index);
+        const i2 = Math.max(startResult.index, endResult.index);
+        
+        routeSegment = matchedRoute.puntos.slice(i1, i2 + 1);
+        
+        // Si el destino está más cerca del inicio del array que el usuario, invertimos el segmento
+        if (startResult.index > endResult.index) {
+          routeSegment.reverse();
+        }
       }
-    } catch (error) {
-      console.error("Error al ejecutar la búsqueda:", error);
-      Alert.alert("Error", "Ocurrió un error interno al buscar la ubicación.");
-    } finally {
-      // En este caso, setIsSearching debería ser false solo después de que el mapa
-      // responda que terminó el ruteo, pero lo dejamos aquí como fallback rápido.
-      // Lo ideal sería manejar la finalización desde el WebView.
-      setIsSearching(false);
-    }
-  };
 
+      const routeJsCode = `
+          drawRouteAndAnimate(
+              ${userLat}, ${userLon},
+              ${destLat}, ${destLon},
+              ${JSON.stringify(routeSegment)}
+          );
+          true;
+      `;
+
+      webviewRef.current.injectJavaScript(routeJsCode);
+      setShowEta(false);
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    setIsSearching(false);
+  }
+};
   //----- 3. MOVER CAMARA A LA POSICION DEL USUARIO----
   const MoveToUser = () =>{
     console.log("📷--> MoveToUser ");

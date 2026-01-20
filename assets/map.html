@@ -324,20 +324,16 @@
         // Variable global para el control de ruteo
 let routingControl = null;
 
-// =========================================================
-// FUNCIÓN PRINCIPAL: DIBUJAR RUTA Y ANIMAR
-// =========================================================
-function drawRouteAndAnimate(startLat, startLon, endLat, endLon) {
-    console.log("Iniciando ruteo y animación con estilo...");
+function drawRouteAndAnimate(startLat, startLon, endLat, endLon, busWaypoints = []) {
+    console.log("Iniciando ruteo...");
 
-    // 1. Eliminar cualquier ruta anterior si existe
     if (routingControl) {
         map.removeControl(routingControl);
         routingControl = null;
     }
-    // --- NUEVO: Crear o mover el marcador de destino amarillo ---
+
     const destIcon = L.divIcon({
-        className: 'dest-marker-icon', // La clase CSS que creamos arriba
+        className: 'dest-marker-icon',
         iconSize: [20, 20],
         iconAnchor: [10, 10]
     });
@@ -347,74 +343,66 @@ function drawRouteAndAnimate(startLat, startLon, endLat, endLon) {
     } else {
         searchMarker = L.marker([endLat, endLon], { icon: destIcon }).addTo(map);
     }
-    // ------------------------------------------------------------
-    // 2. Definir los puntos de inicio y fin
-    const startWaypoint = L.latLng(startLat, startLon);
-    const endWaypoint = L.latLng(endLat, endLon);
+
+    // --- LÓGICA DE ENRUTAMIENTO POR BUS ---
+    let waypoints = [];
     
-    // 3. Crear el control de ruteo con personalizaciones
-        routingControl = L.Routing.control({
-        waypoints: [startWaypoint, endWaypoint],
-        show: false,             // Oculta el panel de texto
+    // Punto de inicio (Usuario)
+    waypoints.push(L.latLng(startLat, startLon));
+
+    // Si existen puntos de bus, los agregamos como puntos intermedios
+    // OSRM calculará la ruta pasando por estos puntos.
+    if (busWaypoints && busWaypoints.length > 0) {
+        busWaypoints.forEach(p => {
+            waypoints.push(L.latLng(p[0], p[1]));
+        });
+    }
+
+    // Punto de fin (Destino/Parada)
+    waypoints.push(L.latLng(endLat, endLon));
+
+    routingControl = L.Routing.control({
+        waypoints: waypoints,
+        show: false,
         addWaypoints: false, 
         draggableWaypoints: false,
         createMarker: function(i, wp, nWps) {
-        return null; // Esto evita que se creen los pines por defecto
-    },
-        lineOptions: {
-            styles: [
-                { 
-                    color: '#00e5ff', // Este color será reemplazado por el gradiente en el CSS
-                    opacity: 1, 
-                    weight: 8 
-                }
-            ]
+            // Solo mostrar marcador si es el primero (usuario) o el último (destino)
+            // Esto evita llenar el mapa de pines por cada punto de la ruta del bus
+            return null; 
         },
-        router: L.Routing.osrmv1(),
+        lineOptions: {
+            styles: [{ color: '#00e5ff', opacity: 1, weight: 8 }]
+        },
+        router: L.Routing.osrmv1({
+            serviceUrl: 'https://router.project-osrm.org/route/v1',
+            profile: 'car' // Usamos car para que siga vías vehiculares
+        }),
         language: 'es'
     }).addTo(map);
 
-    // 3. Capturar el ETA y la Distancia (Opcional pero recomendado)
+    // Capturar el ETA y la Distancia
     routingControl.on('routesfound', function(e) {
-        const summary = e.routes[0].summary;
+        const route = e.routes[0];
+        const summary = route.summary;
+        const routeName = route.name || "Ruta de Autobús";
+        
         const info = {
             type: 'ROUTE_INFO',
-            distance: (summary.totalDistance / 1000).toFixed(2),
-            duration: Math.round(summary.totalTime / 60)
+            distance: (summary.totalDistance / 1000).toFixed(1),
+            duration: Math.round(summary.totalTime / 60),
+            name: routeName
         };
+
         if (window.ReactNativeWebView) {
             window.ReactNativeWebView.postMessage(JSON.stringify(info));
         }
     });
-    routingControl.on('routesfound', function(e) {
-    const route = e.routes[0];
-    const summary = route.summary;
 
-    // Intentamos obtener el nombre de la ruta (por ejemplo "Av. Bolivar")
-    // Leaflet Routing Machine suele ponerlo en el primer o último nombre de instrucción
-    const routeName = route.name || "Ruta calculada";
-    setTimeout(function() {
-        routingControl.getPlan().set
-        routingControl.collapse();
-    }, 50);
-    const info = {
-        type: 'ROUTE_INFO',
-        distance: (summary.totalDistance / 1000).toFixed(1), // en km
-        duration: Math.round(summary.totalTime / 60),      // en minutos
-        name: routeName
-    };
-
-    if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(JSON.stringify(info));
-    }
-});
-    // 4. ANIMACIÓN (Zoom Suave y Acercamiento)
-    const bounds = L.latLngBounds([startWaypoint, endWaypoint]);
-    
+    const bounds = L.latLngBounds(waypoints);
     map.flyToBounds(bounds, {
         padding: L.point(50, 50),
-        duration: 2.0,
-        easeLinearity: 0.5 
+        duration: 2.0
     });
 }
 
