@@ -28,6 +28,7 @@
     "expo-build-properties": "~1.0.10",
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.10",
+    "expo-file-system": "^19.0.21",
     "expo-crypto": "~15.0.8",
     "expo-font": "~14.0.9",
     "expo-haptics": "~15.0.8",
@@ -60,6 +61,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@react-native-community/cli": "^20.1.0",
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",

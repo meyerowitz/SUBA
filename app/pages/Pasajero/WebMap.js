@@ -6,6 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { Asset } from "expo-asset";
 import * as Location from "expo-location";
 import * as FileSystem from "expo-file-system/legacy";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
@@ -28,42 +29,113 @@ let busesxd = []
 // -------------------------------------------------------------
 // 2) .FUNCIÓN DE CONSULTA A OVERPASS
 // -------------------------------------------------------------
+const OVERPASS_SERVERS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+];
+
+const STOP_CACHE_KEY = "guayana_bus_stops_cache";
+const STOP_CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 horas
+
 const fetchGuayanaBusStops = async (retry = 0) => {
-  // retry: contador de reintentos
-  const MAX_RETRIES = 3;
-  const DELAY_MS = 10000 * (retry + 1); // 10s, 20s, 30s de demora
+  // 1. Intentar cargar desde caché primero (solo en el primer intento)
+  if (retry === 0) {
+    try {
+      const cached = await AsyncStorage.getItem(STOP_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const now = Date.now();
+        if (now - parsed.timestamp < STOP_CACHE_EXPIRY) {
+          console.log("✅ Paradas cargadas desde caché local (AsyncStorage).");
+          return parsed.data;
+        } else {
+          console.log("⚠️ Caché de paradas expirado. Descargando nuevo...");
+        }
+      }
+    } catch (e) {
+      console.warn("Error leyendo caché de paradas:", e);
+    }
+  }
+
+  const MAX_RETRIES = 5;
+  const DELAY_MS = 2000 * (retry + 1); 
+
+  // Selección de servidor Round-Robin basado en el número de intento
+  const serverUrl = OVERPASS_SERVERS[retry % OVERPASS_SERVERS.length];
+
   console.log("");
-  console.log("---> fetchGuayanaBusStops en acción");
-  console.log("--->       Ejecutando consultas Http Overpass");
+  console.log(`---> fetchGuayanaBusStops (Intento ${retry + 1}/${MAX_RETRIES + 1})`);
+  console.log(`--->       Servidor: ${serverUrl}`);
   console.log("");
+
+  // Reducimos timeout del query a 25s para fallar rápido y cambiar de servidor si está colgado
   const overpassQuery = `
-        [out:json][timeout:60];
+        [out:json][timeout:25];
         node[highway=bus_stop](${GUAYANA_BBOX});
         out center;
     `;
   const encodedQuery = encodeURIComponent(overpassQuery);
-  const url = `https://overpass-api.de/api/interpreter?data=${encodedQuery}`;
+  const url = `${serverUrl}?data=${encodedQuery}`;
 
   try {
     const response = await fetch(url);
-    if (response.ok) {
-      console.log(`Paradas obtenidas exitosamente en el intento ${retry + 1}.`);
-      return await response.json();
+    
+    // Verificar Content-Type para evitar "Unexpected character <"
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("text/html")) {
+        throw new Error(`Respuesta HTML inesperada (posible error 502/504 o Captive Portal). Status: ${response.status}`);
     }
 
-    // Manejo específico del error 429
-    if (response.status === 429 && retry < MAX_RETRIES) {
+    if (response.ok) {
+      console.log(`Paradas obtenidas exitosamente.`);
+      const data = await response.json();
+      
+      // Guardar en caché
+      try {
+          await AsyncStorage.setItem(STOP_CACHE_KEY, JSON.stringify({
+              timestamp: Date.now(),
+              data: data
+          }));
+          console.log("💾 Paradas guardadas en caché.");
+      } catch (e) {
+          console.warn("No se pudo guardar en caché:", e);
+      }
+      
+      return data;
+    }
+
+    // Manejo de errores: 429 (Too Many Requests) y 5xx (Server Errors: 504, 502, 503)
+    if ((response.status === 429 || response.status >= 500) && retry < MAX_RETRIES) {
       console.warn(
-        `Error 429 (Demasiadas solicitudes). Reintentando en ${DELAY_MS / 1000} segundos... (Intento ${retry + 1}/${MAX_RETRIES})`,
+        `Error HTTP ${response.status}. Cambiando servidor/reintentando en ${DELAY_MS / 1000}s...`,
       );
       await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
-      return fetchGuayanaBusStops(retry + 1); // Llamada recursiva para reintentar
+      return fetchGuayanaBusStops(retry + 1); 
     }
 
     throw new Error(`Error HTTP: ${response.status}`);
   } catch (error) {
     console.error("Error al obtener paradas de Overpass:", error);
-    // Si el error persiste después de los reintentos, lanzamos el error original
+    
+    // Si es un error de red (fetch falló) y quedan intentos, reintentamos
+    if (retry < MAX_RETRIES) {
+       console.warn(`Error de conexión. Reintentando en ${DELAY_MS / 1000}s...`);
+       await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+       return fetchGuayanaBusStops(retry + 1);
+    }
+
+    // Fallback final: Si falla todo, intentar devolver caché expirado si existe
+    if (retry === MAX_RETRIES) {
+        try {
+            const cached = await AsyncStorage.getItem(STOP_CACHE_KEY);
+            if (cached) {
+                console.log("⚠️ Usando caché expirado como fallback por error de red.");
+                return JSON.parse(cached).data;
+            }
+        } catch (e) {}
+    }
+
     return null;
   }
 };
@@ -104,6 +176,7 @@ export default function WebMap() {
   const [mapHtmlUri, setMapHtmlUri] = useState(null); //---url y datos del mapa del tiempo real
   const [mapHtmlContent, setMapHtmlContent] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [mapLoading, setMapLoading] = useState(true);
   // Nuevo estado para rastrear si el mapa y las paradas están listos.
   const [isMapReady, setIsMapReady] = useState(false); //espera al flag MAP_LOADED para volverse true y luego false
   const [stopsInjected, setStopsInjected] = useState(false); // es para verificar cuando la inyeccion js a sido exitosa
@@ -129,6 +202,106 @@ export default function WebMap() {
   const [routeDetails, setRouteDetails] = useState(null);
   //--------------------------------------------------
 
+  // --- NUEVOS ESTADOS PARA ETA BUS -> USUARIO ---
+  const [nearestBusEta, setNearestBusEta] = useState(null);       // e.g. "5 min"
+  const [nearestBusDist, setNearestBusDist] = useState(null);     // e.g. "1.2 km"
+  const [calculatingBusEta, setCalculatingBusEta] = useState(false);
+  
+  // ESTADO PARA LA PARADA FIJA (EJEMPLO)
+  const [selectedStopLocation, setSelectedStopLocation] = useState(null);
+  const [selectedStopName, setSelectedStopName] = useState("");
+
+  // FUNCIÓN: Limpiar selección de parada
+  const resetSelection = () => {
+    setSelectedStopLocation(null);
+    setSelectedStopName("");
+    // Limpiar indicador en el mapa
+    if (webviewRef.current) {
+        webviewRef.current.injectJavaScript("clearHighlight(); true;");
+    }
+  };
+
+
+
+  const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radio de la tierra en km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const deg2rad = (deg) => {
+    return deg * (Math.PI / 180);
+  };
+
+  // --- EFECTO: Calcular Bus Más Cercano y su ETA ---
+  useEffect(() => {
+    // Definir el punto de referencia: Parada Seleccionada O Ubicación del Usuario
+    const originLocation = selectedStopLocation || userLocation;
+
+    // Solo calculamos si tenemos un punto de origen y buses
+    if (!originLocation || busLocations.length === 0) return;
+
+    const calculateNearestBus = async () => {
+      setCalculatingBusEta(true);
+      try {
+        let minDistance = Infinity;
+        let closestBus = null;
+
+        // 1. Encontrar el bus más cercano en línea recta desde el ORIGEN (Usuario o Parada)
+        busLocations.forEach((bus) => {
+          const dist = getDistanceFromLatLonInKm(
+            originLocation.latitude,
+            originLocation.longitude,
+            bus.lat,
+            bus.lon
+          );
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestBus = bus;
+          }
+        });
+
+        if (closestBus) {
+          // 2. Obtener ETA real por calle usando OSRM
+          // OSRM url: http://router.project-osrm.org/route/v1/driving/lon1,lat1;lon2,lat2
+          const url = `http://router.project-osrm.org/route/v1/driving/${closestBus.lon},${closestBus.lat};${originLocation.longitude},${originLocation.latitude}?overview=false`;
+          
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (data.routes && data.routes.length > 0) {
+            const durationSec = data.routes[0].duration; // segundos
+            const distanceMeters = data.routes[0].distance; // metros
+
+            const durationMin = Math.round(durationSec / 60);
+            const distKm = (distanceMeters / 1000).toFixed(1);
+
+            setNearestBusEta(`${durationMin} min`);
+            setNearestBusDist(`${distKm} km`);
+          }
+        }
+      } catch (error) {
+        console.error("Error calculando ETA del bus más cercano:", error);
+      } finally {
+        setCalculatingBusEta(false);
+      }
+    };
+
+    // Throttle simple: Ejecutar cada 10 segundos aprox o cuando cambien drásticamente
+    // Para simplificar, lo ejecutamos cuando busLocations cambie, pero podrías poner un debounce.
+    // Dado que busLocations se actualiza cada 5s, está bien.
+    calculateNearestBus();
+
+  }, [busLocations, userLocation, selectedStopLocation]);
+  // ------------------------------------------------
+
+
   //----------- 1) .UseEffet loadhtmlUri-----------------------
   useEffect(() => {
     //loadMapHtml().then(setMapHtmlUri);
@@ -144,6 +317,8 @@ export default function WebMap() {
         setMapHtmlContent(htmlString);
       } catch (error) {
         console.error("Error cargando el mapa en APK:", error);
+      } finally {
+        setMapLoading(false);
       }
     };
     loadHTML();
@@ -153,29 +328,34 @@ export default function WebMap() {
     console.log("-----Solicitando permisos de Locacion------");
     let locationSubscription = null;
     const requestPermissionsAndGetLocation = async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        //Alert.alert(
-          //"Permiso denegado",
-         // "Necesitamos permiso para acceder a la ubicación y mostrar tu posición en el mapa.",
-        //);
-        console.log("Permiso denegado")
-        setLoading(false);
-        return;
-      }
-      console.log("--------> Permisos de ubicacion aprobados ♿ ☑️------");
-      locationSubscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 5000, // Actualiza cada 5 segundos
-          distanceInterval: 2, // Actualiza cada 10 metros
-        },
-        (location) => {
-          const { latitude, longitude } = location.coords;
-          setUserLocation({ latitude, longitude });
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          //Alert.alert(
+            //"Permiso denegado",
+           // "Necesitamos permiso para acceder a la ubicación y mostrar la posición en el mapa.",
+          //);
+          console.log("Permiso denegado")
           setLoading(false);
-        },
-      );
+          return;
+        }
+        console.log("--------> Permisos de ubicacion aprobados ♿ ☑️------");
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.BestForNavigation,
+            timeInterval: 5000, // Actualiza cada 5 segundos
+            distanceInterval: 2, // Actualiza cada 10 metros
+          },
+          (location) => {
+            const { latitude, longitude } = location.coords;
+            setUserLocation({ latitude, longitude });
+            setLoading(false);
+          },
+        );
+      } catch (error) {
+        console.error("Error obteniendo ubicación:", error);
+        setLoading(false);
+      }
     };
     requestPermissionsAndGetLocation();
     // Limpieza: detener la suscripción cuando el componente se desmonte
@@ -209,15 +389,24 @@ export default function WebMap() {
     // Depende SOLAMENTE de userLocation para el tiempo real.
   }, [userLocation, isMapReady]);
   //-------------- 4) .UseEffect para cargar las paradas dentro de un pequeño BBOX------
-  /*useEffect(() => {
+  useEffect(() => {
     console.log()
     console.log(' marcador de las paradas de buses 📍 ')
     console.log()
     if (isMapReady && webviewRef.current && !stopsInjected) {
         fetchGuayanaBusStops()
             .then(overpassData => {
-                if (overpassData) {
-                    const dataString = JSON.stringify(overpassData);
+                if (overpassData && overpassData.elements) {
+                    // Filtrar y aligerar los datos antes de enviarlos al Bridge
+                    const simpleStops = overpassData.elements
+                        .filter(el => el.type === 'node')
+                        .map(el => ({
+                            lat: el.lat,
+                            lon: el.lon,
+                            name: (el.tags && el.tags.name) ? el.tags.name : 'Parada'
+                        }));
+
+                    const dataString = JSON.stringify(simpleStops);
 
                     // Inyectar JavaScript en el WebView
                     const stopsJsCode = `renderBusStops(${dataString}); true;`;
@@ -230,7 +419,6 @@ export default function WebMap() {
     }
 // Depende de isMapReady (espera a que el WebView termine de cargar el mapa) y stopsInjected.
 }, [isMapReady, stopsInjected]);
-*/
 
   //----------------- IGNORAR ESTE) .UseEffect para cargar y renderizar la ubicación de los buses 🚌 --------------------
   useEffect(() => {
@@ -336,6 +524,12 @@ useEffect(() => {
     // Caso 2: Intentar parsear como JSON (para la info de la ruta)
     try {
       const data = JSON.parse(message);
+
+      if (data.type === 'STOP_SELECTED') {
+         console.log("Parada seleccionada:", data.name);
+         setSelectedStopLocation({ latitude: data.lat, longitude: data.lon });
+         setSelectedStopName(data.name || "Parada seleccionada");
+      }
 
       if (data.type === 'ROUTE_INFO') {
         // Actualizamos tus estados existentes
@@ -467,11 +661,11 @@ useEffect(() => {
 
   // --- Renderizado ---
 
-  if (loading) {
+  if (loading || mapLoading) {
     return (
       <View style={[styles.container, styles.center]}>
         <ActivityIndicator size="large" color="#ffffffff" />
-        <Text style={styles.loadingText}>Buscando tu ubicación...</Text>
+        <Text style={styles.loadingText}>{mapLoading ? "Cargando mapa..." : "Buscando tu ubicación..."}</Text>
       </View>
     );
   }
@@ -504,6 +698,93 @@ useEffect(() => {
           allowUniversalAccessFromFileURLs={true}
         />
       </View>
+      
+      {/* CARD FLOTANTE: ETA DEL BUS MÁS CERCANO (Solo si no hay ruta activa) */}
+      {ShowEta && nearestBusEta && (
+         <View
+         style={{
+           backgroundColor: "#ffffff",
+           width: "90%",
+           position: "absolute",
+           bottom: 30, // Un poco separado del borde
+           alignSelf: "center", // Centrado horizontalmente
+           borderRadius: 15,
+           shadowColor: "#000",
+           shadowOffset: { width: 0, height: 4 },
+           shadowOpacity: 0.2,
+           shadowRadius: 5,
+           elevation: 10,
+           padding: 15,
+           flexDirection: 'row',
+           alignItems: 'center',
+           justifyContent: 'space-between'
+         }}
+       >
+         <View style={{flex: 1}}>
+           <Text style={{fontWeight:'bold', color:'#333', fontSize: 16, marginBottom: 4}}>
+             {selectedStopLocation ? "Bus más cercano a la parada" : "Bus más cercano a ti"}
+           </Text>
+           <View style={{flexDirection: 'row', alignItems: 'center'}}>
+             <View style={{marginRight: 15}}>
+               <Text style={{color:'#666', fontSize: 12}}>Tiempo estimado</Text>
+               <Text style={{fontWeight:'bold', fontSize: 20, color: '#007bff'}}>
+                 {calculatingBusEta ? "..." : nearestBusEta}
+               </Text>
+             </View>
+             <View>
+               <Text style={{color:'#666', fontSize: 12}}>Distancia</Text>
+               <Text style={{fontWeight:'bold', fontSize: 20, color: '#007bff'}}>
+                 {calculatingBusEta ? "..." : nearestBusDist}
+               </Text>
+             </View>
+           </View>
+         </View>
+         
+         <Image 
+           source={require("../../../assets/img/autobus.png")} 
+           style={{height: 60, width: 60, resizeMode: 'contain'}}
+         />
+       </View>
+      )}
+
+      {/* BOTÓN/BANNER PARA CANCELAR SELECCIÓN DE PARADA */}
+      {selectedStopLocation && (
+        <View style={{
+            position: "absolute",
+            top: 100, // Debajo del buscador
+            left: 20,
+            right: 20,
+            backgroundColor: "rgba(255, 255, 255, 0.95)",
+            padding: 10,
+            borderRadius: 10,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            shadowColor: "#000",
+            elevation: 5
+        }}>
+            <View style={{flex: 1}}>
+                <Text style={{fontSize: 10, color: "#666"}}>BUSCANDO CERCA DE:</Text>
+                <Text style={{fontWeight: "bold", color: "#333"}} numberOfLines={1}>
+                    {selectedStopName}
+                </Text>
+            </View>
+            <TouchableOpacity 
+                onPress={resetSelection}
+                style={{
+                    backgroundColor: "#ff4444",
+                    paddingHorizontal: 10,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                    marginLeft: 10
+                }}
+            >
+                <Text style={{color: "white", fontWeight: "bold", fontSize: 12}}>Volver a mí</Text>
+            </TouchableOpacity>
+        </View>
+      )}
+
+
       {ShowEta? (<></>):(
         <Animated.View
         style={{
