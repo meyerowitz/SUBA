@@ -16,7 +16,7 @@ export default function Configuracion() {
 
       <ScrollView contentContainerStyle={styles.content}>
         
-        <Text style={styles.sectionTitle}>APARIENCIA</Text>
+        <Text style={styles.sectionTitle}>PREFERENCIAS</Text>
         
         <View style={styles.row}>
           <View>
@@ -32,10 +32,19 @@ export default function Configuracion() {
 
         <TouchableOpacity style={styles.row}>
           <View>
+            <Text style={styles.rowText}>Foto de Perfil</Text>
+            <Text style={styles.subText}>Actualiza tu foto de perfil</Text>
+          </View>
+          <Ionicons name="person" size={23} color="#D99015" />
+        </TouchableOpacity>
+
+
+        <TouchableOpacity style={styles.row}>
+          <View>
             <Text style={styles.rowText}>Idioma</Text>
             <Text style={styles.subText}>Español (Latinoamérica)</Text>
           </View>
-          <Ionicons name="language-outline" size={20} color="#636E72" />
+          <Ionicons name="language-outline" size={23} color="#D99015" />
         </TouchableOpacity>
 
         <Text style={[styles.sectionTitle, { marginTop: 25 }]}>SISTEMA Y MAPAS</Text>
@@ -54,7 +63,15 @@ export default function Configuracion() {
 
         <TouchableOpacity style={styles.row}>
           <View>
-            <Text style={styles.rowText}>Unidades de distancia</Text>
+            <Text style={styles.rowText}>Rutas Preferidas</Text>
+            <Text style={styles.subText}>Selecciona tus rutas usuales</Text>
+          </View>
+          <Ionicons name="chevron-down" size={20} color="#CCC" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.row}>
+          <View>
+            <Text style={styles.rowText}>Unidades de Distancia</Text>
             <Text style={styles.subText}>Kilómetros (km)</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#CCC" />
@@ -67,7 +84,7 @@ export default function Configuracion() {
             <Text style={styles.rowText}>Centro de Ayuda</Text>
             <Text style={styles.subText}>Preguntas frecuentes y soporte</Text>
           </View>
-          <Ionicons name="help-circle-outline" size={22} color="#D99015" />
+          <Ionicons name="help-circle-outline" size={23} color="#D99015" />
         </TouchableOpacity>
 
       </ScrollView>
