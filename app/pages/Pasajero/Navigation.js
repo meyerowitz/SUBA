@@ -1,8 +1,9 @@
 import * as React from 'react';
-import { Text, View } from 'react-native';
+import { Text, View, StatusBar} from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons'; // Para usar íconos, puedes instalar react-native-vector-icons
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Home from './Home';
 import WebMap from './WebMap';
@@ -11,6 +12,8 @@ const Tab = createBottomTabNavigator();
 
 // --- Componente del Navegador de Pestañas ---
 function MyTabs() {
+  const insets = useSafeAreaInsets();
+  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -22,12 +25,12 @@ function MyTabs() {
             // Ejemplo de ícono: 'home' o 'home-outline'
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Map') {
-            iconName = focused ? 'settings' : 'settings-outline';
+            iconName = focused ? 'location' : 'location';
           } 
           // Agrega más condiciones para tus otras pestañas
 
           // Debes asegurarte de que Ionicons esté instalado y configurado correctamente.
-          return <Ionicons name={iconName} size={size} color={color} />; 
+          return <Ionicons name={iconName} size={30} color={color}  />; 
         },
         // Colores de los íconos y etiquetas
         tabBarActiveTintColor: 'orange', // El color activo puede ser el naranja de tu imagen
@@ -35,8 +38,9 @@ function MyTabs() {
         // Estilo de la barra de navegación inferior
         tabBarStyle: { 
           backgroundColor: 'white', 
-          height: 60, // Ajusta la altura si es necesario
-          paddingBottom: 85, // Un pequeño padding en la parte inferior es común
+          height: 70 + insets.bottom, 
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 50,
+          paddingTop: 10,
         },
         // Opciones de las pestañas
         headerShown: false, // Oculta el encabezado superior si no lo necesitas
@@ -51,7 +55,14 @@ function MyTabs() {
 export default function Navigation() {
   return (
     <>
-      <MyTabs />
+   <View style={{ flex: 1}}> 
+      <StatusBar 
+        translucent={true} 
+        backgroundColor="transparent" 
+        barStyle="dark-content" 
+      />
+        <MyTabs />
+    </View>
     </>
   );
 }
