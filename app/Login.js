@@ -1,4 +1,4 @@
-//import {GoogleSignin,isErrorWithCode,isSuccessResponse,statusCodes,} from '@react-native-google-signin/google-signin';
+import {GoogleSignin,isErrorWithCode,isSuccessResponse,statusCodes,} from '@react-native-google-signin/google-signin';
 
 
 import { Image } from "expo-image"
@@ -47,7 +47,7 @@ useEffect(()=>{
   
 },[])
 
-/*
+
 GoogleSignin.configure({
   webClientId: '159501895592-5oooqd8f4kvcque2n1aacrk9c93bq0op.apps.googleusercontent.com', // client ID of type WEB for your server. Required to get the `idToken` on the user object, and for offline access.
   offlineAccess: true, // if you want to access Google API on behalf of the user FROM YOUR SERVER
@@ -89,35 +89,50 @@ const signIn = async ()=>{
                     console.log("Error al iniciar sesion con google: ",e);
                     })
   }
-*/
 
-useEffect(() => {
-  if (!isAuthenticated) return;//si es el primer render de state no se ejecuta este codigo
-    // Buscamos al usuario (por email o nombre)
-  const user = userData.users.find(
-    (u) =>
-      (u.email.toLowerCase() === state.email.toLowerCase() ||
-      u.fullName.toLowerCase() === state.name.toLowerCase()) /*&&
-      u.password === password*/ //modificar o activar cuando se pueda manejar y comprobar el idTocken con el backend
-  );
 
-  if (user) {
-    setUserRole(user.role); // Guardamos el rol ('driver' o 'passenger')
-    setIsLoading(true);     // Activamos la vista de carga
+useEffect( () => {
+  async function googleSI() {
+        if (!isAuthenticated) return;//si es el primer render de state no se ejecuta este codigo
+      // Buscamos al usuario (por email o nombre)
+    const user = userData.users.find(
+      (u) =>
+        (u.email.toLowerCase() === state.email.toLowerCase() ||
+        u.fullName.toLowerCase() === state.name.toLowerCase()) /*&&
+        u.password === password*/ //modificar o activar cuando se pueda manejar y comprobar el idTocken con el backend
+    );
 
-    // Simulamos un tiempo de carga para que se vea el GIF
-    setTimeout(() => {
-      if (user.role === "driver") {
-        router.replace("./pages/Conductor/Home");
-      } else {
-        router.replace("./pages/Pasajero/Navigation");
+      try {
+        const jsonValue = JSON.stringify(user);
+        await AsyncStorage.setItem('@Sesion_usuario', jsonValue);
+        console.log("Sesion guardada con éxito");
+        const jsonValue2 = await AsyncStorage.getItem('@Sesion_usuario');
+        console.log(jsonValue2);
+      } catch (e) {
+        console.error("Error al guardar:", e);
       }
-    }, 4000); // 4 segundos de animación
-  } else {
-    Alert.alert("Error", "Usuario o contraseña incorrectos");
-    GoogleSignin.signOut();
+
+    if (user) {
+      setUserRole(user.role); // Guardamos el rol ('driver' o 'passenger')
+      setIsLoading(true);     // Activamos la vista de carga
+
+      // Simulamos un tiempo de carga para que se vea el GIF
+      setTimeout(() => {
+        if (user.role === "driver") {
+          router.replace("./pages/Conductor/Home2");
+        } else {
+          router.replace("./pages/Pasajero/Navigation");
+        }
+      }, 4000); // 4 segundos de animación
+    } else {
+      Alert.alert("Error", "Usuario o contraseña incorrectos");
+      GoogleSignin.signOut();
+    }
   }
-}, [state], isAuthenticated);
+
+  googleSI();
+
+}, [state], [isAuthenticated]);
 
 useEffect(() => {
   const cacheGifs = async () => {
@@ -303,23 +318,7 @@ const handleLogin2 = async () => {
                 <View style={styles.googleContainer}>
                   <TouchableOpacity 
                   style={styles.googleButton} 
-                  onPress={async()=>{
-                    console.log("Error al iniciar sesion con google: ");
-                    
-                     const user = userData.users.find(
-                                (u) => u.email === "meyerowitzrebeca@gmail.com"
-                            );
-                        try {
-                            const jsonValue = JSON.stringify(user);
-                            await AsyncStorage.setItem('@Sesion_usuario', jsonValue);
-                            console.log("Sesion guardada con éxito");
-                            const jsonValue2 = await AsyncStorage.getItem('@Sesion_usuario');
-                            console.log(jsonValue2);
-                        } catch (e) {
-                          console.error("Error al guardar:", e);
-                        }
-                      router.replace('./pages/Pasajero/Navigation')
-                    }}
+                  onPress={() => signInA()}
                     >
                     <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
                     <Text style={styles.googleText}>Continuar con Google</Text>

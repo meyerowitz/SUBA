@@ -47,6 +47,17 @@
       "visibility": false,
       "route_id": "route_005",
       "createdAt": "2023-12-12T11:20:00Z"
+    },
+     {
+      "_id": "6581f1a2b3c4d5e6f7a8b906",
+      "fullName": "MSUBA",
+      "email": "asistentsuba@gmail.com",
+      "password": "suba123#",
+      "role": "passenger",
+      "status": "inactive",
+      "visibility": false,
+      "route_id": "route_005",
+      "createdAt": "2023-12-12T11:20:00Z"
     }
   ]
 }
