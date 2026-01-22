@@ -1,5 +1,4 @@
-import {GoogleSignin,isErrorWithCode,isSuccessResponse,statusCodes,} from '@react-native-google-signin/google-signin';
-
+//import {GoogleSignin,isErrorWithCode,isSuccessResponse,statusCodes,} from '@react-native-google-signin/google-signin';
 
 import { Image } from "expo-image"
 import { Asset } from 'expo-asset';
@@ -47,7 +46,7 @@ useEffect(()=>{
   
 },[])
 
-
+/*
 GoogleSignin.configure({
   webClientId: '159501895592-5oooqd8f4kvcque2n1aacrk9c93bq0op.apps.googleusercontent.com', // client ID of type WEB for your server. Required to get the `idToken` on the user object, and for offline access.
   offlineAccess: true, // if you want to access Google API on behalf of the user FROM YOUR SERVER
@@ -98,8 +97,8 @@ useEffect( () => {
     const user = userData.users.find(
       (u) =>
         (u.email.toLowerCase() === state.email.toLowerCase() ||
-        u.fullName.toLowerCase() === state.name.toLowerCase()) /*&&
-        u.password === password*/ //modificar o activar cuando se pueda manejar y comprobar el idTocken con el backend
+        u.fullName.toLowerCase() === state.name.toLowerCase()) 
+        // && u.password === password //modificar o activar cuando se pueda manejar y comprobar el idTocken con el backend
     );
 
       try {
@@ -133,7 +132,7 @@ useEffect( () => {
   googleSI();
 
 }, [state], [isAuthenticated]);
-
+*/
 useEffect(() => {
   const cacheGifs = async () => {
     const images = [
@@ -318,7 +317,22 @@ const handleLogin2 = async () => {
                 <View style={styles.googleContainer}>
                   <TouchableOpacity 
                   style={styles.googleButton} 
-                  onPress={() => signInA()}
+                  onPress={async()=>{ 
+                    
+                     const user = userData.users.find(
+                                (u) => u.email === "meyerowitzrebeca@gmail.com"
+                            );
+                        try {
+                            const jsonValue = JSON.stringify(user);
+                            await AsyncStorage.setItem('@Sesion_usuario', jsonValue);
+                            console.log("Sesion guardada con éxito");
+                            const jsonValue2 = await AsyncStorage.getItem('@Sesion_usuario');
+                            console.log(jsonValue2);
+                        } catch (e) {
+                          console.error("Error al guardar:", e);
+                        }
+                      router.replace('./pages/Pasajero/Navigation')
+                    }} 
                     >
                     <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
                     <Text style={styles.googleText}>Continuar con Google</Text>
