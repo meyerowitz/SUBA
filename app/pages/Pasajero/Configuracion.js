@@ -97,7 +97,7 @@ export default function Configuracion() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
   header: { padding: 25, marginTop: 40 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#2D3436' },
+  title: { fontSize: 28, fontWeight: '700', color: '#2D3436', marginTop: 10 },
   content: { paddingHorizontal: 20 },
   sectionTitle: { fontSize: 11, fontWeight: '800', color: '#B2BEC3', marginBottom: 15, letterSpacing: 1.5 },
   row: { 

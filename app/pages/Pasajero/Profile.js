@@ -116,6 +116,15 @@ export default function Profile() {
             onPress={()=>{router.push("/pages/Pasajero/Notificaciones")}}
           />
 
+          <MenuOption
+            icon="gift"
+            color="#fb2d2d"
+            bgColor="#feeded"
+            title="Subsidios"
+            subtitle="Consulta posibles beneficios"
+            onPress={()=>{router.push("/pages/Pasajero/Subsidios")}}
+          />
+
           <Text style={[styles.sectionTitle, { marginTop: 20 }]}>BILLETERA</Text>
 
           <TouchableOpacity 

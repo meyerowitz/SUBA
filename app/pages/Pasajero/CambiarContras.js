@@ -48,7 +48,7 @@ export default function CambiarContras() {
 					<View style={styles.inputRow}>
 						<TextInput
 							style={styles.input}
-							placeholder="Ingrese su contraseña actual"
+							placeholder="Ingrese la contraseña actual"
 							secureTextEntry={!showContraActual}
 							value={contraActual}
 							onChangeText={setContraActual}
@@ -108,11 +108,13 @@ const styles = StyleSheet.create({
 	content: { paddingHorizontal: 20 },
 	sectionTitle: { fontSize: 12, fontWeight: '800', color: '#B2BEC3', marginBottom: 15, letterSpacing: 1 },
 	inputCard: {
-		backgroundColor: 'white',
-		padding: 15,
-		borderRadius: 15,
+		backgroundColor: '#FDF7ED',
+		padding: 17,
+		borderRadius: 20,
 		marginBottom: 12,
-		elevation: 2
+		elevation: 2,
+		borderWidth: 1,
+		borderColor: '#FAD7A0',
 	},
 	input: {
 		marginTop: 8,
@@ -122,7 +124,9 @@ const styles = StyleSheet.create({
 		height: 44,
 		flex: 1,
 		paddingRight: 44,
-		backgroundColor: '#f0f1f5',
+		borderWidth: 1,
+		borderColor: '#FAD7A0',
+		backgroundColor: '#ffffff',
 		fontSize: 15
 	},
 	inputRow: {
@@ -139,7 +143,7 @@ const styles = StyleSheet.create({
 	button: {
 		backgroundColor: '#003366',
 		padding: 15,
-		borderRadius: 15,
+		borderRadius: 20,
 		alignItems: 'center',
 		marginTop: 10
 	},
