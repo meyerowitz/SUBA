@@ -95,8 +95,21 @@ export default function RootLayout() {
         }} 
       />
       
-      
+      <Stack.Screen 
+      name="pages/Conductor/HomeConductor" 
+      options={{ 
+      animation: 'slide_from_right', // Esta subirá como un panel
+       
+      }} 
+      />
 
+      <Stack.Screen 
+      name="pages/Conductor/Profile" 
+      options={{ 
+      animation: 'slide_from_right', // Esta subirá como un panel
+       
+      }} 
+      />
 
     </Stack>
     
