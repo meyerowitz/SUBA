@@ -108,7 +108,13 @@ export default function RootLayout() {
        
         }} 
       />
-
+      <Stack.Screen
+      name="pages/Pasajero/Soporte"
+      options={{ 
+        animation: 'slide_from_right', // Esta subirá como un panel 
+        }} 
+      />
+      
     </Stack>
     
   );

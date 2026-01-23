@@ -11,7 +11,7 @@ import {
 	Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FontAwesome, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import Volver from '../../Components/Botones_genericos/Volver';
 import * as ImagePicker from 'expo-image-picker';
 export default function Subsidios() {
