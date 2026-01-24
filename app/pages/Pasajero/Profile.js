@@ -6,6 +6,8 @@ import Volver from '../../Components/Botones_genericos/Volver';
 import { router } from 'expo-router';
 import {getuseremail,getusername} from '../../Components/AsyncStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+//import {GoogleSignin} from '@react-native-google-signin/google-signin';
+
 
 export default function Profile() {
   // Simulación de estados
@@ -41,6 +43,7 @@ export default function Profile() {
         text: "Sí, salir", 
         onPress: async () => {
           await AsyncStorage.removeItem('@Sesion_usuario');
+        // GoogleSignin.signOut();//CIERRA SESION DE GOOGLE, SI NO SE COLOCA QUEDARA ABIERTA A PESAR DE HABER CERRADO SESION
           router.replace('/Login');
         } 
       }
