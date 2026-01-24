@@ -323,7 +323,7 @@ export default function WebMap() {
     };
     loadHTML();
   }, []);
-  // --- 2) .Lógica de Expo Location  ✅ ---
+  // --- 2) .Lógica de Expo Location  ✅ Quitarlo luego ---
   useEffect(() => {
     console.log("-----Solicitando permisos de Locacion------");
     let locationSubscription = null;

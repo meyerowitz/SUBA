@@ -31,6 +31,8 @@ export default function Home() {
   const[Load,SetLoad]=useState(false);
   const [saldo, setSaldo] = useState(0.00);
 
+  const [userImage, SetuserImage]= useState(false);
+  
   const router= useRouter();
   // === LÓGICA DE GEOLOCALIZACIÓN (Mantenemos tu lógica original) ===
   const obtenerUbicacionOrigen = async () => {
@@ -248,7 +250,7 @@ const handleSearch = () => {
 
             <TouchableOpacity 
               style={{position: 'absolute',top: 45,left: 15,zIndex: 100}} 
-              onPress={() => console.log("Abrir Escáner")}
+              onPress={() => router.push("/Components/ScannerQR")}
             >
               <Ionicons name="barcode-outline" size={23} color="white" />
             </TouchableOpacity>

@@ -190,7 +190,7 @@ export default function HomeConductor() {
 
   return (
     <SafeAreaView style={styles.mainContainer}>
-      <StatusBar barStyle="light-content" />
+       <StatusBar  backgroundColor='#003366' barStyle="ligth-content"></StatusBar>
       <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
         
         {/* HEADER CONDUCTOR */}
@@ -252,7 +252,7 @@ export default function HomeConductor() {
         </View>
 
         <View style={styles.actionGrid}>
-          <TouchableOpacity style={styles.actionCard} onPress={() => router.push("./GenerarQR")}>
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push("/Components/GenerarQR")}>
             <View style={[styles.iconCircle, { backgroundColor: '#E3F2FD' }]}>
               <Ionicons name="qr-code" size={30} color="#007AFF" />
             </View>

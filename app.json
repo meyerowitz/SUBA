@@ -6,8 +6,8 @@
     "orientation": "portrait",
     "icon": "./assets/img/icono3.png",
     "scheme": "bustrackerciudbolivar",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
        "googleServicesFile": "./GoogleService-Info.plist"
@@ -63,6 +63,14 @@
           "image": "./assets/img/icono4.png",
           "resizeMode": "contain",
           "backgroundColor": "#FFFFFF"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
+          "recordAudioAndroid": true
         }
       ]
     ],
