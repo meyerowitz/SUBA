@@ -349,7 +349,7 @@ const handleSearch = () => {
         {/* Columna Total Trips */}
         <View style={styles.statItem}>
           <Text style={styles.statLabel}>Dolar BCV</Text>
-          <Text style={styles.statValue}>{DolarBcvLoading? (<ActivityIndicator size="small" color="#0022ffff" />): `Bs. ${DolarBcv}`}</Text>
+          <Text style={styles.statValue}>{DolarBcvLoading? (<ActivityIndicator size="small" color="#0022ffff" />): `Bs. ${DolarBcv.toFixed(2)}`}</Text>
         </View>
       </View>
         {/* TARJETA DE SALDO (NARANJA) */}
