@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#007bff',
     width: 40,
     height: 40,
-    borderRadius: 20, //antes estaba en 10, redondo ta ma lindo
+    borderRadius: 10, //alguien insensato lo coloco en 20 , rompe por completo la armonia del componente
     justifyContent: 'center',
     alignItems: 'center',
   },
