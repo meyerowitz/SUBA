@@ -29,7 +29,7 @@ export default function Notificaciones() {
           </View>
         </View>
 
-        <View style={[styles.section, { opacity: isAllEnabled ? 1 : 0.5 }]}>
+        <View style={[styles.section, { opacity: isAllEnabled ? 1 : 0.6 }]}>
           <Text style={styles.sectionTitle}>CATEGORÍAS</Text>
           
           <NotificationItem 

@@ -3,14 +3,16 @@ import { View, Text, StyleSheet, Switch, ScrollView, TouchableOpacity, Alert } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Volver from '../../Components/Botones_genericos/Volver';
+import { useRouter } from 'expo-router';
 
 export default function Privacidad() {
+  const router = useRouter();
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
   const [isPublicProfile, setIsPublicProfile] = useState(true);
 
   const handleEliminarCuenta = () => {
     Alert.alert(
-      "Eliminar Cuenta",
+      "Eliminar cuenta",
       "Esta acción es irreversible. ¿Realmente deseas borrar todos tus datos?",
       [{ text: "Cancelar", style: "cancel" }, { text: "Eliminar", style: "destructive" }]
     );
@@ -26,7 +28,7 @@ export default function Privacidad() {
         
         <Text style={styles.sectionTitle}>SEGURIDAD</Text>
         
-        <TouchableOpacity style={styles.row}>
+        <TouchableOpacity style={styles.row} onPress={() => router.push('./CambiarContras')}>
           <View>
             <Text style={styles.rowText}>Cambiar Contraseña</Text>
             <Text style={styles.subText}>Se recomienda usar una clave fuerte</Text>
@@ -42,7 +44,7 @@ export default function Privacidad() {
           <Switch 
             value={isBiometricEnabled} 
             onValueChange={setIsBiometricEnabled}
-            trackColor={{ false: "#D1D1D1", true: "#2E7D32" }} 
+            trackColor={{ false: "#D1D1D1", true: "#D99015" }} 
           />
         </View>
 
@@ -56,7 +58,7 @@ export default function Privacidad() {
           <Switch 
             value={isPublicProfile} 
             onValueChange={setIsPublicProfile}
-            trackColor={{ false: "#D1D1D1", true: "#2E7D32" }} 
+            trackColor={{ false: "#D1D1D1", true: "#D99015" }} 
           />
         </View>
 
@@ -77,7 +79,7 @@ const styles = StyleSheet.create({
   header: { padding: 25, marginTop: 40 },
   title: { fontSize: 28, fontWeight: 'bold', color: '#2D3436' },
   content: { paddingHorizontal: 20 },
-  sectionTitle: { fontSize: 12, fontWeight: '800', color: '#B2BEC3', marginBottom: 15, letterSpacing: 1 },
+  sectionTitle: { fontSize: 12, fontWeight: '800', color: '#B2BEC3', marginBottom: 15, letterSpacing: 1.5 },
   row: { 
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
     backgroundColor: 'white', padding: 18, borderRadius: 15, marginBottom: 12,

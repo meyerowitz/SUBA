@@ -1,5 +1,5 @@
 import React, { useState , useEffect} from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, StatusBar, ScrollView , Alert} from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, StatusBar, ScrollView , Alert, Image } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Volver from '../../Components/Botones_genericos/Volver';
@@ -14,6 +14,7 @@ export default function Profile() {
 
   const [UserName, setUserName] = useState("---");
   const [UserEmail, setUserEmail] = useState("---");
+  const [profileImage, setProfileImage] = useState(null);
     
   useEffect(()=>{
     const name = getusername();
@@ -22,6 +23,12 @@ export default function Profile() {
     setUserName(name);
     setUserEmail(email);
 
+    (async () => {
+      try {
+        const img = await AsyncStorage.getItem('@profile_image');
+        if (img) setProfileImage(img);
+      } catch (e) { console.log('profile image load error', e); }
+    })();
   },[])
 
   const handleLogout = () => {
@@ -55,7 +62,11 @@ export default function Profile() {
         {/* Caja de Perfil Blanca (Insignias dentro) */}
         <View style={styles.profileBox}>
           <View style={styles.avatarCircle}>
-            <Ionicons name="person-outline" size={60} color="white" />
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={{ width: 90, height: 90, borderRadius: 45 }} />
+            ) : (
+              <Ionicons name="person-outline" size={60} color="white" />
+            )}
           </View>
           
           <Text style={styles.userName}>{UserName}</Text>
@@ -114,6 +125,15 @@ export default function Profile() {
             title="Notificaciones" 
             subtitle="Configura tus alertas" 
             onPress={()=>{router.push("/pages/Pasajero/Notificaciones")}}
+          />
+
+          <MenuOption
+            icon="gift"
+            color="#fb2d2d"
+            bgColor="#feeded"
+            title="Subsidios"
+            subtitle="Consulta posibles beneficios"
+            onPress={()=>{router.push("/pages/Pasajero/Subsidios")}}
           />
 
           <Text style={[styles.sectionTitle, { marginTop: 20 }]}>BILLETERA</Text>
