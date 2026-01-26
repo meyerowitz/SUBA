@@ -445,31 +445,44 @@ const handleSearch = () => {
       const { lat: destLat, lon: destLon } = destination;
 
       let routeSegment = [];
-      const threshold = 0.005; // Radio de cercanía (aprox 500m)
+      
+      // --- NUEVA LÓGICA DE BÚSQUEDA INCREMENTAL ---
+      // 0.005 ≈ 500m | 0.01 ≈ 1km | 0.015 ≈ 1.5km | 0.02 ≈ 2km
+      const radiosBusqueda = [0.005, 0.01, 0.015, 0.02]; 
+      let matchedRoute = null;
 
-      // 1. Buscamos si EL USUARIO está cerca de alguna ruta
-      const matchedRoute = Rutas.find(ruta => 
-        ruta.puntos.some(p => getDistance(userLat, userLon, p[0], p[1]) < threshold)
-      );
+      // Buscamos la ruta más cercana aumentando el radio en cada intento
+      for (const radioActual of radiosBusqueda) {
+        matchedRoute = Rutas.find(ruta => 
+          ruta.puntos.some(p => getDistance(userLat, userLon, p[0], p[1]) < radioActual)
+        );
+        
+        if (matchedRoute) {
+          console.log(`Ruta detectada en radio de ${radioActual * 100}km aprox.`);
+          break; // Si encontramos una, salimos del bucle
+        }
+      }
+      // --------------------------------------------
 
       if (matchedRoute) {
-        // 2. Encontrar el punto de la ruta más cercano al USUARIO (Entrada)
+        // Encontrar punto de entrada (Cerca del Usuario)
         const startResult = findClosestIndex(userLat, userLon, matchedRoute.puntos);
         
-        // 3. Encontrar el punto de la ruta más cercano al DESTINO (Salida)
+        // Encontrar punto de salida (Cerca de la Parada Destino)
         const endResult = findClosestIndex(destLat, destLon, matchedRoute.puntos);
 
-        // 4. Cortar el arreglo para que solo incluya el trayecto necesario
-        // Usamos min y max por si la ruta en el JSON viene en sentido contrario al que viajas
+        // Segmentación inteligente (lo que hicimos en el paso anterior)
         const i1 = Math.min(startResult.index, endResult.index);
         const i2 = Math.max(startResult.index, endResult.index);
         
         routeSegment = matchedRoute.puntos.slice(i1, i2 + 1);
         
-        // Si el destino está más cerca del inicio del array que el usuario, invertimos el segmento
+        // Invertir si el sentido de la ruta en el JSON es opuesto al viaje
         if (startResult.index > endResult.index) {
           routeSegment.reverse();
         }
+      } else {
+        console.log("No se encontró ruta de bus en un radio de 2km. Usando ruteo directo.");
       }
 
       const routeJsCode = `
@@ -485,7 +498,7 @@ const handleSearch = () => {
       setShowEta(false);
     }
   } catch (error) {
-    console.error(error);
+    console.error("Error en búsqueda:", error);
   } finally {
     setIsSearching(false);
   }
