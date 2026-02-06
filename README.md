@@ -47,7 +47,7 @@ Para vincular la tarea con el responsable, utilizaremos esta estructura **obliga
 | :--- | :--- | :--- |
 | **Prefijo** | `feature/` | Indica que es una rama de desarrollo. |
 | **Identificador** | `JC/` (Iniciales) | **Identificador de Responsabilidad:** Obligatorio para rastrear la actividad individual (ej. **J**uan **C**arlos). |
-| **Descripción** | `crud-usuarios` | Nombre descriptivo de la tarea (usar guiones). |
+| **Descripción** | `crud-usuarios` | Nombre descriptivo de la tarea ( usar guiones). |
 | **Ejemplo Final** | `feature/JC/login-google` | **RAMA VÁLIDA** |
 
 ---
