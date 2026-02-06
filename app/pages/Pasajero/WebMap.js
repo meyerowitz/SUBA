@@ -7,7 +7,7 @@ import { Asset } from "expo-asset";
 import * as Location from "expo-location";
 import * as FileSystem from "expo-file-system/legacy";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import SearchRoot from "../../Components/SearchRoot";
@@ -182,9 +182,6 @@ export default function WebMap() {
   const [stopsInjected, setStopsInjected] = useState(false); // es para verificar cuando la inyeccion js a sido exitosa
 
   const [userLocation, setUserLocation] = useState(null); //--ubicacion del usuario en tiempo real
-
-  //const [searchQuery, setSearchQuery] = useState('')//----Query de busquedas
-  //const [searchResult, setSearchResult] = useState(null);//----Resultados de la busqueda
   const [isSearching, setIsSearching] = useState(false); //---Stado de la busqueda
 
   const [selectedDestinationName, setSelectedDestinationName] = useState("");
@@ -195,11 +192,10 @@ export default function WebMap() {
   const [hasCenteredOnce, setHasCenteredOnce] = useState(false);
 
   const [ShowEta, setShowEta]= useState(true);
-//-----------Todo lo relacionado al Eta--------
+  //-----------Todo lo relacionado al Eta--------
   const [Eta, SetEta]= useState("10min");
   const [Distancia, SetDistancia]= useState("35Km");
   const [RouteName, SetRouteName]= useState("Route Name");
-  const [routeDetails, setRouteDetails] = useState(null);
   //--------------------------------------------------
 
   // --- NUEVOS ESTADOS PARA ETA BUS -> USUARIO ---
@@ -211,6 +207,8 @@ export default function WebMap() {
   const [selectedStopLocation, setSelectedStopLocation] = useState(null);
   const [selectedStopName, setSelectedStopName] = useState("");
 
+  const { theme, isDark } = useTheme(); //temas oscuro y claro
+  
   // FUNCIÓN: Limpiar selección de parada
   const resetSelection = () => {
     setSelectedStopLocation(null);

@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import Volver from '../../Components/Botones_genericos/Volver';
 import * as ImagePicker from 'expo-image-picker';
+import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 export default function Subsidios() {
 	const [selectedOption, setSelectedOption] = useState(null); // 'estudiante' | 'adulto' | 'discapacitado'
 	const [modalVisible, setModalVisible] = useState(false);
@@ -28,7 +29,8 @@ export default function Subsidios() {
 
 	// Discapacitado
 	const [disabledDocImage, setDisabledDocImage] = useState(null);
-
+	const { theme, isDark } = useTheme(); //temas oscuro y claro
+	
 	useEffect(() => {
 		(async () => {
 			const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -197,11 +199,11 @@ export default function Subsidios() {
 	};
 
 	return (
-		<SafeAreaView style={styles.container}>
+		<SafeAreaView style={{flex: 1, backgroundColor: theme.background}}>
 			<ScrollView contentContainerStyle={styles.content}>
 				<View style={styles.header}>
-					<Text style={styles.title}>Subsidios</Text>
-					<Text style={styles.description}>Selecciona la categoría que aplica para solicitar un subsidio.</Text>
+					<Text style={{fontSize: 28, fontWeight: '700', color: theme.text, marginTop: 10 }}>Subsidios</Text>
+					<Text style={{fontSize: 14, color: theme.text, marginTop: 8}}>Selecciona la categoría que aplica para solicitar un subsidio.</Text>
 				</View>
 
 				<View style={{ marginTop: 20 }}>
@@ -248,7 +250,7 @@ export default function Subsidios() {
 				</View>
 			</Modal>
 
-			<Volver route={"./Profile"} color={"#333"} style={{ top: 60, left: 10 }} />
+			<Volver route={"./Profile"} color={theme.volver_button} style={{ top: 60, left: 10 }} />
 		</SafeAreaView>
 	);
 }

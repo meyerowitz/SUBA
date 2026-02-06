@@ -2,16 +2,13 @@ import React, {useEffect, useState} from 'react';
 import { TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons'; // Expo ya incluye Ionicons
 import { useRouter } from 'expo-router';
+import { useTheme } from '../Temas_y_colores/ThemeContext';
 
 export default function Volver({route,color,style}) {
   const router = useRouter();
-  const [colors, setcolors]= useState("gray");
-  
-  useEffect(()=>{
-    if(color !==null){
-        setcolors(color)
-    }
-  },[])
+  const { theme, isDark } = useTheme(); //temas oscuro y claro
+
+  const colors = color || theme?.volver_button || "gray";
 
   return (
     <TouchableOpacity 

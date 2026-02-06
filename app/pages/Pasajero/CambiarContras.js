@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Volver from '../../Components/Botones_genericos/Volver';
+import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 
 export default function CambiarContras() {
 	const [contraActual, setContraActual] = useState('');
@@ -11,6 +12,7 @@ export default function CambiarContras() {
 	const [showContraActual, setShowContraActual] = useState(false);
 	const [showNueva, setShowNueva] = useState(false);
 	const [showConfirmar, setShowConfirmar] = useState(false);
+	const { theme, isDark } = useTheme(); //temas oscuro y claro
 
     //Simulacion de la actualizacion de la contraseña
 	const handleActualizarContra = () => {
@@ -35,7 +37,7 @@ export default function CambiarContras() {
 	};
 
 	return (
-		<SafeAreaView style={styles.container}>
+		<SafeAreaView style={{flex: 1, backgroundColor: theme.background }}>
 			<View style={styles.header}>
 				<Text style={styles.title}>Cambiar Contraseña</Text>
 			</View>
@@ -102,7 +104,6 @@ export default function CambiarContras() {
 }
 
 const styles = StyleSheet.create({
-	container: { flex: 1, backgroundColor: '#F8F9FA' },
 	header: { padding: 25, marginTop: 40 },
 	title: { fontSize: 28, fontWeight: 'bold', color: '#2D3436' },
 	content: { paddingHorizontal: 20 },

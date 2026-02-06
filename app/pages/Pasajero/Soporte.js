@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Modal, Linking, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 import Volver from '../../Components/Botones_genericos/Volver';
 
 export default function Soporte() {
   const [expanded, setExpanded] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-
+  const { theme, isDark } = useTheme(); //temas oscuro y claro
+  
   const faqs = [
     { id: '1', q: '¿Cómo recargo mi saldo?', a: 'Pueded recargar tu saldo por Pago Móvil transfiriendo el monto que disponga a los datos que se indican. Sube la captura y registra la referencia en tu billetera.' },
     { id: '2', q: '¿Cómo solicito un subsidio?', a: 'Ve al apartado de Subsidios, selecciona el tipo de subsidio y sube la documentación requerida. Nuestro equipo de SUBA evaluará tu solicitud y responderá de forma acorde.' },

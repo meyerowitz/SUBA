@@ -2,15 +2,17 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Switch, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Volver from '../../Components/Botones_genericos/Volver';
+import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 
 export default function Notificaciones() {
   const [isAllEnabled, setIsAllEnabled] = useState(true);
   const [isPromosEnabled, setIsPromosEnabled] = useState(false);
-
+  const { theme, isDark } = useTheme(); //temas oscuro y claro
+  
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={{flex: 1, backgroundColor: theme.background}}>
       <View style={styles.header}>
-        <Text style={styles.title}>Notificaciones</Text>
+        <Text style={{fontSize: 28, fontWeight: 'bold', color: theme.text}}>Notificaciones</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -47,7 +49,7 @@ export default function Notificaciones() {
         </View>
       </ScrollView>
 
-      <Volver route={"./Profile"} color={"#333"} style={{ top: 50, left: 10 }} />
+      <Volver route={"./Profile"} color={theme.volver_button} style={{ top: 50, left: 10 }} />
     </SafeAreaView>
   );
 }

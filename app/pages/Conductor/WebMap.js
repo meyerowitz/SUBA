@@ -880,7 +880,7 @@ useEffect(() => {
             )}
           </TouchableOpacity>
         </View>
-      <Volver route="/pages/Pasajero/Navigation" color={"white"} style={{top:60, left:1}}/>
+      <Volver route="/pages/Conductor/Home2" color={"white"} style={{top:60, left:1}}/>
     </View>
   );
 }

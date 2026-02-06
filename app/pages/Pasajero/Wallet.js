@@ -10,6 +10,7 @@ import Volver from '../../Components/Botones_genericos/Volver';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 // Configuración de Supabase
 const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
@@ -25,7 +26,7 @@ export default function WalletScreen() {
   const [referencia, setReferencia] = useState('');
   const [montoInput, setMontoInput] = useState('');
   const [cargando, setCargando] = useState(false);
-
+  const { theme, isDark } = useTheme(); //temas oscuro y claro
 // --- 1. NUEVA FUNCIÓN PARA OBTENER EL SALDO DESDE "Saldo_usuarios" ---
 const obtenerSaldoReal = async () => {
   try {
@@ -242,12 +243,12 @@ if (saldoError) {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={'white'}/>
+    <SafeAreaView style={{flex: 1, backgroundColor: theme.background_2}}>
+      <StatusBar barStyle="dark-content" backgroundColor={theme.background_2}/>
       
-      <View style={styles.header}>
+      <View style={{flexDirection: 'row',  alignItems: 'center', paddingHorizontal: 20, height: 60, backgroundColor: theme.background_2}}>
         <Image source={require('../../../assets/img/wallet.png')} style={{position:'absolute', height:150, width:150, top:0, left:10}}/>
-        <Volver route={"./Profile"} color={"#003366"} />
+        <Volver route={"./Profile"} color={theme.volver_button} />
         <TouchableOpacity style={{marginLeft:'91%'}} onPress={cargarHistorial()}>
            <Ionicons name="refresh-circle" size={30} color="#003366" />
         </TouchableOpacity>

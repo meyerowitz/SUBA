@@ -260,7 +260,7 @@ export default function HomeConductor() {
             <Text style={styles.actionDesc}>Mostrar para cobrar</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionCard} onPress={() => router.push("./MapaRuta")}>
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push("./WebMap")}>
             <View style={[styles.iconCircle, { backgroundColor: '#F1F8E9' }]}>
               <Ionicons name="map" size={30} color="#34C759" />
             </View>
@@ -268,11 +268,7 @@ export default function HomeConductor() {
             <Text style={styles.actionDesc}>Ver mapa y paradas</Text>
           </TouchableOpacity>
         </View>
-               {/* Botón de Cerrar Sesión al final del scroll */}
-                <TouchableOpacity onPress={handleLogout} style={{backgroundColor: '#D99015', marginHorizontal: 25, marginTop: 30,
-    paddingVertical: 16, borderRadius: 20, alignItems: 'center'}}>
-                  <Text style={styles.logoutText}>CERRAR SESIÓN</Text>
-                </TouchableOpacity>
+  
       </ScrollView>
     </SafeAreaView>
   );

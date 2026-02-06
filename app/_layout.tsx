@@ -1,11 +1,12 @@
 import { Stack } from "expo-router";
 import * as SplashScreenNative from "expo-splash-screen";
-
+import { ThemeProvider } from './Components/Temas_y_colores/ThemeContext';
 SplashScreenNative.preventAutoHideAsync();
 
 export default function RootLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <ThemeProvider>
+      <Stack screenOptions={{ headerShown: false }}>
       {/* 1. El Index (donde está tu SplashScreen) */}
       <Stack.Screen
         name="index"
@@ -146,6 +147,7 @@ export default function RootLayout() {
           animation: "slide_from_right", // Esta subirá como un panel
         }}
       />
-    </Stack>
+      </Stack>
+    </ThemeProvider>
   );
 }

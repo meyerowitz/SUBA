@@ -4,12 +4,13 @@ import { Image } from "expo-image"
 import { Asset } from 'expo-asset';
 import { useRouter } from "expo-router"
 import { useState , useEffect} from "react"
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View , StatusBar, ScrollView,KeyboardAvoidingView, Platform} from "react-native"
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View , StatusBar, ScrollView,KeyboardAvoidingView, Platform,Button} from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import userData from "./Components/Users.json";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { v4 as uuidv4 } from "uuid";
+import { useTheme } from './Components/Temas_y_colores/ThemeContext';
 
 export default function Login() {
   const router = useRouter()
@@ -23,6 +24,7 @@ export default function Login() {
   // Estados para controlar la carga y qué GIF mostrar
   const [isLoading, setIsLoading] = useState(false)
   const [userRole, setUserRole] = useState(null)
+  const { theme, toggleTheme, isDark } = useTheme();
 
 useEffect(()=>{
   
@@ -273,6 +275,12 @@ const handleLogin2 = async () => {
   return (
     <SafeAreaView style={{ flex: 1,justifyContent: "center",alignItems: "center",  backgroundColor: "#ffffffff"}}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
+      <View style={{ backgroundColor: theme.background }}>
+      <Text style={{ color: theme.text }}>
+        Estás en modo {isDark ? 'Oscuro' : 'Claro'}
+      </Text>
+      <Button title="Cambiar Tema" onPress={toggleTheme} />
+    </View>
         <KeyboardAvoidingView 
           behavior={Platform.OS === "ios" ? "height" : "padding"} 
            style={{ flex: 1, width: '100%'}}

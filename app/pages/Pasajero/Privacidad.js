@@ -4,12 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Volver from '../../Components/Botones_genericos/Volver';
 import { useRouter } from 'expo-router';
+import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 
 export default function Privacidad() {
   const router = useRouter();
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
   const [isPublicProfile, setIsPublicProfile] = useState(true);
-
+  const { theme, isDark } = useTheme(); //temas oscuro y claro
+  
   const handleEliminarCuenta = () => {
     Alert.alert(
       "Eliminar cuenta",
@@ -19,9 +21,9 @@ export default function Privacidad() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background}}>
       <View style={styles.header}>
-        <Text style={styles.title}>Privacidad</Text>
+        <Text style={{fontSize: 28, fontWeight: 'bold', color: theme.text}}>Privacidad</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -69,7 +71,7 @@ export default function Privacidad() {
 
       </ScrollView>
 
-      <Volver route={"./Profile"} color={"#333"} style={{ top: 50, left: 10 }} />
+      <Volver route={"./Profile"} color={theme.volver_button} style={{ top: 50, left: 10 }} />
     </SafeAreaView>
   );
 }

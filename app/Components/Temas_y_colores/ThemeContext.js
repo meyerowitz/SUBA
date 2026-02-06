@@ -3,15 +3,33 @@ import React, { createContext, useState, useContext } from 'react';
 import { useColorScheme } from 'react-native';
 
 const lightTheme = {
-  background: '#FFFFFF',
+  background: '#ffffffff',
+  background_2: '#ffffffff',
   text: '#000000',
-  primary: '#007AFF',
+  text_2: '#2D3436',
+  primary: "#D99015",
+  primary_2: "#D99015",
+  ActivityIndicator: '#0022ffff',
+  volver_button: '#000000',
+  barstyle:'#003366',
+  barstyle_2:'#D99015',
+  tabBarActiveTintColor: 'orange',
+  tabBarInactiveTintColor: 'gray',
 };
 
 const darkTheme = {
-  background: '#121212',
-  text: '#FFFFFF',
-  primary: '#0A84FF',
+  background: '#003366',
+  background_2: '#2374c4',
+  text: '#ffffff',
+  text_2: '#ffffff',
+  primary: "#D99015",
+  primary_2: 'rgb(0, 200, 255)',
+  ActivityIndicator: 'rgb(255, 255, 255)',
+  volver_button: 'white',
+  barstyle:'#003366',
+  barstyle_2:'#003366',
+  tabBarActiveTintColor: 'white',
+  tabBarInactiveTintColor: 'rgb(0, 200, 255)',
 };
 
 const ThemeContext = createContext();

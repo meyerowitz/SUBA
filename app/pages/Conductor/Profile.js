@@ -9,8 +9,24 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Volver from "../../Components/Botones_genericos/Volver";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function Profile() {
+     const handleLogout = () => {
+  Alert.alert(
+    "Cerrar Sesión",
+    "¿Estás segura de que quieres salir?",
+    [
+      { text: "Cancelar", style: "cancel" },
+      { 
+        text: "Sí, salir", 
+        onPress: async () => {
+          await AsyncStorage.removeItem('@Sesion_usuario');
+          router.replace('/Login');
+        } 
+      }
+    ]
+  );}
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="#D99015" barStyle="light-content" />
@@ -108,7 +124,7 @@ export default function Profile() {
         {/* BOTÓN CERRAR SESIÓN ESTILO IMAGEN */}
         <TouchableOpacity
           style={styles.logoutButton}
-          onPress={() => router.replace("/Login")}
+          onPress={handleLogout}
         >
           <Text style={styles.logoutText}>CERRAR SESIÓN</Text>
         </TouchableOpacity>

@@ -1,16 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Switch, ScrollView, TouchableOpacity, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, Switch, ScrollView, TouchableOpacity, Alert, Image,StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Volver from '../../Components/Botones_genericos/Volver';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
+import { useTranslation } from 'react-i18next';
+import '../../Components/i18n/i18n';
 
 export default function Configuracion() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isGpsOptimized, setIsGpsOptimized] = useState(true);
   const [profileImage, setProfileImage] = useState(null);
+  const { t, i18n } = useTranslation();
+  const { theme, toggleTheme, isDark } = useTheme(); //temas oscuro y claro
+  
+  // Función para rotar idiomas (puedes hacer un modal luego)
+  const toggleLanguage = () => {
+    const nextLanguage = i18n.language === 'es' ? 'en' : 'es';
+    i18n.changeLanguage(nextLanguage);
+  };
 
   useEffect(() => {
     (async () => {
@@ -22,9 +33,10 @@ export default function Configuracion() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={{flex: 1, backgroundColor: theme.background }}>
+      <StatusBar backgroundColor={theme.barstyle_2 } barStyle={'light-content'}/>
       <View style={styles.header}>
-        <Text style={styles.title}>Configuración</Text>
+        <Text style={{fontSize: 28, fontWeight: '700', color: theme.text_2 , marginTop: 10}}>Configuración</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -37,8 +49,8 @@ export default function Configuracion() {
             <Text style={styles.subText}>Cambia el aspecto visual</Text>
           </View>
           <Switch 
-            value={isDarkMode} 
-            onValueChange={setIsDarkMode}
+            value={isDark} 
+            onValueChange={ toggleTheme}
             trackColor={{ false: "#D1D1D1", true: "#D99015" }} 
           />
         </View>
@@ -59,7 +71,7 @@ export default function Configuracion() {
             } catch (e) { console.log('pickImage error', e); Alert.alert('Error', 'No se pudo actualizar la foto.'); }
           }}>
           <View>
-            <Text style={styles.rowText}>Foto de Perfil</Text>
+            <Text style={styles.rowText}>{t('foto_perfil')}</Text>
             <Text style={styles.subText}>Actualiza tu foto de perfil</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -105,10 +117,10 @@ export default function Configuracion() {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.row}>
+        <TouchableOpacity onPress={toggleLanguage} style={styles.row}>
           <View>
-            <Text style={styles.rowText}>Idioma</Text>
-            <Text style={styles.subText}>Español (Latinoamérica)</Text>
+            <Text style={styles.rowText}>{t('idioma')}</Text>
+            <Text style={styles.subText}>{t('espanol')}</Text>
           </View>
           <Ionicons name="language-outline" size={23} color="#D99015" />
         </TouchableOpacity>
@@ -155,13 +167,12 @@ export default function Configuracion() {
 
       </ScrollView>
 
-      <Volver route={"./Profile"} color={"#333"} style={{ top: 60, left: 10 }} />
+      <Volver route={"./Profile"} color={theme.volver_button} style={{ top: 60, left: 10 }} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
   header: { padding: 25, marginTop: 40 },
   title: { fontSize: 28, fontWeight: '700', color: '#2D3436', marginTop: 10 },
   content: { paddingHorizontal: 20 },

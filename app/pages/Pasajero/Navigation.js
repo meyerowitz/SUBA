@@ -7,13 +7,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Home from './Home';
 import WebMap from './WebMap';
+import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 
 const Tab = createBottomTabNavigator();
 
 // --- Componente del Navegador de Pestañas ---
 function MyTabs() {
   const insets = useSafeAreaInsets();
-  
+  const { theme, isDark } = useTheme(); //temas oscuro y claro
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -33,11 +35,11 @@ function MyTabs() {
           return <Ionicons name={iconName} size={30} color={color}  />; 
         },
         // Colores de los íconos y etiquetas
-        tabBarActiveTintColor: 'orange', // El color activo puede ser el naranja de tu imagen
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: theme.tabBarActiveTintColor, // El color activo puede ser el naranja de tu imagen
+        tabBarInactiveTintColor: theme.tabBarInactiveTintColor,
         // Estilo de la barra de navegación inferior
         tabBarStyle: { 
-          backgroundColor: 'white', 
+          backgroundColor: theme.background, 
           height: 70 + insets.bottom, 
           paddingBottom: insets.bottom > 0 ? insets.bottom : 50,
           paddingTop: 10,

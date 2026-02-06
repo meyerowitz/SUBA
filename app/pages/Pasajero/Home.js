@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, TextInput, TouchableOpacity, SafeAreaView, StatusBar, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, TextInput, TouchableOpacity, SafeAreaView, StatusBar, Image, ScrollView, Button } from 'react-native';
 import * as Location from 'expo-location';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Destinos from "../../Components/Destinos.json";
@@ -8,7 +8,7 @@ import Feather from 'react-native-vector-icons/Feather';
 import { useRouter } from 'expo-router';
 import { createClient } from '@supabase/supabase-js';
 import {getuserid,getusername} from '../../Components/AsyncStorage';
-
+import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 
 const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
@@ -32,7 +32,8 @@ export default function Home() {
   const [saldo, setSaldo] = useState(0.00);
 
   const [userImage, SetuserImage]= useState(false);
-  
+  const { theme, toggleTheme, isDark } = useTheme();
+
   const router= useRouter();
   // === LÓGICA DE GEOLOCALIZACIÓN (Mantenemos tu lógica original) ===
   const obtenerUbicacionOrigen = async () => {
@@ -59,23 +60,6 @@ export default function Home() {
       setCargandoOrigen(false);
     }
   };
-
-  const obtenerPrecioDolar = async () => {
-  try {
-    const respuesta = await fetch('https://ve.dolarapi.com/v1/dolares');
-    const datos = await respuesta.json();
-    
-    // Suponiendo que quieres el oficial (BCV) y el paralelo
-    const oficial = datos.find(d => d.fuente === 'oficial');
-    const paralelo = datos.find(d => d.fuente === 'paralelo');
-    
-    setPrecioBCV(oficial.promedio);
-    setPrecioBCVLoad(false);
-  } catch (error) {
-    console.error("Error obteniendo el dólar:", error);
-  }
-};
-
 const obtenerDatoPasaje = async () => {
     try {
       const { data, error } = await supabase
@@ -92,42 +76,6 @@ const obtenerDatoPasaje = async () => {
       return 0;
     }
   };
-
-const PreciodelTicketbs = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('pasaje_y_tarifas')
-      .select('pasaje')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) throw error;
-
-    if (data) {
-      setTicketBs(data.pasaje);
-      setTicketBsLoad(false);
-      return data.pasaje; // Retornamos el número
-    }
-    return 0;
-  } catch (error) {
-    console.error("Error en Supabase:", error);
-    setTicketBsLoad(false);
-    return 0;
-  }
-};
-
-  const PreciodelTicketdolar = async () => {
-      if(TicketBsLoad === false){
-        console.log("false setTicketDolarLoad false")
-         const TicketDD= TicketBs/DolarBcv
-          setTicketDolar(TicketDD.toFixed(2));
-          setTicketDolarLoad(false)
-      }
-         
-      
-};
-
 // --- 1. NUEVA FUNCIÓN PARA OBTENER EL SALDO DESDE "Saldo_usuarios" ---
 const obtenerSaldoReal = async () => {
   try {
@@ -233,20 +181,31 @@ const handleSearch = () => {
  
 };
 
+
+  const styles={
+ 
+  balanceLabel: {
+    color: 'white', fontSize: 18,fontWeight: 'bold',
+  },
+  balanceAmount: {
+    color: 'white',fontSize: 38,fontWeight: 'bold',marginTop: 10,
+  },
+
+};
   return (
   
-      <View style={styles.mainContainer}>
-      <StatusBar barStyle="light-content" />
+      <View style={{flex: 1, backgroundColor:theme.background,}}>
+      <StatusBar barStyle="light-content" backgroundColor={"#003366"}  />
       {/* BOTÓN DE ESCÁNER FLOTANTE */}
  
-      <ScrollView contentContainerStyle={{  backgroundColor: "#ffffffff", width:'100%' }} 
+      <ScrollView contentContainerStyle={{  backgroundColor: theme.background_2, width:'100%', height:'120%' }} 
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={true}
               bounces={false}
               >
 
       {/* SECCIÓN SUPERIOR AZUL */}
-      <View style={styles.headerBackground}>
+      <View style={{ backgroundColor: '#003366',height: 280,paddingHorizontal: 25,borderBottomLeftRadius: 50, borderBottomRightRadius: 50,}}>
 
             <TouchableOpacity 
               style={{position: 'absolute',top: 45,left: 15,zIndex: 100}} 
@@ -255,12 +214,12 @@ const handleSearch = () => {
               <Ionicons name="barcode-outline" size={23} color="white" />
             </TouchableOpacity>
             
-          <View style={styles.headerContent}>
+          <View style={{flexDirection: 'row',justifyContent: 'space-between', alignItems: 'center',marginTop: 40,}}>
             <Image style={{width:210, height:210, position:'absolute', top:13, left:110}} source={require("../../../assets/img/autobuss.png")}></Image>
             
             <View style={{marginTop:23, marginLeft:13}}>
-              <Text style={styles.userName}>¡Bienvenido!</Text>
-              <Text style={styles.welcomeSub}>¡A Ciudad Guayana Bus!</Text>
+              <Text style={{fontSize: 28, color: 'white',fontWeight: 'bold',}}>¡Bienvenido!</Text>
+              <Text style={{fontSize: 22, color: 'white', fontWeight: '500', marginTop: 5}}>¡A Ciudad Guayana Bus!</Text>
             </View>
             <TouchableOpacity onPress={()=>{router.push("/pages/Pasajero/Profile")}}>
               <Ionicons name="person-circle-outline" size={50} color="white" />
@@ -269,44 +228,43 @@ const handleSearch = () => {
           </View>
 
       </View>
-
   
       {/* TARJETA DE RUTA (DISEÑO SOLICITADO) */}
-      <View style={styles.routeCard}>
-        <View style={styles.routeContent}>
+      <View style={{backgroundColor: 'white', marginHorizontal: 20, marginTop: -40, borderRadius: 15, padding: 15,elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5}}>
+        <View style={{flexDirection: 'row'}}>
           
           {/* COLUMNA IZQUIERDA: ICONOS Y LÍNEA */}
-          <View style={styles.indicatorColumn}>
+          <View style={{ alignItems: 'center', justifyContent: 'space-around', paddingVertical: 10, width: 30 }}>
             <Ionicons name="location" size={20} color="#58A3B8" />
-            <View style={styles.verticalLine} />
+            <View style={{ width: 1, height: 40, backgroundColor: '#DDD', marginVertical: 4 }} />
             <Ionicons name="location" size={20} color="#1A2F35" />
           </View>
 
           {/* COLUMNA DERECHA: SELECCIONADORES */}
-          <View style={styles.inputsColumn}>
+          <View style={{ flex: 1, marginLeft: 10 }}>
             
             {/* ORIGEN */}
-            <View style={styles.inputWrapper}>
-              <Text style={styles.labelTitle}>Desde</Text>
+            <View style={{ height: 60, justifyContent: 'center' }}>
+              <Text style={{ fontSize: 12, color: '#999' }}>Desde</Text>
               {cargandoOrigen ? (
-                <ActivityIndicator size="small" color="#58A3B8" style={{alignSelf: 'flex-start'}} />
+                <ActivityIndicator size="small" color={theme.ActivityIndicator} style={{alignSelf: 'flex-start'}} />
               ) : (
-                <Text style={styles.locationText} numberOfLines={1}>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: '#333' }} numberOfLines={1}>
                   {ubicacionActual || "Ubicación desconocida"}
                 </Text>
               )}
             </View>
 
-            <View style={styles.horizontalDivider} />
+            <View style={{ height: 1, backgroundColor: '#EEE' }} />
 
             {/* DESTINO CON PICKER */}
-            <View style={styles.inputWrapper}>
-              <Text style={styles.labelTitle}>Hacia</Text>
-              <View style={styles.pickerContainer}>
+          <View style={{ height: 60, justifyContent: 'center' }}>
+              <Text style={{ fontSize: 12, color: '#999' }}>Hacia</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Picker
                   selectedValue={selectedDestinationName}
                   onValueChange={(itemValue) => setSelectedDestinationName(itemValue)}
-                  style={styles.pickerStyle}
+                  style={{ flex: 1, marginLeft: -15 }}
                   enabled={!isSearching}
                 >
                   <Picker.Item label="Selecciona un destino..." value={selectedDestinationName} color="#999" />
@@ -316,7 +274,7 @@ const handleSearch = () => {
                 </Picker>
                 
                 <TouchableOpacity 
-                  style={styles.actionBtn} 
+                  style={{ backgroundColor: '#007bff', width: 42, height: 42, borderRadius: 10, justifyContent: 'center', alignItems: 'center' }} 
                   onPress={handleSearch}
                   disabled={isSearching || !selectedDestinationName}
                 >
@@ -334,33 +292,33 @@ const handleSearch = () => {
       </View>
        
       {/* TARJETA DE ESTADÍSTICAS (Sustituye a la naranja) */}
-      <View style={styles.statsCard}>
+      <View style={{backgroundColor: 'white', flexDirection: 'row', padding: 20, marginHorizontal: 20, marginTop: 15,borderRadius: 15, elevation: 3, shadowOpacity: 0.1}}>
        
         {/* Columna Balance */}
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Ticket $</Text>
-          <Text style={styles.statValue}>{TicketDolarLoad?  (<ActivityIndicator size="small" color="#0022ffff" />):`$. ${TicketDolar}`}</Text>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={{ fontSize: 11, color: '#666', fontWeight: '600' }}>Ticket $</Text>
+          <Text style={{ fontWeight: 'bold', color: '#333',fontSize: 16 }}>{TicketDolarLoad?  (<ActivityIndicator size="small" color={theme.ActivityIndicator} />):`$. ${TicketDolar}`}</Text>
         </View>
 
         {/* Columna Rewards */}
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Ticket bs</Text>
-          <Text style={styles.statValue}>{TicketBsLoad? (<ActivityIndicator size="small" color="#0022ffff" />):`Bs. ${TicketBs}`}</Text>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={{ fontSize: 11, color: '#666', fontWeight: '600' }}>Ticket bs</Text>
+          <Text style={{ fontWeight: 'bold', color: '#333',fontSize: 16 }}>{TicketBsLoad? (<ActivityIndicator size="small" color= {theme.ActivityIndicator} />):`Bs. ${TicketBs}`}</Text>
         </View>
 
         {/* Columna Total Trips */}
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Dolar BCV</Text>
-          <Text style={styles.statValue}>{DolarBcvLoading? (<ActivityIndicator size="small" color="#0022ffff" />): `Bs. ${DolarBcv.toFixed(2)}`}</Text>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={{ fontSize: 11, color: '#666', fontWeight: '600' }}>Dolar BCV</Text>
+          <Text style={{ fontWeight: 'bold', color: '#333',fontSize: 16 }}>{DolarBcvLoading? (<ActivityIndicator size="small" color={theme.ActivityIndicator} />): `Bs. ${DolarBcv.toFixed(2)}`}</Text>
         </View>
       </View>
         {/* TARJETA DE SALDO (NARANJA) */}
-      <View style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>Saldo actual</Text>
-        <Text style={styles.balanceAmount}>{saldo ? `Bs.${saldo.toFixed(1)}`:`Bs. ${saldo.toFixed(2)}` }</Text>
+      <View style={{backgroundColor: '#E69500', marginHorizontal: 20, padding: 20, borderRadius: 20, marginTop: 15,elevation: 5, shadowColor: '#000', shadowOpacity: 0.3}}>
+        <Text style={{color: 'white', fontSize: 18,fontWeight: 'bold',}}>Saldo actual</Text>
+        <Text style={{color: 'white',fontSize: 38,fontWeight: 'bold',marginTop: 10,}}>{saldo ? `Bs.${saldo.toFixed(1)}`:`Bs. ${saldo.toFixed(2)}` }</Text>
       </View>
-
       </ScrollView>
+      
       {Load ? (       
         <View style={{justifyContent: "center",alignItems: "center",backgroundColor:"#ffffff95", height:'100%', position:'absolute', width:'100%'}}>
         <Image
@@ -376,239 +334,6 @@ const handleSearch = () => {
       </View>):(<></>)}
       </View>
   );
+  
 }
 
-const styles = StyleSheet.create({
-  scannerButton: {
-    position: 'absolute',top: 45,left: 15,zIndex: 100
-  },
-  loaderFull: {
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#ffffff95",
-    height: '100%',
-    position: 'absolute',
-    width: '100%',
-    zIndex: 200
-  },
-  mainContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  headerBackground: {
-    backgroundColor: '#003366', // Azul oscuro
-    height: '50%',
-    paddingHorizontal: 25,
-    borderBottomLeftRadius: 50,
-    borderBottomRightRadius: 50,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  welcomeText: {
-    fontSize: 28,color: 'white',fontWeight: 'bold',
-  },
-  userName: {
-    fontSize: 28,
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  welcomeSub: {
-    fontSize: 22,
-    color: 'white',
-    fontWeight: '500',
-    marginTop: 5,
-  },
-  searchSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 25,
-    marginTop: 30,
-    paddingHorizontal: 15,
-    height: 50,
-  },
-  searchInput: {
-    flex: 1,
-    height: '100%',
-    fontSize: 16,
-  },
-  searchIcon: {
-    marginLeft: 10,
-  },
-  balanceCard: {
-    backgroundColor: '#E69500', // Naranja
-    marginHorizontal: 20,
-    padding: 20,
-    height:120,
-    borderRadius: 20,
-    marginTop: 15, // Sube la tarjeta para que quede encima del azul
-    elevation: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  balanceLabel: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  balanceAmount: {
-    color: 'white',
-    fontSize: 38,
-    fontWeight: 'bold',
-    marginTop: 10,
-  },
-  formContainer: {
-    paddingHorizontal: 30,
-    marginTop: 30,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  inputLabel: {
-    fontSize: 18,
-    color: '#666',
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  inputBox: {
-    backgroundColor: '#F8F8F8',
-    borderWidth: 1,
-    borderColor: '#DDD',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    height: 55,
-    justifyContent: 'center',
-    // Sombra suave para los inputs
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    elevation: 1,
-  },
-  inputText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  destinationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  miniSearchBtn: {
-    backgroundColor: '#F0F0F0',
-    padding: 12,
-    borderRadius: 10,
-    marginLeft: 10,
-    borderWidth: 1,
-    borderColor: '#DDD',
-  },
-
-
-  // ESTILOS DE LA TARJETA TIPO "TIMELINE"
-  routeCard: {
-    backgroundColor: 'white',marginHorizontal: 20,marginTop: -20,borderRadius: 15,padding: 15,elevation: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-  },
-  routeContent: {
-    flexDirection: 'row',
-  },
-  indicatorColumn: {
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingVertical: 10,
-    width: 30,
-  },
-  verticalLine: {
-    width: 1,
-    flex: 1,
-    backgroundColor: '#DDD',
-    marginVertical: 4,
-  },
-  inputsColumn: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  inputWrapper: {
-    height: 60,
-    justifyContent: 'center',
-  },
-  labelTitle: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 2,
-  },
-  locationText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
-  },
-  horizontalDivider: {
-    height: 1,
-    backgroundColor: '#EEE',
-    width: '100%',
-  },
-  pickerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  pickerStyle: {
-    flex: 1,
-    height: 50,
-    marginLeft: -5, // Compensa el padding interno del Picker
-  },
-  actionBtn: {
-    backgroundColor: '#007bff',
-    width: 40,
-    height: 40,
-    borderRadius: 10, //alguien insensato lo coloco en 20 , rompe por completo la armonia del componente
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  statsCard: {
-    backgroundColor: 'white',
-    flexDirection: 'row', // Alinea los elementos en fila
-    justifyContent: 'space-around', // Distribuye espacio equitativo entre columnas
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 10, // Ajusta esto según qué tan arriba quieras que flote
-    paddingVertical: 20,
-    borderRadius: 15,
-    // Sombras para que se vea elevado como en la imagen
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    zIndex: 10, // Asegura que esté por encima de otros elementos
-  },
-  statItem: {
-    alignItems: 'center', // Centra el texto dentro de cada columna
-    flex: 1,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '600',
-    marginBottom: 5,
-    textTransform: 'capitalize',
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-});

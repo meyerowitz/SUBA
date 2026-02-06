@@ -2,9 +2,10 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
 import { Image } from "expo-image"
 import { useRouter } from "expo-router"
 import { useState } from "react"
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar ,KeyboardAvoidingView,ScrollView , Platform} from "react-native"
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar ,KeyboardAvoidingView,ScrollView , Platform,Button} from "react-native"
 import Volver from './Components/Botones_genericos/Volver'
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTheme } from './Components/Temas_y_colores/ThemeContext';
 
 export default function Register() {
   const router = useRouter()
@@ -15,6 +16,8 @@ export default function Register() {
   const [emailError, setEmailError] = useState("")
   const [passwordStrength, setPasswordStrength] = useState(0)
   const [showPassword, setShowPassword] = useState(false)
+
+  const { theme, toggleTheme, isDark } = useTheme();
 
   const namePattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -166,6 +169,12 @@ export default function Register() {
   return (
     <SafeAreaView style={styles.page}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
+      <View style={{ backgroundColor: theme.background }}>
+            <Text style={{ color: theme.text }}>
+              Estás en modo {isDark ? 'Oscuro' : 'Claro'}
+            </Text>
+            <Button title="Cambiar Tema" onPress={toggleTheme} />
+            </View>
       <KeyboardAvoidingView 
                 behavior={Platform.OS === "ios" ? "height" : "padding"} 
                  style={{ flex: 1, width: '100%'}}

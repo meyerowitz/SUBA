@@ -6,6 +6,7 @@ import Volver from '../../Components/Botones_genericos/Volver';
 import { router } from 'expo-router';
 import {getuseremail,getusername} from '../../Components/AsyncStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 //import {GoogleSignin} from '@react-native-google-signin/google-signin';
 
 
@@ -17,7 +18,8 @@ export default function Profile() {
   const [UserName, setUserName] = useState("---");
   const [UserEmail, setUserEmail] = useState("---");
   const [profileImage, setProfileImage] = useState(null);
-    
+  const { theme, isDark } = useTheme(); //temas oscuro y claro
+  
   useEffect(()=>{
     const name = getusername();
     const email = getuseremail();
@@ -52,15 +54,15 @@ export default function Profile() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar  backgroundColor='#D99015' barStyle="light-content" />
+      <StatusBar  backgroundColor={theme.primary_2} barStyle="light-content" />
       
       {/* ScrollView para que toda la pantalla sea deslizable */}
       <ScrollView 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={{paddingBottom: 40, backgroundColor:theme.background}}
       >
         {/* Cabecera Naranja */}
-        <View style={styles.orangeHeader} />
+        <View style={{ backgroundColor: theme.primary_2, height: 180, borderBottomRightRadius: 40 }} />
 
         {/* Caja de Perfil Blanca (Insignias dentro) */}
         <View style={styles.profileBox}>
@@ -186,10 +188,9 @@ const MenuOption = ({ icon, title, subtitle, color, bgColor, onPress }) => (
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
-  scrollContent: { paddingBottom: 40 },
+ 
   orangeHeader: { 
-    backgroundColor: '#D99015', height: 180, 
-    borderBottomRightRadius: 40 
+    backgroundColor: '#D99015', height: 180, borderBottomRightRadius: 40 
   },
   profileBox: {
     backgroundColor: 'white', width: '90%', alignSelf: 'center',
