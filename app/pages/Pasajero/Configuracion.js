@@ -18,10 +18,35 @@ export default function Configuracion() {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme, isDark } = useTheme(); //temas oscuro y claro
 
-
+  const [isReady, setIsReady] = useState(false);
   const [modalDestinosVisible, setModalDestinosVisible] = useState(false);
   const [destinoSeleccionado, setDestinoSeleccionado] = useState(null);
 
+  useEffect(() => {
+    // 1. Cargamos imagen
+    (async () => {
+      try {
+        const img = await AsyncStorage.getItem('@profile_image');
+        if (img) setProfileImage(img);
+      } catch (e) { console.log('load image error', e); }
+    })();
+
+    // 2. Forzamos a que i18n esté realmente listo antes de mostrar nada
+    if (i18n.isInitialized) {
+      setIsReady(true);
+    } else {
+      i18n.on('initialized', () => setIsReady(true));
+    }
+  }, [i18n]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const img = await AsyncStorage.getItem('@profile_image');
+        if (img) setProfileImage(img);
+      } catch (e) { console.log('load profile image error', e); }
+    })();
+  }, []);
+  
   const selectLanguage = () => {
     Alert.alert(
       t('idioma'), // Título (puedes usar traducción o texto fijo)
@@ -44,42 +69,11 @@ export default function Configuracion() {
     );
   };
 
-const mostrarDestinos = () => {
-    // 1. Preparamos los nombres de los destinos
-    const nombresDestinos = Destinos.map(d => d.nombre);
-    
-    // 2. Añadimos la opción de cancelar
-    const opciones = [...nombresDestinos, t('cancelar')];
-    
-    // 3. El índice del botón de cancelar será el último
-    const indiceCancelar = opciones.length - 1;
 
-    // En Android, Alert.alert sigue teniendo el límite de 3. 
-    // Si tienes muchos destinos, lo mejor es usar un Modal o esta lógica:
-    Alert.alert(
-      t('rutas_preferidas'),
-      t('selecciona_destino'),
-      opciones.map((opcion, index) => ({
-        text: opcion,
-        style: index === indiceCancelar ? 'cancel' : 'default',
-        onPress: () => {
-          if (index !== indiceCancelar) {
-            console.log("Seleccionado:", opcion);
-            // Aquí tu lógica para guardar el destino
-          }
-        }
-      })).slice(0, 3) // ¡Ojo! Aquí está el truco: Alert nativo solo permite 3.
-    );
-  };
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const img = await AsyncStorage.getItem('@profile_image');
-        if (img) setProfileImage(img);
-      } catch (e) { console.log('load profile image error', e); }
-    })();
-  }, []);
+  // Si no está listo, mostramos un fondo limpio (esto evita ver las variables)
+  if (!isReady) {
+    return <View style={{ flex: 1, backgroundColor: theme.background }} />;
+  }
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: theme.background }}>

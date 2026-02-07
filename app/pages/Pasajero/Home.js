@@ -292,7 +292,7 @@ const handleSearch = () => {
       </View>
        
       {/* TARJETA DE ESTADÍSTICAS (Sustituye a la naranja) */}
-      <View style={{backgroundColor: 'white', flexDirection: 'row', padding: 20, marginHorizontal: 20, marginTop: 15,borderRadius: 15, elevation: 3, shadowOpacity: 0.1}}>
+      <View style={{backgroundColor: 'white', flexDirection: 'row', padding: 20, marginHorizontal: 20, marginTop: 15,borderRadius: 15, elevation: 8, shadowOpacity: 0.2,shadowColor: '#000', shadowOffset: { width: 0, height: 4 }}}>
        
         {/* Columna Balance */}
         <View style={{ flex: 1, alignItems: 'center' }}>

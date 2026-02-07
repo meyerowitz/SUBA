@@ -1,7 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
-// Aquí definimos las "tablas" de traducción
 const resources = {
   en: {
     translation: {
@@ -12,9 +11,11 @@ const resources = {
       "foto_perfil": "Profile Picture",
       "foto": "Update your profile picture",
       "idioma": "Language",
-      "espanol": "English", // Cuando esté en inglés, dirá "English"
+      "espanol": "English",
       "sistema_mapas": "SYSTEM & MAPS",
-      "ayuda": "Help Center"
+      "ayuda": "Help Center",
+      "cancelar": "Cancel", // ¡No olvides añadir estas para el modal!
+      "rutas_preferidas": "Favorite Routes"
     }
   },
   es: {
@@ -28,7 +29,9 @@ const resources = {
       "idioma": "Idioma",
       "espanol": "Español (Latinoamérica)",
       "sistema_mapas": "SISTEMA Y MAPAS",
-      "ayuda": "Centro de Ayuda"
+      "ayuda": "Centro de Ayuda",
+      "cancelar": "Cancelar",
+      "rutas_preferidas": "Rutas Preferidas"
     }
   }
 };
@@ -36,10 +39,16 @@ const resources = {
 i18n
   .use(initReactI18next)
   .init({
-    compatibilityJSON: 'v3', // Esto evita que falle en Android/Expo
+    compatibilityJSON: 'v3',
     resources,
-    lng: 'es', // Idioma inicial
+    lng: 'es',
     fallbackLng: 'es',
+    // --- AÑADE ESTO ---
+    partialBundledLanguages: true, // Ayuda si los recursos son locales
+    react: {
+      useSuspense: false, // React Native no maneja bien Suspense por defecto
+    },
+    // ------------------
     interpolation: {
       escapeValue: false 
     }

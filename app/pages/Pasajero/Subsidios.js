@@ -15,6 +15,8 @@ import { FontAwesome5, Ionicons } from '@expo/vector-icons';
 import Volver from '../../Components/Botones_genericos/Volver';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export default function Subsidios() {
 	const [selectedOption, setSelectedOption] = useState(null); // 'estudiante' | 'adulto' | 'discapacitado'
 	const [modalVisible, setModalVisible] = useState(false);
@@ -30,7 +32,8 @@ export default function Subsidios() {
 	// Discapacitado
 	const [disabledDocImage, setDisabledDocImage] = useState(null);
 	const { theme, isDark } = useTheme(); //temas oscuro y claro
-	
+
+	const insets = useSafeAreaInsets();
 	useEffect(() => {
 		(async () => {
 			const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -235,13 +238,13 @@ export default function Subsidios() {
 
 			<Modal visible={modalVisible} animationType="slide" transparent>
 				<View style={styles.modalOverlay}>
-					<View style={styles.modalContent}>
+					<View style={{backgroundColor: 'white', borderRadius:20, padding: 20, minHeight: 500,paddingBottom: insets.bottom }}>
 						<ScrollView>
 							{renderModalContent()}
 
 							<TouchableOpacity
 								onPress={() => { setModalVisible(false); setSelectedOption(null); }}
-								style={[styles.btnPrincipal, { backgroundColor: '#CCCCCC', marginTop: 15 }]}
+								style={[{backgroundColor: '#003366', padding: 14, borderRadius: 20, alignItems: 'center', marginTop: 10 , marginBottom:90+insets}, { backgroundColor: '#CCCCCC', marginTop: 15 }]}
 							>
 								<Text style={[styles.btnPrincipalText, { color: '#333' }]}>Cancelar</Text>
 							</TouchableOpacity>

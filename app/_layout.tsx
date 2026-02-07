@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import * as SplashScreenNative from "expo-splash-screen";
 import { ThemeProvider } from './Components/Temas_y_colores/ThemeContext';
 SplashScreenNative.preventAutoHideAsync();
+import './Components/i18n/i18n';
 
 export default function RootLayout() {
   return (

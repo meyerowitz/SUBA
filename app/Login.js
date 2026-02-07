@@ -204,51 +204,79 @@ const handleLogin = async () => {
 //        handleLogin2 con API incluida
 //----------------------------------------------------------
 const handleLogin2 = async () => {
-
   if (!correo || !password) {
     Alert.alert("Error", "Por favor, completa todos los campos");
     return;
   }
 
-  // 1. Creamos el controlador para abortar la petición
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000); // si a los 5 segundos no se completa te devuelve al login
+  setIsLoading(true);
 
   try {
-    setIsLoading(true);
-
+    // 1. INTENTO DE LOGIN
     const response = await fetch('https://subapp-api.onrender.com/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal, // 2. Pasamos la señal al fetch
       body: JSON.stringify({
         email: correo.toLowerCase(),
         password: password,
       }),
     });
 
-    clearTimeout(timeoutId); // 3. Si responde a tiempo, limpiamos el contador
-    const data = await response.json();
+    const loginData = await response.json();
+    console.log("Respuesta Login:", loginData); // Para ver si trae un token
 
-    if (response.ok) {
-      const role = 'passenger'; 
-      setUserRole(role);
-      role === "driver" ? router.replace("./pages/Conductor/Home2") : router.replace("./pages/Pasajero/Navigation");
+    if (!response.ok) {
+      setIsLoading(false);
+      Alert.alert("Error", loginData.message || "Credenciales incorrectas");
+      return;
+    }
+
+    // 2. OBTENER PERFIL (/me)
+    // IMPORTANTE: Muchas APIs requieren el token que recibiste en el loginData
+    // Si loginData tiene algo llamado 'token' o 'accessToken', hay que enviarlo
+    const token = loginData.token || loginData.accessToken; 
+
+    const profileResponse = await fetch('https://subapp-api.onrender.com/auth/me', {
+      method: 'GET',
+      headers: { 
+        'Content-Type': 'application/json',
+        // Si la API usa Bearer Token, se envía así:
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      },
+    });
+
+    const profileData = await profileResponse.json();
+    console.log("Respuesta Perfil:", profileData); // Aquí verás por qué falla
+
+    if (profileData.success) {
+      // 3. GUARDAR EN ASYNC STORAGE
+      const usuarioAGuardar = profileData.data;
+      await AsyncStorage.setItem('@Sesion_usuario', JSON.stringify(usuarioAGuardar));
+      
+      console.log("✅ Sesión guardada con éxito");
+
+      // 4. VERIFICAR (SACAR Y MOSTRAR)
+      const sesionGuardada = await AsyncStorage.getItem('@Sesion_usuario');
+      console.log("🔍 Datos en AsyncStorage:", JSON.parse(sesionGuardada));
+
+      // 5. NAVEGACIÓN
+      setUserRole(usuarioAGuardar.role);
+      
+      if (usuarioAGuardar.role === "driver") {
+        router.replace("./pages/Conductor/Home2");
+      } else {
+        router.replace("./pages/Pasajero/Navigation");
+      }
     } else {
       setIsLoading(false);
-      Alert.alert("Error", data.message || "Credenciales incorrectas");
+      console.log("Detalle del fallo perfil:", profileData);
+      Alert.alert("Error", "El servidor no devolvió los datos del perfil.");
     }
 
   } catch (error) {
     setIsLoading(false);
-    
-    // 4. Verificamos si el error fue por el tiempo agotado
-    if (error.name === 'AbortError') {
-      console.log("Servidor lento", "El servidor está tardando en despertar. Por favor, intenta de nuevo en unos segundos.");
-    } else {
-      Alert.alert("Error de conexión", "No se pudo conectar con el servidor.");
-    }
-    console.error(error);
+    console.error("Error completo:", error);
+    Alert.alert("Error de conexión", "No se pudo conectar con el servidor.");
   }
 };
 
