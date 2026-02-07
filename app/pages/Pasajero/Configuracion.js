@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Switch, ScrollView, TouchableOpacity, Alert, Image,StatusBar } from 'react-native';
+import { View, Text, StyleSheet, Switch, ScrollView, TouchableOpacity, Alert, Image,StatusBar, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Volver from '../../Components/Botones_genericos/Volver';
@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import '../../Components/i18n/i18n';
+import Destinos from "../../Components/Destinos.json";
 
 export default function Configuracion() {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -16,11 +17,59 @@ export default function Configuracion() {
   const [profileImage, setProfileImage] = useState(null);
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme, isDark } = useTheme(); //temas oscuro y claro
-  
-  // Función para rotar idiomas (puedes hacer un modal luego)
-  const toggleLanguage = () => {
-    const nextLanguage = i18n.language === 'es' ? 'en' : 'es';
-    i18n.changeLanguage(nextLanguage);
+
+
+  const [modalDestinosVisible, setModalDestinosVisible] = useState(false);
+  const [destinoSeleccionado, setDestinoSeleccionado] = useState(null);
+
+  const selectLanguage = () => {
+    Alert.alert(
+      t('idioma'), // Título (puedes usar traducción o texto fijo)
+      t('selecciona_idioma'), // Mensaje descriptivo
+      [
+        {
+          text: 'Español',
+          onPress: () => i18n.changeLanguage('es'),
+        },
+        {
+          text: 'English',
+          onPress: () => i18n.changeLanguage('en'),
+        },
+        {
+          text: t('cancelar'), // Opción para cerrar sin cambios
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+const mostrarDestinos = () => {
+    // 1. Preparamos los nombres de los destinos
+    const nombresDestinos = Destinos.map(d => d.nombre);
+    
+    // 2. Añadimos la opción de cancelar
+    const opciones = [...nombresDestinos, t('cancelar')];
+    
+    // 3. El índice del botón de cancelar será el último
+    const indiceCancelar = opciones.length - 1;
+
+    // En Android, Alert.alert sigue teniendo el límite de 3. 
+    // Si tienes muchos destinos, lo mejor es usar un Modal o esta lógica:
+    Alert.alert(
+      t('rutas_preferidas'),
+      t('selecciona_destino'),
+      opciones.map((opcion, index) => ({
+        text: opcion,
+        style: index === indiceCancelar ? 'cancel' : 'default',
+        onPress: () => {
+          if (index !== indiceCancelar) {
+            console.log("Seleccionado:", opcion);
+            // Aquí tu lógica para guardar el destino
+          }
+        }
+      })).slice(0, 3) // ¡Ojo! Aquí está el truco: Alert nativo solo permite 3.
+    );
   };
 
   useEffect(() => {
@@ -36,17 +85,17 @@ export default function Configuracion() {
     <SafeAreaView style={{flex: 1, backgroundColor: theme.background }}>
       <StatusBar backgroundColor={theme.barstyle_2 } barStyle={'light-content'}/>
       <View style={styles.header}>
-        <Text style={{fontSize: 28, fontWeight: '700', color: theme.text_2 , marginTop: 10}}>Configuración</Text>
+        <Text style={{fontSize: 28, fontWeight: '700', color: theme.text_2 , marginTop: 10}}>{t('configuracion')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         
-        <Text style={styles.sectionTitle}>PREFERENCIAS</Text>
+        <Text style={styles.sectionTitle}>{t('preferencias')}</Text>
         
         <View style={styles.row}>
           <View>
-            <Text style={styles.rowText}>Modo Oscuro</Text>
-            <Text style={styles.subText}>Cambia el aspecto visual</Text>
+            <Text style={styles.rowText}>{t('modo_oscuro')}</Text>
+            <Text style={styles.subText}>{t('aspecto')}</Text>
           </View>
           <Switch 
             value={isDark} 
@@ -72,7 +121,7 @@ export default function Configuracion() {
           }}>
           <View>
             <Text style={styles.rowText}>{t('foto_perfil')}</Text>
-            <Text style={styles.subText}>Actualiza tu foto de perfil</Text>
+            <Text style={styles.subText}>{t('foto')}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {profileImage ? (
@@ -117,7 +166,7 @@ export default function Configuracion() {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={toggleLanguage} style={styles.row}>
+        <TouchableOpacity onPress={selectLanguage} style={styles.row}>
           <View>
             <Text style={styles.rowText}>{t('idioma')}</Text>
             <Text style={styles.subText}>{t('espanol')}</Text>
@@ -125,7 +174,7 @@ export default function Configuracion() {
           <Ionicons name="language-outline" size={23} color="#D99015" />
         </TouchableOpacity>
 
-        <Text style={[styles.sectionTitle, { marginTop: 25 }]}>SISTEMA Y MAPAS</Text>
+        <Text style={[styles.sectionTitle, { marginTop: 25 }]}>{t('sistema_mapas')}</Text>
 
         <View style={styles.row}>
           <View style={{ flex: 1 }}>
@@ -139,10 +188,10 @@ export default function Configuracion() {
           />
         </View>
 
-        <TouchableOpacity style={styles.row}>
+        <TouchableOpacity onPress={() => setModalDestinosVisible(true)} style={styles.row}>
           <View>
             <Text style={styles.rowText}>Rutas Preferidas</Text>
-            <Text style={styles.subText}>Selecciona tus rutas usuales</Text>
+            <Text style={styles.subText}>{destinoSeleccionado ? destinoSeleccionado : "Selecciona tus destinos usuales"}</Text>
           </View>
           <Ionicons name="chevron-down" size={20} color="#CCC" />
         </TouchableOpacity>
@@ -168,6 +217,82 @@ export default function Configuracion() {
       </ScrollView>
 
       <Volver route={"./Profile"} color={theme.volver_button} style={{ top: 60, left: 10 }} />
+      {/* Modal de Rutas con estilos inline */}
+<Modal
+  visible={modalDestinosVisible}
+  transparent={true}
+  animationType="slide"
+  onRequestClose={() => setModalDestinosVisible(false)}
+>
+  <View style={{
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  }}>
+    <View style={{
+      width: '90%',
+      backgroundColor: theme.background, // Usa el fondo de tu tema
+      borderRadius: 25,
+      padding: 25,
+      maxHeight: '70%',
+      elevation: 10,
+      shadowColor: '#000',
+      shadowOpacity: 0.25,
+      shadowRadius: 10
+    }}>
+      <Text style={{
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: theme.text_2,
+        marginBottom: 20,
+        textAlign: 'center'
+      }}>
+        {t('rutas_preferidas')}
+      </Text>
+
+      <ScrollView contentContainerStyle={{height:'155%'}} style={{height:190}}>
+        {Destinos.map((item, index) => (
+          <TouchableOpacity
+            key={index}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 18,
+              borderBottomWidth: 1,
+              borderBottomColor: theme.isDark ? '#444' : '#f0f0f0'
+            }}
+            onPress={() => {
+              setDestinoSeleccionado(item.nombre);
+              setModalDestinosVisible(false);
+            }}
+          >
+            <Ionicons name="location" size={20} color="#D99015" style={{ marginRight: 15 }} />
+            <Text style={{ fontSize: 16, color: theme.text_2 }}>
+              {item.name}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      <TouchableOpacity
+        style={{
+          marginTop: 20,
+          backgroundColor: '#D99015',
+          padding: 15,
+          borderRadius: 15,
+          alignItems: 'center'
+        }}
+        onPress={() => setModalDestinosVisible(false)}
+      >
+        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>
+          {t('cancelar')}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
     </SafeAreaView>
   );
 }

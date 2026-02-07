@@ -26,6 +26,9 @@ export default function Login() {
   const [userRole, setUserRole] = useState(null)
   const { theme, toggleTheme, isDark } = useTheme();
 
+//-------------------------------------------------
+//     UseEffect que limpia la sesion anterior
+//-------------------------------------------------
 useEffect(()=>{
   
   const cerrar_sesion_anterior = async () => {
@@ -135,6 +138,10 @@ useEffect( () => {
 
 }, [state], [isAuthenticated]);
 */
+
+//-------------------------------------------------
+//        UseEffect de carga de imagenes
+//-------------------------------------------------
 useEffect(() => {
   const cacheGifs = async () => {
     const images = [
@@ -153,12 +160,9 @@ useEffect(() => {
   cacheGifs().catch(err => console.log("Error precargando GIFs:", err));
 }, []);
 
- const handlePasswordChange = (text) => {
-    setPassword(text)
-    const validation = validatePassword(text)
-    setPasswordStrength(validation.strength)
-  }
-
+//----------------------------------------------------------
+//        handleLogin sin API solo el array userData
+//----------------------------------------------------------
 const handleLogin = async () => {
     // Buscamos al usuario (por email o nombre)
     const user = userData.users.find(
@@ -167,9 +171,10 @@ const handleLogin = async () => {
          u.fullName.toLowerCase() === correo.toLowerCase()) &&
         u.password === password
     );
+
     try {
       const jsonValue = JSON.stringify(user);
-      await AsyncStorage.setItem('@Sesion_usuario', jsonValue);
+      await AsyncStorage.setItem('@Sesion_usuario', jsonValue);//Si lo encuentra guarda al usuario en el almacenamiento temporal de sesion_usuario
       console.log("Sesion guardada con éxito");
       const jsonValue2 = await AsyncStorage.getItem('@Sesion_usuario');
       console.log(jsonValue2);
@@ -194,8 +199,12 @@ const handleLogin = async () => {
       Alert.alert("Error", "Usuario o contraseña incorrectos");
     }
   }
-  
+
+//----------------------------------------------------------
+//        handleLogin2 con API incluida
+//----------------------------------------------------------
 const handleLogin2 = async () => {
+
   if (!correo || !password) {
     Alert.alert("Error", "Por favor, completa todos los campos");
     return;
@@ -203,7 +212,7 @@ const handleLogin2 = async () => {
 
   // 1. Creamos el controlador para abortar la petición
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos
+  const timeoutId = setTimeout(() => controller.abort(), 5000); // si a los 5 segundos no se completa te devuelve al login
 
   try {
     setIsLoading(true);
@@ -275,12 +284,7 @@ const handleLogin2 = async () => {
   return (
     <SafeAreaView style={{ flex: 1,justifyContent: "center",alignItems: "center",  backgroundColor: "#ffffffff"}}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
-      <View style={{ backgroundColor: theme.background }}>
-      <Text style={{ color: theme.text }}>
-        Estás en modo {isDark ? 'Oscuro' : 'Claro'}
-      </Text>
-      <Button title="Cambiar Tema" onPress={toggleTheme} />
-    </View>
+
         <KeyboardAvoidingView 
           behavior={Platform.OS === "ios" ? "height" : "padding"} 
            style={{ flex: 1, width: '100%'}}

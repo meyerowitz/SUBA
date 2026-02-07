@@ -169,12 +169,7 @@ export default function Register() {
   return (
     <SafeAreaView style={styles.page}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
-      <View style={{ backgroundColor: theme.background }}>
-            <Text style={{ color: theme.text }}>
-              Estás en modo {isDark ? 'Oscuro' : 'Claro'}
-            </Text>
-            <Button title="Cambiar Tema" onPress={toggleTheme} />
-            </View>
+
       <KeyboardAvoidingView 
                 behavior={Platform.OS === "ios" ? "height" : "padding"} 
                  style={{ flex: 1, width: '100%'}}
