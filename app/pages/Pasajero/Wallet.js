@@ -244,7 +244,7 @@ if (saldoError) {
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: theme.background_2}}>
-      <StatusBar barStyle="dark-content" backgroundColor={theme.background_2}/>
+      <StatusBar barStyle="dark-content" backgroundColor={'#003366'}/>
       
       <View style={{flexDirection: 'row',  alignItems: 'center', paddingHorizontal: 20, height: 60, backgroundColor: theme.background_2}}>
         <Image source={require('../../../assets/img/wallet.png')} style={{position:'absolute', height:150, width:150, top:0, left:10}}/>

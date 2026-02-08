@@ -12,7 +12,7 @@ export default function Volver({route,color,style}) {
 
   return (
     <TouchableOpacity 
-      style={[styles.button,style]} 
+      style={[{backgroundColor: 'rgba(255, 255, 255, 0)', position:'absolute'},style]} 
       onPress={() => router.replace(route)}
       activeOpacity={0.7}
     >
@@ -23,7 +23,6 @@ export default function Volver({route,color,style}) {
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: 'rgba(255, 255, 255, 0)', // Un fondo sutil circular
-    position:'absolute'
+    backgroundColor: 'rgba(255, 255, 255, 0)', position:'absolute'
   },
 });

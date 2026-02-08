@@ -77,7 +77,7 @@ export default function Configuracion() {
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: theme.background }}>
-      <StatusBar backgroundColor={theme.barstyle_2 } barStyle={'light-content'}/>
+      <StatusBar backgroundColor={'#003366' } barStyle={'light-content'}/>
       <View style={styles.header}>
         <Text style={{fontSize: 28, fontWeight: '700', color: theme.text_2 , marginTop: 10}}>{t('configuracion')}</Text>
       </View>

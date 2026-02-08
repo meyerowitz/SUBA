@@ -379,10 +379,10 @@ const handleLogin2 = async () => {
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.redirect}>
-                  <Text style={styles.question}>¿No tienes cuenta? </Text>
+                <View style={{width: 320,marginTop: 20,display: "flex",flexDirection: "row",justifyContent: "center",alignItems: "center",}}>
+                  <Text style={{color: "#544F4F",fontFamily: "roboto",fontWeight: "bold",fontSize: 16,}}>¿No tienes cuenta? </Text>
                   <TouchableOpacity onPress={() => router.replace("/Register")}>
-                    <Text style={styles.register}>Regístrate aquí</Text>
+                    <Text style={{color: "#0661BC",fontFamily: "roboto",fontWeight: "bold",fontSize: 16, textDecorationLine: "underline",}}>Regístrate aquí</Text>
                   </TouchableOpacity>
                 </View>
               
@@ -453,10 +453,7 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   question: {
-    color: "#544F4F",
-    fontFamily: "roboto",
-    fontWeight: "bold",
-    fontSize: 16,
+    color: "#544F4F",fontFamily: "roboto",fontWeight: "bold",fontSize: 16,
   },
    passwordInput: {
     width: 320,
