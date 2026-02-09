@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { createClient } from '@supabase/supabase-js';
 import {getuserid,getusername} from '../../Components/AsyncStorage';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
@@ -173,7 +174,7 @@ const handleSearch = () => {
     console.log("Navegando a WebMap con destino a", selectedDestinationName);
     SetLoad(false)
     router.push({
-      pathname: "/pages/Pasajero/WebMap", 
+      pathname: "/pages/Pasajero/UnifiedHome", 
       params: { destino: selectedDestinationName }
     });
   },3000)
@@ -205,11 +206,9 @@ const handleSearch = () => {
               >
 
       {/* SECCIÓN SUPERIOR AZUL */}
-      <View style={{ backgroundColor: '#003366',height: 280,paddingHorizontal: 25,borderBottomLeftRadius: 50, borderBottomRightRadius: 50,}}>
+      <LinearGradient colors={['#003366','#3182d3']} style={{height: 280,paddingHorizontal: 25,borderBottomLeftRadius: 50, borderBottomRightRadius: 50,}}>
 
-         
-            
-          <View style={{flexDirection: 'row',justifyContent: 'space-between', alignItems: 'center',marginTop: 40,}}>
+          <View style={{flexDirection: 'row',justifyContent: 'space-between', alignItems: 'center',marginTop: 30,}}>
             <Image style={{width:210, height:210, position:'absolute', top:13, left:110}} source={require("../../../assets/img/autobuss.png")}></Image>
             
             <View style={{marginTop:23, marginLeft:13}}>
@@ -222,10 +221,10 @@ const handleSearch = () => {
 
           </View>
 
-      </View>
+      </LinearGradient>
   
       {/* TARJETA DE RUTA (DISEÑO SOLICITADO) */}
-      <View style={{backgroundColor: 'white', marginHorizontal: 20, marginTop: -40, borderRadius: 15, padding: 15,elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5}}>
+      <View style={{backgroundColor: 'white', marginHorizontal: 20, marginTop: -75, borderRadius: 15, padding: 15,elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5}}>
         <View style={{flexDirection: 'row'}}>
           
           {/* COLUMNA IZQUIERDA: ICONOS Y LÍNEA */}

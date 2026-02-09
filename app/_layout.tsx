@@ -71,6 +71,14 @@ export default function RootLayout() {
        
         }} 
       />
+         <Stack.Screen 
+      name="pages/Pasajero/UnifiedHome"
+      options={{ 
+        animation: 'none', // Esta subirá como un panel
+       
+        }} 
+      />
+
 
       <Stack.Screen
         name="pages/Pasajero/Notificaciones"
@@ -147,6 +155,24 @@ export default function RootLayout() {
         name="pages/Conductor/Privacidad"
         options={{
           animation: "slide_from_right", // Esta subirá como un panel
+        }}
+      />
+      <Stack.Screen
+        name="Components/ScannerQR"
+        options={{
+          animation: "slide_from_bottom", // Esta subirá como un panel
+        }}
+      />
+       <Stack.Screen
+        name="Components/GenerarQR"
+        options={{
+          animation: "slide_from_bottom", // Esta subirá como un panel
+        }}
+      />
+       <Stack.Screen
+        name="Components/TicketVirtual"
+        options={{
+          animation: "slide_from_bottom", // Esta subirá como un panel
         }}
       />
       </Stack>

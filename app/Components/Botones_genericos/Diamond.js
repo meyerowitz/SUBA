@@ -86,14 +86,14 @@ const Diamond = ({ theme }) => {
     <View style={[styles.mainContainer, { bottom: 19 + insets.bottom }]} pointerEvents="box-none">
       <View style={styles.optionsWrapper} pointerEvents="box-none">
         <Animated.View style={[styles.optionCircle, nfcStyle]}>
-          <TouchableOpacity style={styles.touch} onPress={() => {console.log('NFC Pressed'), router.replace('/Components/ScannerQR')}}>
+          <TouchableOpacity style={styles.touch} onPress={() => {router.push('/Components/ScannerQR')}}>
             <Ionicons name="contactless-payment" size={22} color="#FFF" />
             <Text style={styles.optionText}>NFC</Text>
           </TouchableOpacity>
         </Animated.View>
 
         <Animated.View style={[styles.optionCircle, qrStyle]}>
-          <TouchableOpacity style={styles.touch} onPress={() => {console.log('QR Pressed'), router.replace('/Components/ScannerQR')}}>
+          <TouchableOpacity style={styles.touch} onPress={() => { router.push('/Components/ScannerQR')}}>
             <Ionicons name="qr-code" size={22} color="#FFF" />
             <Text style={styles.optionText}>QR</Text>
           </TouchableOpacity>

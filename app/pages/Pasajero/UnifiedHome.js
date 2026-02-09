@@ -186,7 +186,7 @@ export default function UnifiedHome() {
 
   // 6. Buscar
   const handleSearch = () => {
-    if (!selectedDestinationName) return Alert.alert("Error", "Selecciona destino");
+    if (!selectedDestinationName) return ;
     if (!userLocation) return;
     setIsSearching(true);
     const dest = Destinos.find(d => d.name === selectedDestinationName);
@@ -204,13 +204,15 @@ export default function UnifiedHome() {
 
   return (
     <View style={styles.container}>
-      <StatusBar translucent barStyle="dark-content" backgroundColor="transparent" />
+        <StatusBar barStyle="light-content" backgroundColor={"#003366"}  />
 
       {/* FONDO MAPA */}
       <View style={StyleSheet.absoluteFillObject}>
+        
         <WebView ref={webviewRef} source={{ html: mapHtmlContent }} onMessage={handleWebViewMessage} style={{ flex: 1 }} javaScriptEnabled={true} />
       </View>
       <View>
+        <Volver route="/pages/Pasajero/Navigation" color={"black"} style={{top:70, left:5}}/>
       {/* BUSCADOR */}
       {!isSearchExpanded ? (
           <TouchableOpacity 
@@ -284,6 +286,7 @@ export default function UnifiedHome() {
                      <Text style={styles.walletBtnText}>Recargar</Text>
                      <Ionicons name="wallet-outline" size={20} color="#003366" style={{marginLeft: 5}}/>
                  </TouchableOpacity>
+                 
             </View>
         )
       )}
@@ -322,7 +325,7 @@ const styles = StyleSheet.create({
   greetingText: { fontSize: 16, fontWeight: 'bold', color: '#333', backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, overflow:'hidden', elevation: 2 },
 
   searchBarCompact: {
-    position: 'absolute', top: 60, left: 20, right: 20,
+    position: 'absolute', top: 60, left: 40, right: 20,
     backgroundColor: 'white', borderRadius: 25, height: 50,
     flexDirection: 'row', alignItems: 'center', paddingLeft: 20, paddingRight: 5,
     elevation: 8, shadowColor: '#000', shadowOpacity: 0.15
@@ -330,7 +333,7 @@ const styles = StyleSheet.create({
   searchPlaceholder: { flex: 1, fontSize: 16, fontWeight: '600', color: '#666' },
   searchIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#003366', justifyContent: 'center', alignItems: 'center' },
 
-  searchPanelExpanded: { position: 'absolute', top: 60, left: 20, right: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, elevation: 15 },
+  searchPanelExpanded: { position: 'absolute', top: 60, left: 40, right: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, elevation: 15 },
   panelHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   panelTitle: { fontSize: 16, fontWeight: 'bold', color: '#003366' },
   inputRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
