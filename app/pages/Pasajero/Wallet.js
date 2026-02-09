@@ -30,6 +30,13 @@ export default function WalletScreen() {
   const [cargando, setCargando] = useState(false);
   const { theme } = useTheme(); 
 
+  // --- ESTADOS PARA TRANSFERENCIA INTERNA ---
+const [modalTransferVisible, setModalTransferVisible] = useState(false);
+const [destinatarioID, setDestinatarioID] = useState('');
+const [montoTransferir, setMontoTransferir] = useState('');
+const [nombreDestinatario, setNombreDestinatario] = useState(null);
+const [buscandoUsuario, setBuscandoUsuario] = useState(false);
+
   // --- DATOS BANCARIOS ---
   const datosBancarios = {
     banco: "Banco de Venezuela",
@@ -47,6 +54,57 @@ export default function WalletScreen() {
     };
     inicializar();
   }, []);
+
+useEffect(() => {
+  if (destinatarioID === '12345') {
+    setNombreDestinatario("Juan Pérez");
+  } else if (destinatarioID === '67890') {
+    setNombreDestinatario("María García");
+  } else {
+    setNombreDestinatario(null);
+  }
+}, [destinatarioID]);
+
+const ejecutarTransferenciaSimulada = () => {
+  const monto = parseFloat(montoTransferir);
+
+  if (!nombreDestinatario) {
+    Alert.alert("Error", "ID no encontrado. Prueba con 12345 o 67890");
+    return;
+  }
+  if (isNaN(monto) || monto <= 0) {
+    Alert.alert("Monto inválido", "Ingresa un monto correcto.");
+    return;
+  }
+  if (monto > saldo) {
+    Alert.alert("Saldo insuficiente", "No tienes suficiente saldo simulado.");
+    return;
+  }
+
+  setCargando(true);
+
+  // Simulamos un delay de red de 1.5 segundos
+  setTimeout(() => {
+    const nuevaTransaccion = {
+      id: Date.now().toString(),
+      titulo: `Envío a ${nombreDestinatario}`,
+      subtitulo: `ID: ${destinatarioID}`,
+      hora: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      monto: `- Bs. ${monto.toFixed(2)}`,
+      colorMonto: '#e74c3c', // Rojo para salida de dinero
+      icon: "paper-plane-outline"
+    };
+
+    setSaldo(prev => prev - monto);
+    setOperaciones(prev => [nuevaTransaccion, ...prev]);
+    setCargando(false);
+    setModalTransferVisible(false);
+    setMontoTransferir('');
+    setDestinatarioID('');
+    
+    Alert.alert("¡Transferencia Exitosa!", `Has enviado Bs. ${monto} a ${nombreDestinatario}`);
+  }, 1500);
+};
 
   // --- FUNCIONES DE SALDO Y BD ---
   const obtenerSaldoReal = async () => {
@@ -225,7 +283,7 @@ export default function WalletScreen() {
                 <Text style={styles.actionText}>RECARGAR</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity onPress={() => setModalTransferVisible(true)} style={styles.actionButton}>
                 <View style={[styles.actionIconContainer, { backgroundColor: '#5D6D7E' }]}>
                   <Ionicons name="swap-horizontal" size={26} color="white" />
                 </View>
@@ -295,6 +353,52 @@ export default function WalletScreen() {
           </View>
         </View>
       </Modal>
+      {/* MODAL DE TRANSFERENCIA (SIMULADO) */}
+<Modal animationType="slide" transparent visible={modalTransferVisible}>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContent}>
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>Enviar Dinero</Text>
+        <TouchableOpacity onPress={() => setModalTransferVisible(false)}>
+          <Ionicons name="close-circle" size={30} color="#BDC3C7" />
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.modalSubtitle}>Ingresa el ID del usuario (Prueba con 12345 o 67890)</Text>
+
+      <TextInput 
+        placeholder="ID del Destinatario" 
+        style={styles.inputPro} 
+        value={destinatarioID}
+        onChangeText={setDestinatarioID}
+        keyboardType="numeric"
+      />
+
+      {nombreDestinatario && (
+        <View style={{flexDirection:'row', alignItems:'center', marginBottom: 15, paddingLeft: 5}}>
+          <Ionicons name="person-circle" size={20} color="#27ae60" />
+          <Text style={{color: '#27ae60', fontWeight: 'bold', marginLeft: 5}}>Destinatario: {nombreDestinatario}</Text>
+        </View>
+      )}
+
+      <TextInput 
+        placeholder="Monto a enviar (Bs.)" 
+        style={styles.inputPro} 
+        keyboardType="numeric"
+        value={montoTransferir}
+        onChangeText={setMontoTransferir}
+      />
+
+      <TouchableOpacity 
+        style={[styles.btnPrincipal, { backgroundColor: (!nombreDestinatario || cargando) ? '#BDC3C7' : '#5D6D7E' }]} 
+        onPress={ejecutarTransferenciaSimulada}
+        disabled={!nombreDestinatario || cargando}
+      >
+        {cargando ? <ActivityIndicator color="white" /> : <Text style={styles.btnPrincipalText}>TRANSFERIR AHORA</Text>}
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
     </SafeAreaView>
   );
 }
