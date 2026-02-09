@@ -6,11 +6,13 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
-import Volver from '../../Components/Botones_genericos/Volver';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
+// IMPORTANTE: Importamos router para poder "volver"
+import { router } from 'expo-router';
+
 // Configuración de Supabase
 const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
@@ -26,44 +28,7 @@ export default function WalletScreen() {
   const [referencia, setReferencia] = useState('');
   const [montoInput, setMontoInput] = useState('');
   const [cargando, setCargando] = useState(false);
-  const { theme, isDark } = useTheme(); //temas oscuro y claro
-// --- 1. NUEVA FUNCIÓN PARA OBTENER EL SALDO DESDE "Saldo_usuarios" ---
-const obtenerSaldoReal = async () => {
-  try {
-    const userid = await getuserid();
-    if (!userid) return;
-
-    // Cambiamos .single() por .maybeSingle() para evitar el error de "0 o múltiples filas"
-    const { data, error } = await supabase
-      .from('Saldo_usuarios')
-      .select('saldo')
-      .eq('external_user_id', userid.trim())
-      .maybeSingle(); 
-
-    if (error) {
-      console.log("Error consultando saldo:", error.message);
-      return;
-    }
-
-    if (data) {
-      // Si existe el registro, cargamos el saldo
-      setSaldo(data.saldo);
-    } else {
-      // Si data es null, significa que el usuario no tiene fila en esa tabla todavía
-      console.log("El usuario no tiene registro de saldo. Iniciando en 0.");
-      setSaldo(0.00);
-      
-      // OPCIONAL: Podrías crear la fila automáticamente aquí si quieres
-      /*
-      await supabase.from('Saldo_usuarios').insert([
-        { external_user_id: userid.trim(), saldo: 0.00 }
-      ]);
-      */
-    }
-  } catch (error) {
-    console.log("Error crítico en obtenerSaldoReal:", error);
-  }
-};
+  const { theme } = useTheme(); 
 
   // --- DATOS BANCARIOS ---
   const datosBancarios = {
@@ -73,21 +38,34 @@ const obtenerSaldoReal = async () => {
   };
 
   // --- EFECTOS ---
-// --- 2. ACTUALIZAR EL EFECTO INICIAL ---
-useEffect(() => {
-  const inicializar = async () => {
-    const nombre = await getusername();
-    setUserName(nombre || "Usuario");
-    
-    // Cargamos ambas cosas
-    await obtenerSaldoReal(); 
-    await cargarHistorial();
+  useEffect(() => {
+    const inicializar = async () => {
+      const nombre = await getusername();
+      setUserName(nombre || "Usuario");
+      await obtenerSaldoReal(); 
+      await cargarHistorial();
+    };
+    inicializar();
+  }, []);
+
+  // --- FUNCIONES DE SALDO Y BD ---
+  const obtenerSaldoReal = async () => {
+    try {
+      const userid = await getuserid();
+      if (!userid) return;
+
+      const { data, error } = await supabase
+        .from('Saldo_usuarios')
+        .select('saldo')
+        .eq('external_user_id', userid.trim())
+        .maybeSingle(); 
+
+      if (error) { console.log("Error saldo:", error.message); return; }
+      if (data) setSaldo(data.saldo);
+      else setSaldo(0.00);
+    } catch (error) { console.log("Error crítico:", error); }
   };
-  inicializar();
-}, []);
 
-
-  // --- FUNCIONES DE APOYO ---
   const getuserid = async () => {
     const session = await AsyncStorage.getItem('@Sesion_usuario');
     if (!session) return null;
@@ -110,14 +88,11 @@ useEffect(() => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      quality: 0.5, // Calidad optimizada para subida rápida
+      quality: 0.5, 
     });
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
+    if (!result.canceled) setImage(result.assets[0].uri);
   };
 
-  // --- LÓGICA DE BASE DE DATOS ---
   const cargarHistorial = async () => {
     try {
       const userid = await getuserid();
@@ -142,92 +117,56 @@ useEffect(() => {
         }));
         setOperaciones(formateados);
       }
+    } catch (error) { console.log("Error historial:", error); } 
+    finally { setCargandoHistorial(false); }
+  };
+
+  const registrarYValidar = async () => {
+    if (!image || !referencia || !montoInput) {
+      Alert.alert("Campos incompletos", "Por favor sube el comprobante y llena los datos.");
+      return;
+    }
+    setCargando(true);
+
+    try {
+      const userid = await getuserid();
+      const fileName = `captures/${Date.now()}.jpg`;
+      const formData = new FormData();
+      formData.append('file', { uri: image, name: fileName, type: 'image/jpeg' });
+
+      const { error: storageError } = await supabase.storage.from('comprobantes').upload(fileName, formData);
+      if (storageError) throw storageError;
+
+      const { error: dbError } = await supabase.from('validaciones_pago').insert([{
+          external_user_id: userid.trim(),
+          referencia: referencia,
+          monto_informado: parseFloat(montoInput),
+          evidencia_url: fileName,
+          estado: 'completado' 
+        }]);
+      if (dbError) throw dbError;
+
+      const nuevoSaldoCalculado = saldo + parseFloat(montoInput);
+      const { error: saldoError } = await supabase.from('Saldo_usuarios').update({ saldo: nuevoSaldoCalculado }).eq('external_user_id', userid.trim());
+
+      if (saldoError) console.log("Error saldo update:", saldoError.message);
+      else setSaldo(nuevoSaldoCalculado);
+
+      Alert.alert("Recarga Exitosa", "Tu saldo ha sido actualizado.");
+      setModalVisible(false);
+      cargarHistorial();
+
     } catch (error) {
-      console.log("Error cargando historial:", error);
+      Alert.alert("Error", "No pudimos procesar el reporte: " + error.message);
     } finally {
-      setCargandoHistorial(false);
+      setCargando(false);
+      setImage(null);
+      setReferencia('');
+      setMontoInput('');
     }
   };
 
-const registrarYValidar = async () => {
-  if (!image || !referencia || !montoInput) {
-    Alert.alert("Campos incompletos", "Por favor sube el comprobante y llena los datos.");
-    return;
-  }
-  setCargando(true);
-//lalalalalllalal
-  try {
-    const userid = await getuserid();
-    
-    // 1. Preparar la imagen para Supabase (Sin librerías extrañas)
-    const fileName = `captures/${Date.now()}.jpg`;
-    const formData = new FormData();
-    formData.append('file', {
-      uri: image,
-      name: fileName,
-      type: 'image/jpeg',
-    });
-
-    // Subida al Storage
-    const { error: storageError } = await supabase.storage
-      .from('comprobantes')
-      .upload(fileName, formData);
-
-    if (storageError) throw storageError;
-
-    // 2. Insertar Registro en validaciones_pago
-const { error: dbError } = await supabase
-  .from('validaciones_pago')
-  .insert([{
-    external_user_id: userid.trim(),
-    referencia: referencia,
-    monto_informado: parseFloat(montoInput),
-    evidencia_url: fileName,
-    estado: 'completado' // <-- Lo ponemos como completado para probar
-  }]);
-
-if (dbError) throw dbError;
-
-// --- AQUÍ ESTÁ EL TRUCO: ACTUALIZAR EL SALDO REAL ---
-// 3. Actualizar la tabla Saldo_usuarios
-const nuevoSaldoCalculado = saldo + parseFloat(montoInput);
-
-const { error: saldoError } = await supabase
-  .from('Saldo_usuarios')
-  .update({ saldo: nuevoSaldoCalculado })
-  .eq('external_user_id', userid.trim());
-
-if (saldoError) {
-  console.log("Error actualizando saldo:", saldoError.message);
-} else {
-  setSaldo(nuevoSaldoCalculado); // Actualizamos la vista
-}
-
-    // 4. Suscripción al cambio de SALDO (Saldo_usuarios)
-    const channelSaldo = supabase
-      .channel('cambios-saldo')
-      .on('postgres_changes', 
-        { event: 'UPDATE', schema: 'public', table: 'Saldo_usuarios', filter: `external_user_id=eq.${userid}` },
-        (payload) => {
-          setSaldo(payload.new.saldo); // Actualiza el monto en la tarjeta azul
-          cargarHistorial();
-        }
-      ).subscribe();
-
-    Alert.alert("Reporte enviado", "Estamos verificando tu transacción.");
-    setModalVisible(false);
-    cargarHistorial();
-
-  } catch (error) {
-    Alert.alert("Error", "No pudimos procesar el reporte: " + error.message);
-  } finally {
-    setCargando(false);
-    setImage(null);
-    setReferencia('');
-    setMontoInput('');
-  }
-};
-  // --- RENDER DE ITEMS ---
+  // --- RENDER ITEM ---
   const renderItem = ({ item }) => (
     <View style={styles.transactionItem}>
       <View style={styles.iconCircle}>
@@ -246,10 +185,19 @@ if (saldoError) {
     <SafeAreaView style={{flex: 1, backgroundColor: theme.background_2}}>
       <StatusBar barStyle="dark-content" backgroundColor={'#003366'}/>
       
-      <View style={{flexDirection: 'row',  alignItems: 'center', paddingHorizontal: 20, height: 60, backgroundColor: theme.background_2}}>
-        <Image source={require('../../../assets/img/wallet.png')} style={{position:'absolute', height:150, width:150, top:0, left:10}}/>
-        <Volver route={"./Profile"} color={theme.volver_button} />
-        <TouchableOpacity style={{marginLeft:'91%'}} onPress={cargarHistorial()}>
+      {/* HEADER CON BOTÓN "ATRÁS" REAL */}
+      <View style={styles.headerContainer}>
+        <Image source={require('../../../assets/img/wallet.png')} style={styles.headerImage}/>
+        
+        {/* BOTÓN VOLVER (Router Back) */}
+        <TouchableOpacity 
+            onPress={() => router.back()} // <--- ESTO ES LO QUE DA LA FLUIDEZ
+            style={styles.backButton}
+        >
+            <Ionicons name="arrow-back" size={28} color="#003366" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.refreshButton} onPress={cargarHistorial}>
            <Ionicons name="refresh-circle" size={30} color="#003366" />
         </TouchableOpacity>
       </View>
@@ -300,7 +248,7 @@ if (saldoError) {
         }
       />
 
-      {/* --- MODAL RECARGA --- */}
+      {/* MODAL (Sin cambios) */}
       <Modal animationType="slide" transparent visible={modalVisible}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -330,42 +278,18 @@ if (saldoError) {
             ) : (
               <View>
                 <TouchableOpacity style={styles.imageSelector} onPress={pickImage}>
-                  {image ? (
-                    <Image source={{ uri: image }} style={styles.previewImage} />
-                  ) : (
+                  {image ? <Image source={{ uri: image }} style={styles.previewImage} /> : 
                     <View style={{alignItems:'center'}}>
                       <Ionicons name="cloud-upload" size={40} color="#003366" />
                       <Text style={{ color: '#95a5a6', fontWeight: 'bold' }}>Subir Capture</Text>
-                    </View>
-                  )}
+                    </View>}
                 </TouchableOpacity>
-                
-                <TextInput 
-                  placeholder="Referencia (últimos 6 dígitos)" 
-                  style={styles.inputPro} 
-                  keyboardType="numeric" 
-                  value={referencia}
-                  onChangeText={setReferencia}
-                />
-                <TextInput 
-                  placeholder="Monto enviado (Bs.)" 
-                  style={styles.inputPro} 
-                  keyboardType="numeric" 
-                  value={montoInput}
-                  onChangeText={setMontoInput}
-                />
-
-                <TouchableOpacity 
-                  style={[styles.btnPrincipal, { backgroundColor: cargando ? '#BDC3C7' : '#27ae60' }]}
-                  onPress={registrarYValidar}
-                  disabled={cargando}
-                >
+                <TextInput placeholder="Referencia (últimos 6 dígitos)" style={styles.inputPro} keyboardType="numeric" value={referencia} onChangeText={setReferencia}/>
+                <TextInput placeholder="Monto enviado (Bs.)" style={styles.inputPro} keyboardType="numeric" value={montoInput} onChangeText={setMontoInput}/>
+                <TouchableOpacity style={[styles.btnPrincipal, { backgroundColor: cargando ? '#BDC3C7' : '#27ae60' }]} onPress={registrarYValidar} disabled={cargando}>
                   {cargando ? <ActivityIndicator color="white" /> : <Text style={styles.btnPrincipalText}>CONFIRMAR RECARGA</Text>}
                 </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => setStep(1)} style={{marginTop:15}}>
-                   <Text style={{textAlign:'center', color:'#7F8C8D'}}>Atrás</Text>
-                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setStep(1)} style={{marginTop:15}}><Text style={{textAlign:'center', color:'#7F8C8D'}}>Atrás</Text></TouchableOpacity>
               </View>
             )}
           </View>
@@ -377,57 +301,30 @@ if (saldoError) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFB' },
-  header: { flexDirection: 'row',  alignItems: 'center', paddingHorizontal: 20, height: 60, backgroundColor: 'white' },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#003366' },
-  welcomeSection: { paddingHorizontal: 20, marginTop: 15 },
-  userLabel: { fontSize: 24, fontWeight: 'bold', color: '#2C3E50' },
   scrollContent: { paddingBottom: 30 },
   
+  // HEADER
+  headerContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, height: 60, backgroundColor: '#F8FAFB' }, // Color fijo para consistencia
+  headerImage: { position:'absolute', height:150, width:150, top:0, left:10 },
+  backButton: { marginLeft: 5, padding: 5 }, // Ajuste para el touch area
+  refreshButton: { marginLeft: 'auto', padding: 5 }, // marginLeft: auto empuja a la derecha
+
   balanceCard: {
-    backgroundColor: '#003366',
-    marginTop:30,
-    margin: 20,
-    padding: 25,
-    borderRadius: 25,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: '#003366',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
+    backgroundColor: '#003366', marginTop:30, margin: 20, padding: 25, borderRadius: 25,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    shadowColor: '#003366', shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3, shadowRadius: 10, elevation: 8,
   },
   balanceLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' },
   balanceAmount: { color: 'white', fontSize: 34, fontWeight: 'bold' },
 
   actionPanel: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 10 },
   actionButton: { alignItems: 'center', width: '30%' },
-  actionIconContainer: { 
-    backgroundColor: '#D99015', 
-    width: 60, height: 60, 
-    borderRadius: 20, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    marginBottom: 8,
-    elevation: 5
-  },
+  actionIconContainer: { backgroundColor: '#D99015', width: 60, height: 60, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 8, elevation: 5 },
   actionText: { fontSize: 11, fontWeight: 'bold', color: '#34495E' },
 
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginHorizontal: 25, marginTop: 20, marginBottom: 15, color: '#2C3E50' },
-  
-  transactionItem: {
-    backgroundColor: 'white',
-    marginHorizontal: 20,
-    marginBottom: 10,
-    padding: 15,
-    borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    elevation: 2,
-  },
+  transactionItem: { backgroundColor: 'white', marginHorizontal: 20, marginBottom: 10, padding: 15, borderRadius: 20, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.03, elevation: 2 },
   iconCircle: { width: 45, height: 45, borderRadius: 15, backgroundColor: '#F0F4F8', justifyContent: 'center', alignItems: 'center' },
   itemInfo: { flex: 1, marginLeft: 15 },
   itemTitle: { fontWeight: 'bold', fontSize: 14, color: '#2C3E50' },

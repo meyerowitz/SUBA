@@ -52,7 +52,7 @@ export default function RootLayout() {
       <Stack.Screen
         name="pages/Pasajero/Wallet"
         options={{
-          animation: "none", // Esta subirá como un panel
+          animation: "slide_from_right", // Esta subirá como un panel
         }}
       />
 

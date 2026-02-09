@@ -5,7 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons'; // Para usar íconos, puedes instalar react-native-vector-icons
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import Home from './Home';
+import UnifiedHome from './UnifiedHome';
 import WebMap from './WebMap';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 
@@ -14,42 +14,24 @@ const Tab = createBottomTabNavigator();
 // --- Componente del Navegador de Pestañas ---
 function MyTabs() {
   const insets = useSafeAreaInsets();
-  const { theme, isDark } = useTheme(); //temas oscuro y claro
+  const { theme } = useTheme();
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        // Configuración de los íconos de las pestañas
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-          
-          if (route.name === 'Home') {
-            // Ejemplo de ícono: 'home' o 'home-outline'
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Map') {
-            iconName = focused ? 'location' : 'location';
-          } 
-          // Agrega más condiciones para tus otras pestañas
+        // ... (tu lógica de iconos puede quedarse, no molesta) ...
 
-          // Debes asegurarte de que Ionicons esté instalado y configurado correctamente.
-          return <Ionicons name={iconName} size={30} color={color}  />; 
-        },
-        // Colores de los íconos y etiquetas
-        tabBarActiveTintColor: theme.tabBarActiveTintColor, // El color activo puede ser el naranja de tu imagen
-        tabBarInactiveTintColor: theme.tabBarInactiveTintColor,
-        // Estilo de la barra de navegación inferior
-        tabBarStyle: { 
-          backgroundColor: theme.background, 
-          height: 70 + insets.bottom, 
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 50,
-          paddingTop: 10,
-        },
-        // Opciones de las pestañas
-        headerShown: false, // Oculta el encabezado superior si no lo necesitas
+        // AQUÍ EL CAMBIO PARA BORRAR LA BARRA 👇
+        tabBarStyle: { display: 'none' }, // ESTO OCULTA LA BARRA COMPLETAMENTE
+        headerShown: false,
       })}
     >
-      <Tab.Screen name="Home" component={Home} />
-      <Tab.Screen name="Map" component={WebMap} />
+      <Tab.Screen name="Home" component={UnifiedHome} />
+      
+      {/* Si en el futuro quieres otra pestaña, le quitas el display: 'none'
+         Pero por ahora, esto hace que se vea como una App nativa full screen.
+      */}
+      
     </Tab.Navigator>
   );
 }

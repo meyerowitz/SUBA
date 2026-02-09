@@ -3,23 +3,24 @@ import { StyleSheet, Text, View, TouchableOpacity, StatusBar, ScrollView , Alert
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Volver from '../../Components/Botones_genericos/Volver';
-import { router } from 'expo-router';
+import { router, useNavigation } from 'expo-router'; // <--- AGREGADO useNavigation
+import { CommonActions } from '@react-navigation/native'; // <--- AGREGADO CommonActions
 import {getuseremail,getusername} from '../../Components/AsyncStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
-//import {GoogleSignin} from '@react-native-google-signin/google-signin';
-
 
 export default function Profile() {
-  // Simulación de estados
   const [isStudent, setIsStudent] = useState(true);
   const [isSenior, setIsSenior] = useState(true);
 
   const [UserName, setUserName] = useState("---");
   const [UserEmail, setUserEmail] = useState("---");
   const [profileImage, setProfileImage] = useState(null);
-  const { theme, isDark } = useTheme(); //temas oscuro y claro
+  const { theme } = useTheme(); 
   
+  // Hook de navegación para manipular el historial
+  const navigation = useNavigation();
+
   useEffect(()=>{
     const name = getusername();
     const email = getuseremail();
@@ -36,35 +37,42 @@ export default function Profile() {
   },[])
 
   const handleLogout = () => {
-  Alert.alert(
-    "Cerrar Sesión",
-    "¿Estás segura de que quieres salir?",
-    [
-      { text: "Cancelar", style: "cancel" },
-      { 
-        text: "Sí, salir", 
-        onPress: async () => {
-          await AsyncStorage.removeItem('@Sesion_usuario');
-        // GoogleSignin.signOut();//CIERRA SESION DE GOOGLE, SI NO SE COLOCA QUEDARA ABIERTA A PESAR DE HABER CERRADO SESION
-          router.replace('/Login');
-        } 
-      }
-    ]
-  );}
+    Alert.alert(
+      "Cerrar Sesión",
+      "¿Estás segura de que quieres salir?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Sí, salir", 
+          onPress: async () => {
+            // 1. Borramos datos de sesión
+            await AsyncStorage.removeItem('@Sesion_usuario');
+            
+            // 2. EL TRUCO NUCLEAR: Reiniciamos el historial de navegación
+            // Esto borra el Mapa, el Perfil y todo lo que había antes.
+            // Deja "Login" como la única pantalla existente.
+            navigation.dispatch(
+              CommonActions.reset({
+                index: 0,
+                routes: [{ name: 'Login' }], // Asegúrate que 'Login' coincida con tu Stack en _layout
+              })
+            );
+          } 
+        }
+      ]
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar  backgroundColor={theme.primary_2} barStyle="light-content" />
+      <StatusBar backgroundColor={theme.primary_2} barStyle="light-content" />
       
-      {/* ScrollView para que toda la pantalla sea deslizable */}
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{paddingBottom: 40, backgroundColor:theme.background}}
       >
-        {/* Cabecera Naranja */}
         <View style={{ backgroundColor: theme.primary_2, height: 180, borderBottomRightRadius: 40 }} />
 
-        {/* Caja de Perfil Blanca (Insignias dentro) */}
         <View style={styles.profileBox}>
           <View style={styles.avatarCircle}>
             {profileImage ? (
@@ -77,7 +85,6 @@ export default function Profile() {
           <Text style={styles.userName}>{UserName}</Text>
           <Text style={styles.userEmail}>{UserEmail}</Text>
 
-          {/* Sección de Insignias/Roles con estilo de la imagen */}
           {(isStudent || isSenior) && (
             <View style={styles.badgesWrapper}>
               {isStudent && (
@@ -101,7 +108,6 @@ export default function Profile() {
           )}
         </View>
 
-        {/* Sección de Opciones */}
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>GENERAL</Text>
           
@@ -140,39 +146,19 @@ export default function Profile() {
             subtitle="Consulta posibles beneficios"
             onPress={()=>{router.push("/pages/Pasajero/Subsidios")}}
           />
-
-          <Text style={[styles.sectionTitle, { marginTop: 20 }]}>BILLETERA</Text>
-
-          <TouchableOpacity 
-            onPress={() => router.replace("./Wallet")} 
-            style={styles.menuItem}
-          >
-            <View style={[styles.menuIconBox, { backgroundColor: '#F3E5F5' }]}>
-              <Ionicons name="wallet" size={20} color="#7B1FA2" />
-            </View>
-            <View style={styles.menuTextContainer}>
-              <Text style={styles.menuMainText}>Mi Wallet</Text>
-              <Text style={styles.menuSubText}>Ver saldo y movimientos</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#CCC" />
-          </TouchableOpacity>
         </View>
 
-        {/* Botón de Cerrar Sesión al final del scroll */}
         <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
           <Text style={styles.logoutText}>CERRAR SESIÓN</Text>
         </TouchableOpacity>
 
       </ScrollView>
 
-      {/* Botón Volver fijo arriba */}
       <Volver route={"./Navigation"} color={"white"} style={styles.btnVolver} />
     </SafeAreaView>
   );
-
 }
 
-// Componente pequeño para no repetir código de los botones del menú
 const MenuOption = ({ icon, title, subtitle, color, bgColor, onPress }) => (
   <TouchableOpacity onPress={onPress} style={styles.menuItem}>
     <View style={[styles.menuIconBox, { backgroundColor: bgColor }]}>
@@ -188,10 +174,6 @@ const MenuOption = ({ icon, title, subtitle, color, bgColor, onPress }) => (
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
- 
-  orangeHeader: { 
-    backgroundColor: '#D99015', height: 180, borderBottomRightRadius: 40 
-  },
   profileBox: {
     backgroundColor: 'white', width: '90%', alignSelf: 'center',
     marginTop: -110, borderRadius: 25, padding: 20, alignItems: 'center',
