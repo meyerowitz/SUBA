@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, TextInput, TouchableOpacity, SafeAreaView, StatusBar, Image, ScrollView, Button } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, TextInput, TouchableOpacity,  StatusBar, Image, ScrollView, Button } from 'react-native';
 import * as Location from 'expo-location';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Destinos from "../../Components/Destinos.json";
@@ -207,12 +207,7 @@ const handleSearch = () => {
       {/* SECCIÓN SUPERIOR AZUL */}
       <View style={{ backgroundColor: '#003366',height: 280,paddingHorizontal: 25,borderBottomLeftRadius: 50, borderBottomRightRadius: 50,}}>
 
-            <TouchableOpacity 
-              style={{position: 'absolute',top: 45,left: 15,zIndex: 100}} 
-              onPress={() => router.push("/Components/ScannerQR")}
-            >
-              <Ionicons name="barcode-outline" size={23} color="white" />
-            </TouchableOpacity>
+         
             
           <View style={{flexDirection: 'row',justifyContent: 'space-between', alignItems: 'center',marginTop: 40,}}>
             <Image style={{width:210, height:210, position:'absolute', top:13, left:110}} source={require("../../../assets/img/autobuss.png")}></Image>

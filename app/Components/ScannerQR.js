@@ -40,13 +40,14 @@ export default function ScannerQR() {
   }
 
   const handleBarCodeScanned = ({ data }) => {
+     const router = useRouter();
     setScanned(true);
     // data contiene el ID del conductor que pusimos en el QR
     Alert.alert(
       "Confirmar Pago",
       `¿Deseas pagar el pasaje a la unidad ID: ${data.slice(-6).toUpperCase()}?`,
       [
-        { text: "Cancelar", onPress: () => setScanned(false), style: "cancel" },
+        { text: "Cancelar", onPress: () =>{ router.replace('/pages/Home') }, style: "cancel"},
         { 
           text: "Confirmar Pago", 
           onPress: () => {

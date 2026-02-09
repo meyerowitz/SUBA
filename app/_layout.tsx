@@ -6,6 +6,7 @@ import './Components/i18n/i18n';
 
 export default function RootLayout() {
   return (
+    
     <ThemeProvider>
       <Stack screenOptions={{ headerShown: false }}>
       {/* 1. El Index (donde está tu SplashScreen) */}

@@ -11,11 +11,12 @@ import * as Location from "expo-location";
 import * as FileSystem from "expo-file-system/legacy";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { createClient } from '@supabase/supabase-js';
 import { getuserid, getusername } from '../../Components/AsyncStorage';
 
 import Destinos from "../../Components/Destinos.json";
+import Volver from '../../Components/Botones_genericos/Volver';
 
 const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
@@ -70,6 +71,7 @@ export default function UnifiedHome() {
   const [saldo, setSaldo] = useState(0.00);
   const [tasaBCV, setTasaBCV] = useState(382.63); // <--- TASA RECUPERADA
   const [loadingSaldo, setLoadingSaldo] = useState(true);
+  const { destino } = useLocalSearchParams();
 
   // ShowEta = TRUE significa OCULTO. FALSE = VISIBLE.
   const [ShowEta, setShowEta]= useState(true); 
@@ -122,7 +124,7 @@ export default function UnifiedHome() {
       
       let curr = await Location.getCurrentPositionAsync({});
       let geo = await Location.reverseGeocodeAsync({ latitude: curr.coords.latitude, longitude: curr.coords.longitude });
-      if (geo?.[0]) setUbicacionTexto(`${geo[0].street || ''}, ${geo[0].city || 'Guayana'}`);
+      if (geo?.[0]) setUbicacionTexto(`${geo[0].street || ''} ${geo[0].city || 'Guayana'}`);
 
       sub = await Location.watchPositionAsync({ accuracy: 4, timeInterval: 5000, distanceInterval: 5 }, (loc) => {
           setUserLocation(loc.coords);
@@ -132,6 +134,14 @@ export default function UnifiedHome() {
     startLoc();
     return () => sub?.remove();
   }, [isMapReady]);
+
+  useEffect(() => {
+    if (destino) {
+      console.log("📍 Destino recibido por URL/Params:", destino);
+      setSelectedDestinationName(destino);
+      handleSearch()
+    }
+  }, [destino,isMapReady, userLocation]);
 
   // --- AUTO-CENTRADO INTELIGENTE (Solo 1 vez por sesión) ---
   useEffect(() => {
@@ -200,19 +210,7 @@ export default function UnifiedHome() {
       <View style={StyleSheet.absoluteFillObject}>
         <WebView ref={webviewRef} source={{ html: mapHtmlContent }} onMessage={handleWebViewMessage} style={{ flex: 1 }} javaScriptEnabled={true} />
       </View>
-
-      {/* HEADER (PERFIL) */}
-      <View style={styles.headerContainer}>
-          <View style={styles.headerLeft}>
-              <TouchableOpacity onPress={() => router.push('/pages/Pasajero/Profile')} style={styles.avatarBtn}>
-                  <Ionicons name="person" size={20} color="#003366" />
-              </TouchableOpacity>
-              <View style={{marginLeft: 10}}>
-                  <Text style={styles.greetingText}>Hola, {username} 👋</Text>
-              </View>
-          </View>
-      </View>
-
+      <View>
       {/* BUSCADOR */}
       {!isSearchExpanded ? (
           <TouchableOpacity 
@@ -254,7 +252,7 @@ export default function UnifiedHome() {
               </TouchableOpacity>
           </View>
       )}
-
+      </View>
       {/* BOTONES FLOTANTES */}
       <TouchableOpacity 
         style={[styles.gpsBtn, isRouteActive ? { bottom: 250 } : { bottom: 140 }]} 
@@ -324,7 +322,7 @@ const styles = StyleSheet.create({
   greetingText: { fontSize: 16, fontWeight: 'bold', color: '#333', backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, overflow:'hidden', elevation: 2 },
 
   searchBarCompact: {
-    position: 'absolute', top: 100, left: 20, right: 20,
+    position: 'absolute', top: 60, left: 20, right: 20,
     backgroundColor: 'white', borderRadius: 25, height: 50,
     flexDirection: 'row', alignItems: 'center', paddingLeft: 20, paddingRight: 5,
     elevation: 8, shadowColor: '#000', shadowOpacity: 0.15
@@ -332,7 +330,7 @@ const styles = StyleSheet.create({
   searchPlaceholder: { flex: 1, fontSize: 16, fontWeight: '600', color: '#666' },
   searchIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#003366', justifyContent: 'center', alignItems: 'center' },
 
-  searchPanelExpanded: { position: 'absolute', top: 100, left: 20, right: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, elevation: 15 },
+  searchPanelExpanded: { position: 'absolute', top: 60, left: 20, right: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, elevation: 15 },
   panelHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   panelTitle: { fontSize: 16, fontWeight: 'bold', color: '#003366' },
   inputRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
