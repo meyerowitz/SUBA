@@ -175,6 +175,12 @@ export default function RootLayout() {
           animation: "slide_from_bottom", // Esta subirá como un panel
         }}
       />
+       <Stack.Screen
+        name="Components/PaymentNFC"
+        options={{
+          animation: "slide_from_bottom", // Esta subirá como un panel
+        }}
+      />
       </Stack>
     </ThemeProvider>
   );

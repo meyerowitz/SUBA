@@ -224,7 +224,7 @@ const handleSearch = () => {
       </LinearGradient>
   
       {/* TARJETA DE RUTA (DISEÑO SOLICITADO) */}
-      <View style={{backgroundColor: 'white', marginHorizontal: 20, marginTop: -75, borderRadius: 15, padding: 15,elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5}}>
+      <View style={{backgroundColor: 'white', marginHorizontal: 20, marginTop: -85, borderRadius: 15, padding: 15,elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5}}>
         <View style={{flexDirection: 'row'}}>
           
           {/* COLUMNA IZQUIERDA: ICONOS Y LÍNEA */}

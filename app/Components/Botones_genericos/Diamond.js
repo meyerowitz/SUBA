@@ -86,7 +86,7 @@ const Diamond = ({ theme }) => {
     <View style={[styles.mainContainer, { bottom: 19 + insets.bottom }]} pointerEvents="box-none">
       <View style={styles.optionsWrapper} pointerEvents="box-none">
         <Animated.View style={[styles.optionCircle, nfcStyle]}>
-          <TouchableOpacity style={styles.touch} onPress={() => {router.push('/Components/ScannerQR')}}>
+          <TouchableOpacity style={styles.touch} onPress={() => {router.push('/Components/PaymentNFC')}}>
             <Ionicons name="radio-outline" size={22} color="#FFF" />
             <Text style={styles.optionText}>NFC</Text>
           </TouchableOpacity>
