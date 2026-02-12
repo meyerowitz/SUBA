@@ -14,6 +14,7 @@ import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { createClient } from '@supabase/supabase-js';
 import { getuserid, getusername } from '../../Components/AsyncStorage';
+import { useRoute } from '../../Components/Providers/RouteContext';
 
 import mqtt from "mqtt"; // <-- IMPORTANTE: Asegúrate de tener instalado 'mqtt'
 import Destinos from "../../Components/Destinos.json";
@@ -68,7 +69,7 @@ export default function UnifiedHome() {
   const [username, setUsername] = useState("Pasajero");
   
   const [isSearching, setIsSearching] = useState(false);
-  const [selectedDestinationName, setSelectedDestinationName] = useState("");
+  const [selectedDestinationName, setSelectedDestinationName] = useState(""); const { setSelectedRoute } = useRoute();
   
   const [saldo, setSaldo] = useState(0.00);
   const [tasaBCV, setTasaBCV] = useState(382.63); 
@@ -307,7 +308,7 @@ export default function UnifiedHome() {
                 <View style={styles.inputRow}>
                     <Ionicons name="location" size={20} color="#E69500" />
                     <View style={{flex: 1, marginLeft: 5}}>
-                      <Picker selectedValue={selectedDestinationName} onValueChange={(v) => setSelectedDestinationName(v)} style={{ height: 50, width: '100%' }}>
+                      <Picker selectedValue={selectedDestinationName} onValueChange={(v) => {setSelectedDestinationName(v),setSelectedRoute(v ? rutaCompleta || { name: v } : null);}} style={{ height: 50, width: '100%' }}>
                           <Picker.Item label="Selecciona destino..." value="" color="#999" />
                           {Destinos.map((d) => (<Picker.Item key={d.name} label={d.name} value={d.name} />))}
                       </Picker>

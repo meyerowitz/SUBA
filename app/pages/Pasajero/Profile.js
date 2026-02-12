@@ -146,6 +146,22 @@ export default function Profile() {
             subtitle="Consulta posibles beneficios"
             onPress={()=>{router.push("/pages/Pasajero/Subsidios")}}
           />
+        
+        <Text style={[styles.sectionTitle, { marginTop: 20 }]}>BILLETERA</Text>
+
+          <TouchableOpacity 
+            onPress={() => router.replace("./Wallet")} 
+            style={styles.menuItem}
+          >
+            <View style={[styles.menuIconBox, { backgroundColor: '#F3E5F5' }]}>
+              <Ionicons name="wallet" size={20} color="#7B1FA2" />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuMainText}>Mi Wallet</Text>
+              <Text style={styles.menuSubText}>Ver saldo y movimientos</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#CCC" />
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>

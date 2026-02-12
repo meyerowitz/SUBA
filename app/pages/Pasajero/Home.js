@@ -10,13 +10,14 @@ import { createClient } from '@supabase/supabase-js';
 import {getuserid,getusername} from '../../Components/AsyncStorage';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRoute } from '../../Components/Providers/RouteContext';
 
 const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
-export default function Home() {
+export default function Home({ navigation }) {
   const [ubicacionActual, setUbicacionActual] = useState('');
   const [destinoInput, setDestinoInput] = useState('');
-  const [selectedDestinationName, setSelectedDestinationName] = useState("");
+  const [selectedDestinationName, setSelectedDestinationName] = useState(""); const { setSelectedRoute ,setActiveTab} = useRoute();
   const [cargandoOrigen, setCargandoOrigen] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
 
@@ -158,6 +159,7 @@ const obtenerSaldoReal = async () => {
     };
 
     cargarFinanzas();
+    obtenerSaldoReal();
   }, []);
 
 
@@ -174,7 +176,7 @@ const handleSearch = () => {
     console.log("Navegando a WebMap con destino a", selectedDestinationName);
     SetLoad(false)
     router.push({
-      pathname: "/pages/Pasajero/UnifiedHome", 
+      pathname: "/pages/Pasajero/WebMap", 
       params: { destino: selectedDestinationName }
     });
   },3000)
@@ -257,11 +259,13 @@ const handleSearch = () => {
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Picker
                   selectedValue={selectedDestinationName}
-                  onValueChange={(itemValue) => setSelectedDestinationName(itemValue)}
+                  onValueChange={(itemValue) =>{ 
+                    setSelectedDestinationName(itemValue),
+                    setSelectedRoute(itemValue ? { name: itemValue } : null);}}
                   style={{ flex: 1, marginLeft: -15 }}
                   enabled={!isSearching}
                 >
-                  <Picker.Item label="Selecciona un destino..." value={selectedDestinationName} color="#999" />
+                  <Picker.Item label="Selecciona un destino..." value="" color="#999" />
                   {Destinos.map((dest) => (
                     <Picker.Item key={dest.name} label={dest.name} value={dest.name} />
                   ))}

@@ -65,6 +65,95 @@ useEffect(() => {
   }
 }, [destinatarioID]);
 
+
+const ejecutarTransferenciaReal = async () => {
+  const monto = parseFloat(montoTransferir);
+
+  if (!nombreDestinatario) {
+    Alert.alert("Error", "ID no encontrado.");
+    return;
+  }
+  if (isNaN(monto) || monto <= 0) {
+    Alert.alert("Monto inválido", "Ingresa un monto correcto.");
+    return;
+  }
+  if (monto > saldo) {
+    Alert.alert("Saldo insuficiente", "No tienes suficiente saldo.");
+    return;
+  }
+
+  setCargando(true);
+
+  try {
+    const userid = await getuserid();
+    const myId = userid.trim();
+    const targetId = destinatarioID.trim();
+    const referenciaUnica = `TRF-${Date.now().toString().slice(-6)}`;
+
+    // 1. DESCONTAR MI SALDO
+    const nuevoSaldoMio = saldo - monto;
+    const { error: errorResta } = await supabase
+      .from('Saldo_usuarios')
+      .update({ saldo: nuevoSaldoMio })
+      .eq('external_user_id', myId);
+
+    if (errorResta) throw new Error("Error al descontar tu saldo.");
+
+    // 2. SUMAR SALDO AL DESTINATARIO (UPSERT)
+    const { data: dataDest } = await supabase
+      .from('Saldo_usuarios')
+      .select('saldo')
+      .eq('external_user_id', targetId)
+      .maybeSingle();
+
+    const saldoActualDest = dataDest ? dataDest.saldo : 0;
+    const nuevoSaldoDest = saldoActualDest + monto;
+
+    const { error: errorSuma } = await supabase
+      .from('Saldo_usuarios')
+      .upsert(
+        { external_user_id: targetId, saldo: nuevoSaldoDest },
+        { onConflict: 'external_user_id' }
+      );
+
+    if (errorSuma) throw new Error("Error al acreditar al destinatario.");
+
+    // 3. CREAR VALIDACIONES DE PAGO (HISTORIAL PARA AMBOS)
+    const { error: errorHistorial } = await supabase.from('validaciones_pago').insert([
+      {
+        external_user_id: myId,
+        referencia: referenciaUnica,
+        monto_informado: monto,
+        evidencia_url: `Envío a: ${nombreDestinatario}`,
+        estado: 'completado' // Aparecerá en tu lista
+      },
+      {
+        external_user_id: targetId,
+        referencia: referenciaUnica,
+        monto_informado: monto,
+        evidencia_url: `Recibido de: ${userName}`,
+        estado: 'completado' // Aparecerá en la lista del que recibe
+      }
+    ]);
+
+    if (errorHistorial) console.log("Aviso: No se pudo registrar en el historial, pero el dinero se movió.");
+
+    // 4. ACTUALIZAR UI LOCAL
+    setSaldo(nuevoSaldoMio);
+    Alert.alert("¡Transferencia Exitosa!", `Has enviado Bs. ${monto.toFixed(2)} a ${nombreDestinatario}`);
+    
+    setModalTransferVisible(false);
+    setMontoTransferir('');
+    setDestinatarioID('');
+    cargarHistorial(); 
+
+  } catch (error) {
+    Alert.alert("Error", error.message);
+  } finally {
+    setCargando(false);
+  }
+};
+
 const ejecutarTransferenciaSimulada = () => {
   const monto = parseFloat(montoTransferir);
 
@@ -179,49 +268,69 @@ const ejecutarTransferenciaSimulada = () => {
     finally { setCargandoHistorial(false); }
   };
 
-  const registrarYValidar = async () => {
-    if (!image || !referencia || !montoInput) {
-      Alert.alert("Campos incompletos", "Por favor sube el comprobante y llena los datos.");
-      return;
-    }
-    setCargando(true);
+    const registrarYValidar2 = async () => {
+if (!image || !referencia || !montoInput) {
+    Alert.alert("Campos incompletos", "Por favor sube el comprobante y llena los datos.");
+    return;
+  }
+  
+  setCargando(true);
 
-    try {
-      const userid = await getuserid();
-      const fileName = `captures/${Date.now()}.jpg`;
-      const formData = new FormData();
-      formData.append('file', { uri: image, name: fileName, type: 'image/jpeg' });
+  try {
+    const userid = await getuserid();
+    const cleanUserId = userid.trim();
+    const montoARecargar = parseFloat(montoInput);
 
-      const { error: storageError } = await supabase.storage.from('comprobantes').upload(fileName, formData);
-      if (storageError) throw storageError;
+    // 1. Subir la imagen al storage
+    const fileName = `captures/${Date.now()}.jpg`;
+    const formData = new FormData();
+    formData.append('file', { uri: image, name: fileName, type: 'image/jpeg' });
 
-      const { error: dbError } = await supabase.from('validaciones_pago').insert([{
-          external_user_id: userid.trim(),
-          referencia: referencia,
-          monto_informado: parseFloat(montoInput),
-          evidencia_url: fileName,
-          estado: 'completado' 
-        }]);
-      if (dbError) throw dbError;
+    const { error: storageError } = await supabase.storage.from('comprobantes').upload(fileName, formData);
+    if (storageError) throw storageError;
 
-      const nuevoSaldoCalculado = saldo + parseFloat(montoInput);
-      const { error: saldoError } = await supabase.from('Saldo_usuarios').update({ saldo: nuevoSaldoCalculado }).eq('external_user_id', userid.trim());
+    // 2. Insertar el reporte en validaciones_pago
+    const { error: dbError } = await supabase.from('validaciones_pago').insert([{
+      external_user_id: cleanUserId,
+      referencia: referencia,
+      monto_informado: montoARecargar,
+      evidencia_url: fileName,
+      estado: 'completado' 
+    }]);
+    if (dbError) throw dbError;
 
-      if (saldoError) console.log("Error saldo update:", saldoError.message);
-      else setSaldo(nuevoSaldoCalculado);
+    // 3. Lógica de Saldo (UPSERT)
+    // Calculamos el nuevo total sumando el saldo que ya tenemos en el estado de React
+    const nuevoSaldoCalculado = saldo + montoARecargar;
 
-      Alert.alert("Recarga Exitosa", "Tu saldo ha sido actualizado.");
-      setModalVisible(false);
-      cargarHistorial();
+    const { error: saldoError } = await supabase
+      .from('Saldo_usuarios')
+      .upsert(
+        { 
+          external_user_id: cleanUserId, 
+          saldo: nuevoSaldoCalculado 
+        }, 
+        { onConflict: 'external_user_id' } // Esta es la clave para que no se duplique
+      );
 
-    } catch (error) {
-      Alert.alert("Error", "No pudimos procesar el reporte: " + error.message);
-    } finally {
-      setCargando(false);
-      setImage(null);
-      setReferencia('');
-      setMontoInput('');
-    }
+    if (saldoError) throw saldoError;
+
+    // 4. Actualizar la interfaz (UI)
+    setSaldo(nuevoSaldoCalculado);
+    Alert.alert("Recarga Exitosa", `Tu saldo ha sido actualizado. Nuevo saldo: Bs. ${nuevoSaldoCalculado.toFixed(2)}`);
+    
+    setModalVisible(false);
+    cargarHistorial();
+
+  } catch (error) {
+    console.error("Error en proceso:", error);
+    Alert.alert("Error", "No pudimos procesar el reporte: " + error.message);
+  } finally {
+    setCargando(false);
+    setImage(null);
+    setReferencia('');
+    setMontoInput('');
+  }
   };
 
   // --- RENDER ITEM ---
@@ -241,7 +350,7 @@ const ejecutarTransferenciaSimulada = () => {
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: theme.background_2}}>
-      <StatusBar barStyle="dark-content" backgroundColor={'#003366'}/>
+      <StatusBar barStyle="dark-content" translucent={true}/>
       
       {/* HEADER CON BOTÓN "ATRÁS" REAL */}
       <View style={styles.headerContainer}>
@@ -344,7 +453,7 @@ const ejecutarTransferenciaSimulada = () => {
                 </TouchableOpacity>
                 <TextInput placeholder="Referencia (últimos 6 dígitos)" style={styles.inputPro} keyboardType="numeric" value={referencia} onChangeText={setReferencia}/>
                 <TextInput placeholder="Monto enviado (Bs.)" style={styles.inputPro} keyboardType="numeric" value={montoInput} onChangeText={setMontoInput}/>
-                <TouchableOpacity style={[styles.btnPrincipal, { backgroundColor: cargando ? '#BDC3C7' : '#27ae60' }]} onPress={registrarYValidar} disabled={cargando}>
+                <TouchableOpacity style={[styles.btnPrincipal, { backgroundColor: cargando ? '#BDC3C7' : '#27ae60' }]} onPress={registrarYValidar2} disabled={cargando}>
                   {cargando ? <ActivityIndicator color="white" /> : <Text style={styles.btnPrincipalText}>CONFIRMAR RECARGA</Text>}
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setStep(1)} style={{marginTop:15}}><Text style={{textAlign:'center', color:'#7F8C8D'}}>Atrás</Text></TouchableOpacity>
@@ -391,7 +500,7 @@ const ejecutarTransferenciaSimulada = () => {
 
       <TouchableOpacity 
         style={[styles.btnPrincipal, { backgroundColor: (!nombreDestinatario || cargando) ? '#BDC3C7' : '#5D6D7E' }]} 
-        onPress={ejecutarTransferenciaSimulada}
+        onPress={ejecutarTransferenciaReal}
         disabled={!nombreDestinatario || cargando}
       >
         {cargando ? <ActivityIndicator color="white" /> : <Text style={styles.btnPrincipalText}>TRANSFERIR AHORA</Text>}

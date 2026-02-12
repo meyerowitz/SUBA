@@ -5,9 +5,19 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// IMPORTACIONES DE BASE DE DATOS
+import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const supabase = createClient(
+  'https://wkkdynuopaaxtzbchxgv.supabase.co', 
+  'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP'
+);
+
 export default function PaymentNFC() {
   const [isReading, setIsReading] = useState(false);
-  const [hasNfc, setHasNfc] = useState(null); // null: cargando, true: ok, false: no nativo
+  const [hasNfc, setHasNfc] = useState(null); 
+  const [procesando, setProcesando] = useState(false); // Estado para la transacción DB
   const router = useRouter();
 
   useEffect(() => {
@@ -21,37 +31,129 @@ export default function PaymentNFC() {
           setHasNfc(false);
         }
       } catch (err) {
-        console.log("NFC no disponible (Modo simulación activado)");
         setHasNfc(false);
       }
     };
-
     checkNfc();
-
     return () => {
       NfcManager.cancelTechnologyRequest().catch(() => 0);
     };
   }, []);
 
-  // Función para manejar la lectura real
+  // --- OBTENER DATOS DE SESIÓN ---
+  const getSessionData = async () => {
+    const session = await AsyncStorage.getItem('@Sesion_usuario');
+    return session ? JSON.parse(session) : null;
+  };
+
+  // --- LÓGICA DE TRANSACCIÓN ---
+  const ejecutarPagoNFC = async (tagId, fechaEmision, fechaCaducidad) => {
+    setProcesando(true);
+    const MONTO_PAGO = 60.00;
+    const targetId = String(tagId).trim(); // El ID de la tarjeta actúa como ID de destino
+
+    try {
+      const session = await getSessionData();
+      if (!session) throw new Error("Sesión no encontrada.");
+      
+      const myId = session._id.trim();
+      const myName = session.fullName || "Usuario NFC";
+      const referenciaUnica = `NFC-${Date.now().toString().slice(-6)}`;
+
+      // 1. CONSULTAR MI SALDO
+      const { data: myData, error: myError } = await supabase
+        .from('Saldo_usuarios')
+        .select('saldo')
+        .eq('external_user_id', myId)
+        .maybeSingle();
+
+      if (myError) throw myError;
+      const miSaldoActual = myData ? myData.saldo : 0;
+
+      if (miSaldoActual < MONTO_PAGO) {
+        Alert.alert("Saldo insuficiente", `Necesitas Bs. 60.00 y tienes Bs. ${miSaldoActual.toFixed(2)}`);
+        return;
+      }
+
+      // 2. DESCONTAR MI SALDO
+      const { error: errorResta } = await supabase
+        .from('Saldo_usuarios')
+        .update({ saldo: miSaldoActual - MONTO_PAGO })
+        .eq('external_user_id', myId);
+
+      if (errorResta) throw errorResta;
+
+      // 3. SUMAR AL DESTINATARIO (UPSERT)
+      const { data: destData } = await supabase
+        .from('Saldo_usuarios')
+        .select('saldo')
+        .eq('external_user_id', targetId)
+        .maybeSingle();
+
+      const saldoActualDest = destData ? destData.saldo : 0;
+      
+      const { error: errorSuma } = await supabase
+        .from('Saldo_usuarios')
+        .upsert(
+          { external_user_id: targetId, saldo: saldoActualDest + MONTO_PAGO },
+          { onConflict: 'external_user_id' }
+        );
+
+      if (errorSuma) throw errorSuma;
+
+      // 4. REGISTRAR HISTORIAL DOBLE
+      await supabase.from('validaciones_pago').insert([
+        {
+          external_user_id: myId,
+          referencia: referenciaUnica,
+          monto_informado: MONTO_PAGO,
+          evidencia_url: `Pago NFC Tarjeta: ${targetId}`,
+          estado: 'completado'
+        },
+        {
+          external_user_id: targetId,
+          referencia: referenciaUnica,
+          monto_informado: MONTO_PAGO,
+          evidencia_url: `Ingreso NFC: ${myName}`,
+          estado: 'completado'
+        }
+      ]);
+
+      // 5. NAVEGAR AL TICKET
+      router.replace({
+        pathname: "/Components/TicketVirtual",
+        params: {
+          monto: "60.00",
+          unidad: targetId.slice(-6).toUpperCase(),
+          fecha: fechaEmision,
+          vence: fechaCaducidad,
+          conductor: "Cobro NFC Integrado"
+        }
+      });
+
+    } catch (error) {
+      Alert.alert("Error en el pago", error.message);
+    } finally {
+      setProcesando(false);
+    }
+  };
+
   const handleReadNfc = async () => {
     try {
       setIsReading(true);
       await NfcManager.requestTechnology(NfcTech.Ndef);
       const tag = await NfcManager.getTag();
-      
       if (tag) {
         confirmarPagoNFC(tag.id || "NFC-001245");
       }
     } catch (ex) {
-      console.warn("Lectura cancelada o error");
+      console.warn("Lectura cancelada");
     } finally {
       setIsReading(false);
       NfcManager.cancelTechnologyRequest().catch(() => 0);
     }
   };
 
-  // Función para simular (Solo para pruebas en Expo Go/Emulador)
   const handleSimulatedRead = () => {
     setIsReading(true);
     setTimeout(() => {
@@ -63,34 +165,17 @@ export default function PaymentNFC() {
   const confirmarPagoNFC = (tagId) => {
     const ahora = new Date();
     const fechaEmision = ahora.toLocaleString();
-    
-    // Sumamos 15 minutos
     const tiempoCaducidad = new Date(ahora.getTime() + 15 * 60000);
     const fechaCaducidad = tiempoCaducidad.toLocaleString();
 
     Alert.alert(
       "Tarjeta Detectada",
-      `Detalles del Ticket:\n\n` +
-      `🆔 Chip ID: ${tagId}\n` +
-      `📅 Emisión: ${fechaEmision}\n` +
-      `⏳ Caduca: ${fechaCaducidad}\n\n` +
-      `¿Deseas proceder con el pago de Bs. 60.00?`,
+      `¿Deseas pagar Bs. 60.00 con la tarjeta ${tagId}?`,
       [
         { text: "Cancelar", style: "cancel" },
         { 
           text: "Confirmar Pago", 
-          onPress: () => {
-            router.replace({
-              pathname: "/Components/TicketVirtual",
-              params: {
-                monto: "60.00",
-                unidad: tagId.slice(-6).toUpperCase(),
-                fecha: fechaEmision,
-                vence: fechaCaducidad,
-                conductor: "Lector NFC Integrado"
-              }
-            });
-          } 
+          onPress: () => ejecutarPagoNFC(tagId, fechaEmision, fechaCaducidad) 
         }
       ]
     );
@@ -114,32 +199,39 @@ export default function PaymentNFC() {
             : "Modo Simulación (Sensor NFC no detectado)"}
         </Text>
 
-        <View style={[styles.iconContainer, isReading && styles.iconActive]}>
-          <MaterialCommunityIcons 
-            name={isReading ? "nfc-search-variant" : "nfc"} 
-            size={120} 
-            color="white" 
-          />
+        <View style={[styles.iconContainer, (isReading || procesando) && styles.iconActive]}>
+          {procesando ? (
+             <ActivityIndicator size="large" color="#34C759" />
+          ) : (
+            <MaterialCommunityIcons 
+              name={isReading ? "nfc-search-variant" : "nfc"} 
+              size={120} 
+              color="white" 
+            />
+          )}
         </View>
 
         <TouchableOpacity 
-          style={[styles.scanButton, isReading && styles.scanning]} 
+          style={[styles.scanButton, (isReading || procesando) && styles.scanning]} 
           onPress={hasNfc ? handleReadNfc : handleSimulatedRead}
-          disabled={isReading}
+          disabled={isReading || procesando}
         >
           <Text style={styles.buttonText}>
-            {isReading ? "ESPERANDO SEÑAL..." : "INICIAR COBRO"}
+            {procesando ? "PROCESANDO PAGO..." : isReading ? "ESPERANDO SEÑAL..." : "INICIAR COBRO"}
           </Text>
         </TouchableOpacity>
 
-        {/* Badge Informativo */}
         {!hasNfc && (
           <View style={styles.debugBadge}>
             <Text style={styles.debugText}>EXPO GO / EMULADOR DETECTADO</Text>
           </View>
         )}
 
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => router.back()}
+          disabled={procesando}
+        >
           <Text style={styles.backText}>Volver al menú</Text>
         </TouchableOpacity>
       </View>
@@ -173,10 +265,6 @@ const styles = StyleSheet.create({
     width: '100%', 
     alignItems: 'center',
     elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
   },
   scanning: { backgroundColor: '#27AE60', opacity: 0.7 },
   buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold', letterSpacing: 1 },

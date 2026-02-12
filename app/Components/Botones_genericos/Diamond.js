@@ -1,5 +1,5 @@
 import React, { useState } from 'react'; // Importamos useState
-import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable, Alert } from 'react-native';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -10,12 +10,16 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useRoute } from '../Providers/RouteContext';
+import CustomAlert from './CustomAlert'
 
 const Diamond = ({ theme }) => {
+  const { selectedRoute } = useRoute();
     const router= useRouter();
   const insets = useSafeAreaInsets();
   const translateY = useSharedValue(0);
   const [isOpen, setIsOpen] = useState(false); // Estado para controlar si está abierto
+  const [showAlert, setShowAlert] = useState(false);
 
   const MAX_UP = -40;
 
@@ -24,6 +28,7 @@ const Diamond = ({ theme }) => {
     stiffness: 150,
     mass: 2, // Bajé un poco la masa de 25 a 2 para que responda mejor al click pero siga suave
   };
+
 
   // Función para manejar el Click
   const toggleMenu = () => {
@@ -86,14 +91,20 @@ const Diamond = ({ theme }) => {
     <View style={[styles.mainContainer, { bottom: 19 + insets.bottom }]} pointerEvents="box-none">
       <View style={styles.optionsWrapper} pointerEvents="box-none">
         <Animated.View style={[styles.optionCircle, nfcStyle]}>
-          <TouchableOpacity style={styles.touch} onPress={() => {router.push('/Components/PaymentNFC')}}>
+          <TouchableOpacity style={styles.touch} onPress={()=>{if (!selectedRoute) {
+          setShowAlert(true);
+          return;
+        }else{router.push('/Components/PaymentNFC')}}}>
             <Ionicons name="radio-outline" size={22} color="#FFF" />
             <Text style={styles.optionText}>NFC</Text>
           </TouchableOpacity>
         </Animated.View>
 
         <Animated.View style={[styles.optionCircle, qrStyle]}>
-          <TouchableOpacity style={styles.touch} onPress={() => { router.push('/Components/ScannerQR')}}>
+          <TouchableOpacity style={styles.touch} onPress={()=>{if (!selectedRoute) {
+          setShowAlert(true);
+          return;
+        }else{ router.push('/Components/ScannerQR')}}}>
             <Ionicons name="qr-code" size={22} color="#FFF" />
             <Text style={styles.optionText}>QR</Text>
           </TouchableOpacity>
@@ -110,6 +121,13 @@ const Diamond = ({ theme }) => {
           </LinearGradient>
         </Animated.View>
       </Pressable>
+      <CustomAlert 
+        visible={showAlert}
+        title="Ruta no seleccionada"
+        message="Por favor, elige hacia dónde vas antes de emitir tu ticket."
+        onClose={() => setShowAlert(false)}
+        theme={theme}
+      />
     </View>
   );
 };

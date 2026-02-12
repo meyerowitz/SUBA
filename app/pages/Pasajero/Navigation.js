@@ -10,6 +10,7 @@ import WebMap from './WebMap';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 import UnifiedHome from './UnifiedHome';
 import Diamond from '../../Components/Botones_genericos/Diamond'
+import { RouteProvider } from '../../Components/Providers/RouteContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -51,7 +52,7 @@ function MyTabs() {
       })}
     >
       <Tab.Screen name="Home" component={Home} />
-      <Tab.Screen name="Map" component={UnifiedHome} />
+      <Tab.Screen name="Map" component={WebMap} />
     </Tab.Navigator>
   );
 }
@@ -60,13 +61,13 @@ export default function Navigation() {
   const { theme, isDark } = useTheme();
   return (
     <>
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <RouteProvider>
    <View style={{ flex: 1}}> 
      
         <MyTabs />
         <Diamond theme={theme}/>
     </View>
-    </GestureHandlerRootView>
+    </RouteProvider>
     </>
   );
 }
