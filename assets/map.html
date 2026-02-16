@@ -202,15 +202,13 @@
   
         };
         // 1). Función JS para desplazar la camara a la posicion del usuario
-        window.moveTo = function(lat,lon){
-            const latlng = [lat, lon];
-             if (!hasCenteredOnUser) {
-           
-            map.flyTo(latlng, 15, {
-                duration: 1.5 // Animación de 1.5 segundos
-            });
-            hasCenteredOnUser = true; 
-            console.log("Mapa centrado en la ubicación inicial del usuario.");
+        // VERSIÓN CORREGIDA: Obedece siempre que se le llame
+        window.moveTo = function(lat, lon){
+            if (map) {
+                map.flyTo([lat, lon], 16, { // Zoom 16 para ver mejor las calles
+                    duration: 1.5 // Animación suave
+                });
+                console.log("✈️ Vuelo de cámara a: " + lat + ", " + lon);
             }
         }
         // 2). Nueva función JS para marcar una ubicación buscada

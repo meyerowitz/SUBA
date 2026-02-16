@@ -179,10 +179,7 @@ export default function Configuracion() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-      <StatusBar
-        backgroundColor={theme.barstyle_2}
-        barStyle={"light-content"}
-      />
+      <StatusBar backgroundColor={"#003366"} barStyle={"light-content"} />
       <View style={styles.header}>
         <Text
           style={{
@@ -480,4 +477,3 @@ const styles = StyleSheet.create({
   trashButton: { marginLeft: 10 },
   trashIconWrap: { backgroundColor: "#FFF0F0", padding: 10, borderRadius: 12 },
 });
-

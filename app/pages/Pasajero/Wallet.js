@@ -6,11 +6,13 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
-import Volver from '../../Components/Botones_genericos/Volver';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
+// IMPORTANTE: Importamos router para poder "volver"
+import { router } from 'expo-router';
+
 // Configuración de Supabase
 const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
@@ -26,44 +28,14 @@ export default function WalletScreen() {
   const [referencia, setReferencia] = useState('');
   const [montoInput, setMontoInput] = useState('');
   const [cargando, setCargando] = useState(false);
-  const { theme, isDark } = useTheme(); //temas oscuro y claro
-// --- 1. NUEVA FUNCIÓN PARA OBTENER EL SALDO DESDE "Saldo_usuarios" ---
-const obtenerSaldoReal = async () => {
-  try {
-    const userid = await getuserid();
-    if (!userid) return;
+  const { theme } = useTheme(); 
 
-    // Cambiamos .single() por .maybeSingle() para evitar el error de "0 o múltiples filas"
-    const { data, error } = await supabase
-      .from('Saldo_usuarios')
-      .select('saldo')
-      .eq('external_user_id', userid.trim())
-      .maybeSingle(); 
-
-    if (error) {
-      console.log("Error consultando saldo:", error.message);
-      return;
-    }
-
-    if (data) {
-      // Si existe el registro, cargamos el saldo
-      setSaldo(data.saldo);
-    } else {
-      // Si data es null, significa que el usuario no tiene fila en esa tabla todavía
-      console.log("El usuario no tiene registro de saldo. Iniciando en 0.");
-      setSaldo(0.00);
-      
-      // OPCIONAL: Podrías crear la fila automáticamente aquí si quieres
-      /*
-      await supabase.from('Saldo_usuarios').insert([
-        { external_user_id: userid.trim(), saldo: 0.00 }
-      ]);
-      */
-    }
-  } catch (error) {
-    console.log("Error crítico en obtenerSaldoReal:", error);
-  }
-};
+  // --- ESTADOS PARA TRANSFERENCIA INTERNA ---
+const [modalTransferVisible, setModalTransferVisible] = useState(false);
+const [destinatarioID, setDestinatarioID] = useState('');
+const [montoTransferir, setMontoTransferir] = useState('');
+const [nombreDestinatario, setNombreDestinatario] = useState(null);
+const [buscandoUsuario, setBuscandoUsuario] = useState(false);
 
   // --- DATOS BANCARIOS ---
   const datosBancarios = {
@@ -73,21 +45,174 @@ const obtenerSaldoReal = async () => {
   };
 
   // --- EFECTOS ---
-// --- 2. ACTUALIZAR EL EFECTO INICIAL ---
+  useEffect(() => {
+    const inicializar = async () => {
+      const nombre = await getusername();
+      setUserName(nombre || "Usuario");
+      await obtenerSaldoReal(); 
+      await cargarHistorial();
+    };
+    inicializar();
+  }, []);
+
 useEffect(() => {
-  const inicializar = async () => {
-    const nombre = await getusername();
-    setUserName(nombre || "Usuario");
+  if (destinatarioID === '12345') {
+    setNombreDestinatario("Juan Pérez");
+  } else if (destinatarioID === '67890') {
+    setNombreDestinatario("María García");
+  } else {
+    setNombreDestinatario(null);
+  }
+}, [destinatarioID]);
+
+
+const ejecutarTransferenciaReal = async () => {
+  const monto = parseFloat(montoTransferir);
+
+  if (!nombreDestinatario) {
+    Alert.alert("Error", "ID no encontrado.");
+    return;
+  }
+  if (isNaN(monto) || monto <= 0) {
+    Alert.alert("Monto inválido", "Ingresa un monto correcto.");
+    return;
+  }
+  if (monto > saldo) {
+    Alert.alert("Saldo insuficiente", "No tienes suficiente saldo.");
+    return;
+  }
+
+  setCargando(true);
+
+  try {
+    const userid = await getuserid();
+    const myId = userid.trim();
+    const targetId = destinatarioID.trim();
+    const referenciaUnica = `TRF-${Date.now().toString().slice(-6)}`;
+
+    // 1. DESCONTAR MI SALDO
+    const nuevoSaldoMio = saldo - monto;
+    const { error: errorResta } = await supabase
+      .from('Saldo_usuarios')
+      .update({ saldo: nuevoSaldoMio })
+      .eq('external_user_id', myId);
+
+    if (errorResta) throw new Error("Error al descontar tu saldo.");
+
+    // 2. SUMAR SALDO AL DESTINATARIO (UPSERT)
+    const { data: dataDest } = await supabase
+      .from('Saldo_usuarios')
+      .select('saldo')
+      .eq('external_user_id', targetId)
+      .maybeSingle();
+
+    const saldoActualDest = dataDest ? dataDest.saldo : 0;
+    const nuevoSaldoDest = saldoActualDest + monto;
+
+    const { error: errorSuma } = await supabase
+      .from('Saldo_usuarios')
+      .upsert(
+        { external_user_id: targetId, saldo: nuevoSaldoDest },
+        { onConflict: 'external_user_id' }
+      );
+
+    if (errorSuma) throw new Error("Error al acreditar al destinatario.");
+
+    // 3. CREAR VALIDACIONES DE PAGO (HISTORIAL PARA AMBOS)
+    const { error: errorHistorial } = await supabase.from('validaciones_pago').insert([
+      {
+        external_user_id: myId,
+        referencia: referenciaUnica,
+        monto_informado: monto,
+        evidencia_url: `Envío a: ${nombreDestinatario}`,
+        estado: 'completado' // Aparecerá en tu lista
+      },
+      {
+        external_user_id: targetId,
+        referencia: referenciaUnica,
+        monto_informado: monto,
+        evidencia_url: `Recibido de: ${userName}`,
+        estado: 'completado' // Aparecerá en la lista del que recibe
+      }
+    ]);
+
+    if (errorHistorial) console.log("Aviso: No se pudo registrar en el historial, pero el dinero se movió.");
+
+    // 4. ACTUALIZAR UI LOCAL
+    setSaldo(nuevoSaldoMio);
+    Alert.alert("¡Transferencia Exitosa!", `Has enviado Bs. ${monto.toFixed(2)} a ${nombreDestinatario}`);
     
-    // Cargamos ambas cosas
-    await obtenerSaldoReal(); 
-    await cargarHistorial();
+    setModalTransferVisible(false);
+    setMontoTransferir('');
+    setDestinatarioID('');
+    cargarHistorial(); 
+
+  } catch (error) {
+    Alert.alert("Error", error.message);
+  } finally {
+    setCargando(false);
+  }
+};
+
+const ejecutarTransferenciaSimulada = () => {
+  const monto = parseFloat(montoTransferir);
+
+  if (!nombreDestinatario) {
+    Alert.alert("Error", "ID no encontrado. Prueba con 12345 o 67890");
+    return;
+  }
+  if (isNaN(monto) || monto <= 0) {
+    Alert.alert("Monto inválido", "Ingresa un monto correcto.");
+    return;
+  }
+  if (monto > saldo) {
+    Alert.alert("Saldo insuficiente", "No tienes suficiente saldo simulado.");
+    return;
+  }
+
+  setCargando(true);
+
+  // Simulamos un delay de red de 1.5 segundos
+  setTimeout(() => {
+    const nuevaTransaccion = {
+      id: Date.now().toString(),
+      titulo: `Envío a ${nombreDestinatario}`,
+      subtitulo: `ID: ${destinatarioID}`,
+      hora: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      monto: `- Bs. ${monto.toFixed(2)}`,
+      colorMonto: '#e74c3c', // Rojo para salida de dinero
+      icon: "paper-plane-outline"
+    };
+
+    setSaldo(prev => prev - monto);
+    setOperaciones(prev => [nuevaTransaccion, ...prev]);
+    setCargando(false);
+    setModalTransferVisible(false);
+    setMontoTransferir('');
+    setDestinatarioID('');
+    
+    Alert.alert("¡Transferencia Exitosa!", `Has enviado Bs. ${monto} a ${nombreDestinatario}`);
+  }, 1500);
+};
+
+  // --- FUNCIONES DE SALDO Y BD ---
+  const obtenerSaldoReal = async () => {
+    try {
+      const userid = await getuserid();
+      if (!userid) return;
+
+      const { data, error } = await supabase
+        .from('Saldo_usuarios')
+        .select('saldo')
+        .eq('external_user_id', userid.trim())
+        .maybeSingle(); 
+
+      if (error) { console.log("Error saldo:", error.message); return; }
+      if (data) setSaldo(data.saldo);
+      else setSaldo(0.00);
+    } catch (error) { console.log("Error crítico:", error); }
   };
-  inicializar();
-}, []);
 
-
-  // --- FUNCIONES DE APOYO ---
   const getuserid = async () => {
     const session = await AsyncStorage.getItem('@Sesion_usuario');
     if (!session) return null;
@@ -110,14 +235,11 @@ useEffect(() => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      quality: 0.5, // Calidad optimizada para subida rápida
+      quality: 0.5, 
     });
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
+    if (!result.canceled) setImage(result.assets[0].uri);
   };
 
-  // --- LÓGICA DE BASE DE DATOS ---
   const cargarHistorial = async () => {
     try {
       const userid = await getuserid();
@@ -142,83 +264,66 @@ useEffect(() => {
         }));
         setOperaciones(formateados);
       }
-    } catch (error) {
-      console.log("Error cargando historial:", error);
-    } finally {
-      setCargandoHistorial(false);
-    }
+    } catch (error) { console.log("Error historial:", error); } 
+    finally { setCargandoHistorial(false); }
   };
 
-const registrarYValidar = async () => {
-  if (!image || !referencia || !montoInput) {
+    const registrarYValidar2 = async () => {
+if (!image || !referencia || !montoInput) {
     Alert.alert("Campos incompletos", "Por favor sube el comprobante y llena los datos.");
     return;
   }
+  
   setCargando(true);
-//lalalalalllalal
+
   try {
     const userid = await getuserid();
-    
-    // 1. Preparar la imagen para Supabase (Sin librerías extrañas)
+    const cleanUserId = userid.trim();
+    const montoARecargar = parseFloat(montoInput);
+
+    // 1. Subir la imagen al storage
     const fileName = `captures/${Date.now()}.jpg`;
     const formData = new FormData();
-    formData.append('file', {
-      uri: image,
-      name: fileName,
-      type: 'image/jpeg',
-    });
+    formData.append('file', { uri: image, name: fileName, type: 'image/jpeg' });
 
-    // Subida al Storage
-    const { error: storageError } = await supabase.storage
-      .from('comprobantes')
-      .upload(fileName, formData);
-
+    const { error: storageError } = await supabase.storage.from('comprobantes').upload(fileName, formData);
     if (storageError) throw storageError;
 
-    // 2. Insertar Registro en validaciones_pago
-const { error: dbError } = await supabase
-  .from('validaciones_pago')
-  .insert([{
-    external_user_id: userid.trim(),
-    referencia: referencia,
-    monto_informado: parseFloat(montoInput),
-    evidencia_url: fileName,
-    estado: 'completado' // <-- Lo ponemos como completado para probar
-  }]);
+    // 2. Insertar el reporte en validaciones_pago
+    const { error: dbError } = await supabase.from('validaciones_pago').insert([{
+      external_user_id: cleanUserId,
+      referencia: referencia,
+      monto_informado: montoARecargar,
+      evidencia_url: fileName,
+      estado: 'completado' 
+    }]);
+    if (dbError) throw dbError;
 
-if (dbError) throw dbError;
+    // 3. Lógica de Saldo (UPSERT)
+    // Calculamos el nuevo total sumando el saldo que ya tenemos en el estado de React
+    const nuevoSaldoCalculado = saldo + montoARecargar;
 
-// --- AQUÍ ESTÁ EL TRUCO: ACTUALIZAR EL SALDO REAL ---
-// 3. Actualizar la tabla Saldo_usuarios
-const nuevoSaldoCalculado = saldo + parseFloat(montoInput);
+    const { error: saldoError } = await supabase
+      .from('Saldo_usuarios')
+      .upsert(
+        { 
+          external_user_id: cleanUserId, 
+          saldo: nuevoSaldoCalculado 
+        }, 
+        { onConflict: 'external_user_id' } // Esta es la clave para que no se duplique
+      );
 
-const { error: saldoError } = await supabase
-  .from('Saldo_usuarios')
-  .update({ saldo: nuevoSaldoCalculado })
-  .eq('external_user_id', userid.trim());
+    if (saldoError) throw saldoError;
 
-if (saldoError) {
-  console.log("Error actualizando saldo:", saldoError.message);
-} else {
-  setSaldo(nuevoSaldoCalculado); // Actualizamos la vista
-}
-
-    // 4. Suscripción al cambio de SALDO (Saldo_usuarios)
-    const channelSaldo = supabase
-      .channel('cambios-saldo')
-      .on('postgres_changes', 
-        { event: 'UPDATE', schema: 'public', table: 'Saldo_usuarios', filter: `external_user_id=eq.${userid}` },
-        (payload) => {
-          setSaldo(payload.new.saldo); // Actualiza el monto en la tarjeta azul
-          cargarHistorial();
-        }
-      ).subscribe();
-
-    Alert.alert("Reporte enviado", "Estamos verificando tu transacción.");
+    // 4. Actualizar la interfaz (UI)
+    setSaldo(nuevoSaldoCalculado);
+    Alert.alert("Recarga Exitosa", `Tu saldo ha sido actualizado. Nuevo saldo: Bs. ${nuevoSaldoCalculado.toFixed(2)}`);
+    
     setModalVisible(false);
     cargarHistorial();
 
   } catch (error) {
+    console.error("Error en proceso:", error);
     Alert.alert("Error", "No pudimos procesar el reporte: " + error.message);
   } finally {
     setCargando(false);
@@ -226,8 +331,9 @@ if (saldoError) {
     setReferencia('');
     setMontoInput('');
   }
-};
-  // --- RENDER DE ITEMS ---
+  };
+
+  // --- RENDER ITEM ---
   const renderItem = ({ item }) => (
     <View style={styles.transactionItem}>
       <View style={styles.iconCircle}>
@@ -244,12 +350,21 @@ if (saldoError) {
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: theme.background_2}}>
-      <StatusBar barStyle="dark-content" backgroundColor={theme.background_2}/>
+      <StatusBar barStyle="dark-content" translucent={true}/>
       
-      <View style={{flexDirection: 'row',  alignItems: 'center', paddingHorizontal: 20, height: 60, backgroundColor: theme.background_2}}>
-        <Image source={require('../../../assets/img/wallet.png')} style={{position:'absolute', height:150, width:150, top:0, left:10}}/>
-        <Volver route={"./Profile"} color={theme.volver_button} />
-        <TouchableOpacity style={{marginLeft:'91%'}} onPress={cargarHistorial()}>
+      {/* HEADER CON BOTÓN "ATRÁS" REAL */}
+      <View style={styles.headerContainer}>
+        <Image source={require('../../../assets/img/wallet.png')} style={styles.headerImage}/>
+        
+        {/* BOTÓN VOLVER (Router Back) */}
+        <TouchableOpacity 
+            onPress={() => router.back()} // <--- ESTO ES LO QUE DA LA FLUIDEZ
+            style={styles.backButton}
+        >
+            <Ionicons name="arrow-back" size={28} color="#003366" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.refreshButton} onPress={cargarHistorial}>
            <Ionicons name="refresh-circle" size={30} color="#003366" />
         </TouchableOpacity>
       </View>
@@ -277,7 +392,7 @@ if (saldoError) {
                 <Text style={styles.actionText}>RECARGAR</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity onPress={() => setModalTransferVisible(true)} style={styles.actionButton}>
                 <View style={[styles.actionIconContainer, { backgroundColor: '#5D6D7E' }]}>
                   <Ionicons name="swap-horizontal" size={26} color="white" />
                 </View>
@@ -300,7 +415,7 @@ if (saldoError) {
         }
       />
 
-      {/* --- MODAL RECARGA --- */}
+      {/* MODAL (Sin cambios) */}
       <Modal animationType="slide" transparent visible={modalVisible}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -330,104 +445,99 @@ if (saldoError) {
             ) : (
               <View>
                 <TouchableOpacity style={styles.imageSelector} onPress={pickImage}>
-                  {image ? (
-                    <Image source={{ uri: image }} style={styles.previewImage} />
-                  ) : (
+                  {image ? <Image source={{ uri: image }} style={styles.previewImage} /> : 
                     <View style={{alignItems:'center'}}>
                       <Ionicons name="cloud-upload" size={40} color="#003366" />
                       <Text style={{ color: '#95a5a6', fontWeight: 'bold' }}>Subir Capture</Text>
-                    </View>
-                  )}
+                    </View>}
                 </TouchableOpacity>
-                
-                <TextInput 
-                  placeholder="Referencia (últimos 6 dígitos)" 
-                  style={styles.inputPro} 
-                  keyboardType="numeric" 
-                  value={referencia}
-                  onChangeText={setReferencia}
-                />
-                <TextInput 
-                  placeholder="Monto enviado (Bs.)" 
-                  style={styles.inputPro} 
-                  keyboardType="numeric" 
-                  value={montoInput}
-                  onChangeText={setMontoInput}
-                />
-
-                <TouchableOpacity 
-                  style={[styles.btnPrincipal, { backgroundColor: cargando ? '#BDC3C7' : '#27ae60' }]}
-                  onPress={registrarYValidar}
-                  disabled={cargando}
-                >
+                <TextInput placeholder="Referencia (últimos 6 dígitos)" style={styles.inputPro} keyboardType="numeric" value={referencia} onChangeText={setReferencia}/>
+                <TextInput placeholder="Monto enviado (Bs.)" style={styles.inputPro} keyboardType="numeric" value={montoInput} onChangeText={setMontoInput}/>
+                <TouchableOpacity style={[styles.btnPrincipal, { backgroundColor: cargando ? '#BDC3C7' : '#27ae60' }]} onPress={registrarYValidar2} disabled={cargando}>
                   {cargando ? <ActivityIndicator color="white" /> : <Text style={styles.btnPrincipalText}>CONFIRMAR RECARGA</Text>}
                 </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => setStep(1)} style={{marginTop:15}}>
-                   <Text style={{textAlign:'center', color:'#7F8C8D'}}>Atrás</Text>
-                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setStep(1)} style={{marginTop:15}}><Text style={{textAlign:'center', color:'#7F8C8D'}}>Atrás</Text></TouchableOpacity>
               </View>
             )}
           </View>
         </View>
       </Modal>
+      {/* MODAL DE TRANSFERENCIA (SIMULADO) */}
+<Modal animationType="slide" transparent visible={modalTransferVisible}>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContent}>
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>Enviar Dinero</Text>
+        <TouchableOpacity onPress={() => setModalTransferVisible(false)}>
+          <Ionicons name="close-circle" size={30} color="#BDC3C7" />
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.modalSubtitle}>Ingresa el ID del usuario (Prueba con 12345 o 67890)</Text>
+
+      <TextInput 
+        placeholder="ID del Destinatario" 
+        style={styles.inputPro} 
+        value={destinatarioID}
+        onChangeText={setDestinatarioID}
+        keyboardType="numeric"
+      />
+
+      {nombreDestinatario && (
+        <View style={{flexDirection:'row', alignItems:'center', marginBottom: 15, paddingLeft: 5}}>
+          <Ionicons name="person-circle" size={20} color="#27ae60" />
+          <Text style={{color: '#27ae60', fontWeight: 'bold', marginLeft: 5}}>Destinatario: {nombreDestinatario}</Text>
+        </View>
+      )}
+
+      <TextInput 
+        placeholder="Monto a enviar (Bs.)" 
+        style={styles.inputPro} 
+        keyboardType="numeric"
+        value={montoTransferir}
+        onChangeText={setMontoTransferir}
+      />
+
+      <TouchableOpacity 
+        style={[styles.btnPrincipal, { backgroundColor: (!nombreDestinatario || cargando) ? '#BDC3C7' : '#5D6D7E' }]} 
+        onPress={ejecutarTransferenciaReal}
+        disabled={!nombreDestinatario || cargando}
+      >
+        {cargando ? <ActivityIndicator color="white" /> : <Text style={styles.btnPrincipalText}>TRANSFERIR AHORA</Text>}
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFB' },
-  header: { flexDirection: 'row',  alignItems: 'center', paddingHorizontal: 20, height: 60, backgroundColor: 'white' },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#003366' },
-  welcomeSection: { paddingHorizontal: 20, marginTop: 15 },
-  userLabel: { fontSize: 24, fontWeight: 'bold', color: '#2C3E50' },
   scrollContent: { paddingBottom: 30 },
   
+  // HEADER
+  headerContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, height: 60, backgroundColor: '#F8FAFB' }, // Color fijo para consistencia
+  headerImage: { position:'absolute', height:150, width:150, top:0, left:10 },
+  backButton: { marginLeft: 5, padding: 5 }, // Ajuste para el touch area
+  refreshButton: { marginLeft: 'auto', padding: 5 }, // marginLeft: auto empuja a la derecha
+
   balanceCard: {
-    backgroundColor: '#003366',
-    marginTop:30,
-    margin: 20,
-    padding: 25,
-    borderRadius: 25,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: '#003366',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
+    backgroundColor: '#003366', marginTop:30, margin: 20, padding: 25, borderRadius: 25,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    shadowColor: '#003366', shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3, shadowRadius: 10, elevation: 8,
   },
   balanceLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '600' },
   balanceAmount: { color: 'white', fontSize: 34, fontWeight: 'bold' },
 
   actionPanel: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 10 },
   actionButton: { alignItems: 'center', width: '30%' },
-  actionIconContainer: { 
-    backgroundColor: '#D99015', 
-    width: 60, height: 60, 
-    borderRadius: 20, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    marginBottom: 8,
-    elevation: 5
-  },
+  actionIconContainer: { backgroundColor: '#D99015', width: 60, height: 60, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 8, elevation: 5 },
   actionText: { fontSize: 11, fontWeight: 'bold', color: '#34495E' },
 
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginHorizontal: 25, marginTop: 20, marginBottom: 15, color: '#2C3E50' },
-  
-  transactionItem: {
-    backgroundColor: 'white',
-    marginHorizontal: 20,
-    marginBottom: 10,
-    padding: 15,
-    borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    elevation: 2,
-  },
+  transactionItem: { backgroundColor: 'white', marginHorizontal: 20, marginBottom: 10, padding: 15, borderRadius: 20, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.03, elevation: 2 },
   iconCircle: { width: 45, height: 45, borderRadius: 15, backgroundColor: '#F0F4F8', justifyContent: 'center', alignItems: 'center' },
   itemInfo: { flex: 1, marginLeft: 15 },
   itemTitle: { fontWeight: 'bold', fontSize: 14, color: '#2C3E50' },

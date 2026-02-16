@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, TextInput, TouchableOpacity, SafeAreaView, StatusBar, Image, ScrollView, Button } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, TextInput, TouchableOpacity,  StatusBar, Image, ScrollView, Button } from 'react-native';
 import * as Location from 'expo-location';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Destinos from "../../Components/Destinos.json";
@@ -10,13 +10,15 @@ import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {getuserid,getusername} from '../../Components/AsyncStorage';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRoute } from '../../Components/Providers/RouteContext';
 
 const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
-export default function Home() {
+export default function Home({ navigation }) {
   const [ubicacionActual, setUbicacionActual] = useState('');
   const [destinoInput, setDestinoInput] = useState('');
-  const [selectedDestinationName, setSelectedDestinationName] = useState("");
+  const [selectedDestinationName, setSelectedDestinationName] = useState(""); const { setSelectedRoute ,setActiveTab} = useRoute();
   const [cargandoOrigen, setCargandoOrigen] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
 
@@ -171,6 +173,7 @@ const obtenerSaldoReal = async () => {
     };
 
     cargarFinanzas();
+    obtenerSaldoReal();
   }, []);
 
 
@@ -219,16 +222,9 @@ const handleSearch = () => {
               >
 
       {/* SECCIÓN SUPERIOR AZUL */}
-      <View style={{ backgroundColor: '#003366',height: 280,paddingHorizontal: 25,borderBottomLeftRadius: 50, borderBottomRightRadius: 50,}}>
+      <LinearGradient colors={['#003366','#3182d3']} style={{height: 280,paddingHorizontal: 25,borderBottomLeftRadius: 50, borderBottomRightRadius: 50,}}>
 
-            <TouchableOpacity 
-              style={{position: 'absolute',top: 45,left: 15,zIndex: 100}} 
-              onPress={() => router.push("/Components/ScannerQR")}
-            >
-              <Ionicons name="barcode-outline" size={23} color="white" />
-            </TouchableOpacity>
-            
-          <View style={{flexDirection: 'row',justifyContent: 'space-between', alignItems: 'center',marginTop: 40,}}>
+          <View style={{flexDirection: 'row',justifyContent: 'space-between', alignItems: 'center',marginTop: 30,}}>
             <Image style={{width:210, height:210, position:'absolute', top:13, left:110}} source={require("../../../assets/img/autobuss.png")}></Image>
             
             <View style={{marginTop:23, marginLeft:13}}>
@@ -245,10 +241,10 @@ const handleSearch = () => {
 
           </View>
 
-      </View>
+      </LinearGradient>
   
       {/* TARJETA DE RUTA (DISEÑO SOLICITADO) */}
-      <View style={{backgroundColor: 'white', marginHorizontal: 20, marginTop: -40, borderRadius: 15, padding: 15,elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5}}>
+      <View style={{backgroundColor: 'white', marginHorizontal: 20, marginTop: -85, borderRadius: 15, padding: 15,elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5}}>
         <View style={{flexDirection: 'row'}}>
           
           {/* COLUMNA IZQUIERDA: ICONOS Y LÍNEA */}
@@ -281,11 +277,13 @@ const handleSearch = () => {
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Picker
                   selectedValue={selectedDestinationName}
-                  onValueChange={(itemValue) => setSelectedDestinationName(itemValue)}
+                  onValueChange={(itemValue) =>{ 
+                    setSelectedDestinationName(itemValue),
+                    setSelectedRoute(itemValue ? { name: itemValue } : null);}}
                   style={{ flex: 1, marginLeft: -15 }}
                   enabled={!isSearching}
                 >
-                  <Picker.Item label="Selecciona un destino..." value={selectedDestinationName} color="#999" />
+                  <Picker.Item label="Selecciona un destino..." value="" color="#999" />
                   {Destinos.map((dest) => (
                     <Picker.Item key={dest.name} label={dest.name} value={dest.name} />
                   ))}

@@ -4,10 +4,13 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons'; // Para usar íconos, puedes instalar react-native-vector-icons
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Home from './Home';
 import WebMap from './WebMap';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
+import UnifiedHome from './UnifiedHome';
+import Diamond from '../../Components/Botones_genericos/Diamond'
+import { RouteProvider } from '../../Components/Providers/RouteContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -55,16 +58,16 @@ function MyTabs() {
 }
 
 export default function Navigation() {
+  const { theme, isDark } = useTheme();
   return (
     <>
+    <RouteProvider>
    <View style={{ flex: 1}}> 
-      <StatusBar 
-        translucent={true} 
-        backgroundColor="transparent" 
-        barStyle="dark-content" 
-      />
+     
         <MyTabs />
+        <Diamond theme={theme}/>
     </View>
+    </RouteProvider>
     </>
   );
 }

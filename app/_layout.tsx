@@ -6,6 +6,7 @@ import './Components/i18n/i18n';
 
 export default function RootLayout() {
   return (
+    
     <ThemeProvider>
       <Stack screenOptions={{ headerShown: false }}>
       {/* 1. El Index (donde está tu SplashScreen) */}
@@ -52,7 +53,7 @@ export default function RootLayout() {
       <Stack.Screen
         name="pages/Pasajero/Wallet"
         options={{
-          animation: "none", // Esta subirá como un panel
+          animation: "slide_from_right", // Esta subirá como un panel
         }}
       />
 
@@ -70,6 +71,14 @@ export default function RootLayout() {
        
         }} 
       />
+         <Stack.Screen 
+      name="pages/Pasajero/UnifiedHome"
+      options={{ 
+        animation: 'none', // Esta subirá como un panel
+       
+        }} 
+      />
+
 
       <Stack.Screen
         name="pages/Pasajero/Notificaciones"
@@ -146,6 +155,30 @@ export default function RootLayout() {
         name="pages/Conductor/Privacidad"
         options={{
           animation: "slide_from_right", // Esta subirá como un panel
+        }}
+      />
+      <Stack.Screen
+        name="Components/ScannerQR"
+        options={{
+          animation: "slide_from_bottom", // Esta subirá como un panel
+        }}
+      />
+       <Stack.Screen
+        name="Components/GenerarQR"
+        options={{
+          animation: "slide_from_bottom", // Esta subirá como un panel
+        }}
+      />
+       <Stack.Screen
+        name="Components/TicketVirtual"
+        options={{
+          animation: "slide_from_bottom", // Esta subirá como un panel
+        }}
+      />
+       <Stack.Screen
+        name="Components/PaymentNFC"
+        options={{
+          animation: "slide_from_bottom", // Esta subirá como un panel
         }}
       />
       </Stack>

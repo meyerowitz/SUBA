@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -6,14 +6,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function TicketVirtual() {
   const router = useRouter();
-  const { monto, unidad, fecha } = useLocalSearchParams(); // Recibimos datos del pago
+  const { monto, unidad, fecha } = useLocalSearchParams();
+
+  // Generamos el código una sola vez al cargar el componente
+  const codigoValidacion = useMemo(() => 
+    Math.random().toString(36).substring(2, 8).toUpperCase(), 
+  []);
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="#003366" barStyle="light-content" />
       
       <View style={styles.ticketCard}>
-        {/* Cabecera del Ticket */}
         <View style={styles.header}>
           <Ionicons name="checkmark-circle" size={80} color="#34C759" />
           <Text style={styles.statusText}>PAGO EXITOSO</Text>
@@ -22,11 +26,10 @@ export default function TicketVirtual() {
 
         <View style={styles.divider} />
 
-        {/* Detalles del Viaje */}
         <View style={styles.details}>
           <View style={styles.row}>
             <Text style={styles.label}>Unidad:</Text>
-            <Text style={styles.value}>#{unidad || '104'}</Text>
+            <Text style={styles.value}>#{unidad || '---'}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Monto Pagado:</Text>
@@ -34,19 +37,21 @@ export default function TicketVirtual() {
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Fecha y Hora:</Text>
-            <Text style={styles.value}>{fecha || new Date().toLocaleString()}</Text>
+            <Text style={styles.value}>{fecha || 'Cargando...'}</Text>
           </View>
         </View>
 
-        {/* Código de Validación para el Colector */}
         <View style={styles.footer}>
           <Text style={styles.tokenLabel}>CÓDIGO DE VALIDACIÓN</Text>
-          <Text style={styles.tokenValue}>{Math.random().toString(36).substring(2, 8).toUpperCase()}</Text>
+          <Text style={styles.tokenValue}>{codigoValidacion}</Text>
           <Text style={styles.instruction}>Muestra esta pantalla al colector al subir</Text>
         </View>
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={() => router.replace("/pages/Pasajero/Navigation")}>
+      <TouchableOpacity 
+        style={styles.button} 
+        onPress={() => router.replace("/pages/Pasajero/Navigation")}
+      >
         <Text style={styles.buttonText}>Entendido</Text>
       </TouchableOpacity>
     </SafeAreaView>

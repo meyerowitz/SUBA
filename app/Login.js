@@ -108,12 +108,12 @@ const signIn = async ()=>{
 useEffect( () => {
   async function googleSI() {
         if (!isAuthenticated) return;//si es el primer render de state no se ejecuta este codigo
-      // Buscamos al usuario (por email o nombre)
+    // Buscamos al usuario (por email o nombre)
     const user = userData.users.find(
       (u) =>
         (u.email.toLowerCase() === state.email.toLowerCase() ||
         u.fullName.toLowerCase() === state.name.toLowerCase()) 
-        // && u.password === password //modificar o activar cuando se pueda manejar y comprobar el idTocken con el backend
+      // && u.password === password //modificar o activar cuando se pueda manejar y comprobar el idTocken con el backend
     );
 
       try {
@@ -293,26 +293,6 @@ useEffect( () => {
       Alert.alert("Error de conexión", "No se pudo conectar con el servidor.");
     }
   };
-
-  {
-    !isLoading && (
-      <View style={{ position: "absolute", width: 0, height: 0, opacity: 0 }}>
-        <StatusBar
-          translucent={true}
-          backgroundColor="transparent"
-          barStyle="dark-content"
-        ></StatusBar>
-        <Image
-          source={require("../assets/img/driver-loading.gif")}
-          priority="high"
-        />
-        <Image
-          source={require("../assets/img/passenger-loading.gif")}
-          priority="high"
-        />
-      </View>
-    );
-  }
 
   if (isLoading) {
     return (
@@ -522,18 +502,6 @@ const styles = StyleSheet.create({
     color: "black",
     marginBottom: 20,
     fontSize: 18,
-    marginBottom: 20,
-  },
-  passwordContainer: {
-    position: "relative",
-    width: 320,
-    marginBottom: 20,
-  },
-  toggleButton: {
-    position: "absolute",
-    right: 15,
-    top: 18,
-    padding: 5,
   },
   question: {
     color: "#544F4F",
@@ -639,4 +607,3 @@ const styles = StyleSheet.create({
     fontFamily: "roboto",
   },
 });
-
