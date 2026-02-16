@@ -269,9 +269,9 @@ export default function UnifiedHome() {
             // MODO MINI
             <View style={styles.miniBalanceCard}>
                  <Text style={styles.miniBalanceText}>Bs. {saldo.toFixed(2)}</Text>
-                 <TouchableOpacity style={styles.miniAddBtn} onPress={() => router.push('/pages/Pasajero/Wallet')}>
-                    <Ionicons name="add" size={20} color="white" />
-                 </TouchableOpacity>
+                 <TouchableOpacity style={styles.miniAddBtn} onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}>
+                    <Ionicons name="wallet" size={20} color="white" />
+                  </TouchableOpacity>
             </View>
         ) : (
             // MODO NORMAL (GRANDE)
@@ -282,10 +282,10 @@ export default function UnifiedHome() {
                      {/* 👇 AQUÍ ESTÁ LA LÍNEA RECUPERADA 👇 */}
                      <Text style={styles.saldoSub}>≈ ${(saldo / (tasaBCV || 1)).toFixed(2)}</Text>
                  </View>
-                 <TouchableOpacity style={styles.walletBtn} onPress={() => router.push('/pages/Pasajero/Wallet')}> 
-                     <Text style={styles.walletBtnText}>Recargar</Text>
-                     <Ionicons name="wallet-outline" size={20} color="#003366" style={{marginLeft: 5}}/>
-                 </TouchableOpacity>
+                 <TouchableOpacity style={styles.walletBtn} onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}> 
+                    <Text style={styles.walletBtnText}>Mi Tarjeta</Text>
+                    <Ionicons name="wallet-outline" size={20} color="#003366" style={{marginLeft: 5}}/>
+                </TouchableOpacity>
             </View>
         )
       )}

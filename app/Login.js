@@ -324,17 +324,6 @@ const handleLogin2 = async () => {
               >
              
               <View style={styles.container}>
-    
-                {/* 🔴 BOTÓN TEMPORAL DE PRUEBAS 🔴 */}
-                <TouchableOpacity 
-                  style={{ backgroundColor: 'red', padding: 15, marginTop: 20, marginBottom: 10, borderRadius: 10, width: 320 }}
-                  onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}
-                >
-                  <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: 16 }}>
-                    🧪 IR A SOLICITUD DE TARJETA
-                  </Text>
-                </TouchableOpacity>
-                {/* -------------------------------- */}
 
                 <View style={styles.logo}>
                   <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
