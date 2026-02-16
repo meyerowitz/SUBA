@@ -7,6 +7,7 @@ import { Picker } from "@react-native-picker/picker";
 import Feather from 'react-native-vector-icons/Feather';
 import { useRouter } from 'expo-router';
 import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {getuserid,getusername} from '../../Components/AsyncStorage';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 
@@ -31,10 +32,23 @@ export default function Home() {
   const[Load,SetLoad]=useState(false);
   const [saldo, setSaldo] = useState(0.00);
 
-  const [userImage, SetuserImage]= useState(false);
+  const [userImage, SetuserImage]= useState(null);
   const { theme, toggleTheme, isDark } = useTheme();
 
   const router= useRouter();
+
+  useEffect(() => {
+    const loadUserImage = async () => {
+      const sessionData = await AsyncStorage.getItem('@Sesion_usuario');
+      if (sessionData) {
+        const session = JSON.parse(sessionData);
+        if (session.profilePictureUrl) {
+          SetuserImage(session.profilePictureUrl);
+        }
+      }
+    };
+    loadUserImage();
+  }, []);
   // === LÓGICA DE GEOLOCALIZACIÓN (Mantenemos tu lógica original) ===
   const obtenerUbicacionOrigen = async () => {
     setCargandoOrigen(true);
@@ -222,7 +236,11 @@ const handleSearch = () => {
               <Text style={{fontSize: 22, color: 'white', fontWeight: '500', marginTop: 5}}>¡A Ciudad Guayana Bus!</Text>
             </View>
             <TouchableOpacity onPress={()=>{router.push("/pages/Pasajero/Profile")}}>
-              <Ionicons name="person-circle-outline" size={50} color="white" />
+              {userImage ? (
+                <Image source={{ uri: userImage }} style={{ width: 50, height: 50, borderRadius: 25 }} />
+              ) : (
+                <Ionicons name="person-circle-outline" size={50} color="white" />
+              )}
             </TouchableOpacity>
 
           </View>

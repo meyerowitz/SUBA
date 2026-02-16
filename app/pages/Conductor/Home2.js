@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Alert, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, Alert, StatusBar, Image } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Feather from 'react-native-vector-icons/Feather';
 import { useRouter } from 'expo-router';
@@ -22,6 +22,7 @@ export default function HomeConductor() {
   const [resumenHoy, setResumenHoy] = useState({ pasajeros: 0, totalBs: 0 });
   const [saldoTotal, setSaldoTotal] = useState(0.00);
   const [DriverName, setDriverName] = useState("");
+  const [profileImage, setProfileImage] = useState(null);
   const router = useRouter();
 
   // --- ESTADOS DE RASTREO ---
@@ -156,9 +157,18 @@ export default function HomeConductor() {
 
   // --- EFECTOS ---
   useEffect(() => {
+    const loadSession = async () => {
+      const sessionData = await AsyncStorage.getItem('@Sesion_usuario');
+      if (sessionData) {
+        const session = JSON.parse(sessionData);
+        setDriverName(session.fullName || session.name || "Conductor");
+        if (session.profilePictureUrl) {
+          setProfileImage(session.profilePictureUrl);
+        }
+      }
+    };
     loadBusId();
-    const username = getusername();
-    setDriverName(username);
+    loadSession();
     setSaldoTotal(1250.50);
     setResumenHoy({ pasajeros: 24, totalBs: 480.00 });
   }, []);
@@ -197,7 +207,11 @@ export default function HomeConductor() {
         <View style={styles.headerConductor}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: -40 }}>
             <TouchableOpacity onPress={() => router.push("./Profile")}>
-              <Ionicons name="person-circle-outline" size={45} color="white" />
+              {profileImage ? (
+                <Image source={{ uri: profileImage }} style={{ width: 45, height: 45, borderRadius: 22.5 }} />
+              ) : (
+                <Ionicons name="person-circle-outline" size={45} color="white" />
+              )}
             </TouchableOpacity>
             
             <View>

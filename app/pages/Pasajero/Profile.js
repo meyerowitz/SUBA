@@ -3,12 +3,10 @@ import { StyleSheet, Text, View, TouchableOpacity, StatusBar, ScrollView , Alert
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Volver from '../../Components/Botones_genericos/Volver';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {getuseremail,getusername} from '../../Components/AsyncStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
-//import {GoogleSignin} from '@react-native-google-signin/google-signin';
-
 
 export default function Profile() {
   // Simulación de estados
@@ -20,20 +18,28 @@ export default function Profile() {
   const [profileImage, setProfileImage] = useState(null);
   const { theme, isDark } = useTheme(); //temas oscuro y claro
   
-  useEffect(()=>{
-    const name = getusername();
-    const email = getuseremail();
-
-    setUserName(name);
-    setUserEmail(email);
-
-    (async () => {
-      try {
-        const img = await AsyncStorage.getItem('@profile_image');
-        if (img) setProfileImage(img);
-      } catch (e) { console.log('profile image load error', e); }
-    })();
-  },[])
+  // Se ejecuta cada vez que entras a la pantalla
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadSession = async () => {
+        try {
+          const sessionData = await AsyncStorage.getItem('@Sesion_usuario');
+          if (sessionData) {
+            const session = JSON.parse(sessionData);
+            console.log("👤 Cargando Perfil. URL de imagen:", session.profilePictureUrl);
+            setUserName(session.fullName || session.name || "---");
+            setUserEmail(session.email || "---");
+            if (session.profilePictureUrl) {
+              setProfileImage(session.profilePictureUrl);
+            }
+          }
+        } catch (e) {
+          console.error("Error cargando sesión en Perfil:", e);
+        }
+      };
+      loadSession();
+    }, [])
+  );
 
   const handleLogout = () => {
   Alert.alert(

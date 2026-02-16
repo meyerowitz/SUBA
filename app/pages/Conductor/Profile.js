@@ -8,11 +8,37 @@ import {
 } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Volver from "../../Components/Botones_genericos/Volver";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function Profile() {
-     const handleLogout = () => {
+  const [userName, setUserName] = useState("---");
+  const [userEmail, setUserEmail] = useState("---");
+  const [profileImage, setProfileImage] = useState(null);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadSession = async () => {
+        try {
+          const sessionData = await AsyncStorage.getItem('@Sesion_usuario');
+          if (sessionData) {
+            const session = JSON.parse(sessionData);
+            console.log("Steering Cargando Perfil Conductor. URL:", session.profilePictureUrl);
+            setUserName(session.fullName || session.name || "---");
+            setUserEmail(session.email || "---");
+            if (session.profilePictureUrl) {
+              setProfileImage(session.profilePictureUrl);
+            }
+          }
+        } catch (e) {
+          console.error("Error en Perfil Conductor:", e);
+        }
+      };
+      loadSession();
+    }, [])
+  );
+
+  const handleLogout = () => {
   Alert.alert(
     "Cerrar Sesión",
     "¿Estás segura de que quieres salir?",
@@ -41,11 +67,15 @@ export default function Profile() {
         {/* TARJETA PRINCIPAL BLANCA */}
         <View style={styles.profileBox}>
           <View style={styles.avatarCircle}>
-            <Ionicons name="person" size={55} color="#003366" />
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={{ width: 90, height: 90, borderRadius: 45 }} />
+            ) : (
+              <Ionicons name="person" size={55} color="#003366" />
+            )}
           </View>
 
-          <Text style={styles.userName}>Juan Pérez</Text>
-          <Text style={styles.userEmail}>cheyerowitzrebeca@gmail.com</Text>
+          <Text style={styles.userName}>{userName}</Text>
+          <Text style={styles.userEmail}>{userEmail}</Text>
 
           {/* CÁPSULA GRIS DE INFO - ESTILO EXACTO IMAGEN */}
           <View style={styles.infoCapsule}>
