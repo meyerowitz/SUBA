@@ -1,11 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
-import { supabase } from '../../../lib/supabase';
-import { useRouter, useFocusEffect } from 'expo-router'; // 👈 Importamos useFocusEffect
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import { supabase } from '../../../lib/supabase';
 
+// Componentes Hijos
 import InvitacionTarjeta from './InvitacionTarjeta'; 
+import VincularTarjeta from './VincularTarjeta'; // 👈 Importado correctamente aquí
 
 export default function MiTarjetaHub() {
   const router = useRouter();
@@ -95,10 +97,12 @@ export default function MiTarjetaHub() {
 
     case 'PARA_VINCULAR':
       return (
-        <View style={styles.center}>
-          <Text style={styles.title}>¡Solicitud Aprobada! 🎉</Text>
-          <Text style={styles.text}>Aquí pondremos el botón para escanear el NFC.</Text>
-        </View>
+        <VincularTarjeta 
+          alCompletar={() => {
+            // Cuando termine de escanear, volvemos a consultar la base de datos
+            revisarEstado(); 
+          }} 
+        />
       );
 
     case 'ACTIVA':
