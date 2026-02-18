@@ -114,9 +114,7 @@ export default function Configuracion() {
       });
 
       // 5. Enviar al backend
-      // console.log("📤 Subiendo a:", 'https://subapp-api.onrender.com/auth/profile-picture'); //API
-      // const response = await fetch('https://subapp-api.onrender.com/auth/profile-picture', {
-      const API_URL = "http://192.168.0.106:3500"; // Trabaja de manera Local
+      const API_URL = "https://subapp-api.onrender.com";
       console.log("📤 Subiendo a:", `${API_URL}/auth/profile-picture`);
       const response = await fetch(`${API_URL}/auth/profile-picture`, {
         method: "POST",

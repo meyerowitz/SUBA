@@ -221,8 +221,7 @@ useEffect( () => {
 
     setIsLoading(true);
 
-    //const API_URL = "http://10.0.2.2:3500";
-    const API_URL = "http://192.168.0.106:3500"; //Local
+    const API_URL = "https://subapp-api.onrender.com";
 
     try {
       // 1. INTENTO DE LOGIN

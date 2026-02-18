@@ -82,7 +82,7 @@ export default function Configuracion() {
         type,
       });
 
-      const API_URL = "http://10.0.2.2:3500"; 
+      const API_URL = "https://subapp-api.onrender.com"; 
       console.log("📤 Subiendo a:", `${API_URL}/auth/profile-picture`);
       const response = await fetch(`${API_URL}/auth/profile-picture`, {
         method: "POST",
