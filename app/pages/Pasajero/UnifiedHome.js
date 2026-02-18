@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import { 
   View, Text, StyleSheet, ActivityIndicator, Alert, 
   TouchableOpacity, StatusBar, Image, Animated, Dimensions 
@@ -10,23 +10,18 @@ import { Asset } from "expo-asset";
 import * as Location from "expo-location";
 import * as FileSystem from "expo-file-system/legacy";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
-import { useRouter } from 'expo-router';
-import { createClient } from '@supabase/supabase-js';
-import { getuserid, getusername } from '../../Components/AsyncStorage';
+import { useRouter } from 'expo-router'; 
+import { getusername } from '../../Components/AsyncStorage';
 
-import Destinos from "../../Components/Destinos.json";
-
-const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
+// 💡 1. IMPORTAMOS NUESTRO CENTRO DE CONTROL MAGICO
+import { MOCK_BACKEND } from '../../../lib/SimuladorBackend';
 
 const { height } = Dimensions.get('window');
 const STOP_CACHE_KEY = "guayana_bus_stops_cache";
 const GUAYANA_BBOX = "8.21,-62.88,8.39,-62.60";
 
-// --- VARIABLE GLOBAL PARA MEMORIA DE MAPA ---
 let hasCenteredSession = false; 
 
-// --- FETCH PARADAS ---
 const fetchGuayanaBusStops = async (retry = 0) => {
   if (retry === 0) {
     try {
@@ -67,11 +62,11 @@ export default function UnifiedHome() {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedDestinationName, setSelectedDestinationName] = useState("");
   
-  const [saldo, setSaldo] = useState(0.00);
-  const [tasaBCV, setTasaBCV] = useState(382.63); // <--- TASA RECUPERADA
-  const [loadingSaldo, setLoadingSaldo] = useState(true);
+  // 💡 2. LEEMOS EL ESTADO DIRECTAMENTE DEL SIMULADOR
+  const perfilCompletado = MOCK_BACKEND.perfil_completado;
+  const saldo = MOCK_BACKEND.saldo;
+  const tasaBCV = MOCK_BACKEND.tasa_bcv;
 
-  // ShowEta = TRUE significa OCULTO. FALSE = VISIBLE.
   const [ShowEta, setShowEta]= useState(true); 
   const [Eta, SetEta]= useState("-- min");
   const [Distancia, SetDistancia]= useState("-- Km");
@@ -80,27 +75,14 @@ export default function UnifiedHome() {
   const router = useRouter();
   const slideAnim = useRef(new Animated.Value(height)).current;
 
-  // 1. Cargar Datos
   useEffect(() => {
     const cargarDatos = async () => {
-        const name = await getusername();
-        if(name) setUsername(name);
-        obtenerSaldoReal();
+      const name = await getusername();
+      if(name) setUsername(name);
     };
     cargarDatos();
   }, []);
 
-  const obtenerSaldoReal = async () => {
-    try {
-      const userid = await getuserid();
-      if (!userid) return;
-      const { data } = await supabase.from('Saldo_usuarios').select('saldo').eq('external_user_id', userid.trim()).maybeSingle(); 
-      if (data) setSaldo(data.saldo);
-    } catch (error) { console.log(error); } 
-    finally { setLoadingSaldo(false); }
-  };
-
-  // 2. Mapa y GPS
   useEffect(() => {
     const loadHTML = async () => {
       try {
@@ -133,16 +115,13 @@ export default function UnifiedHome() {
     return () => sub?.remove();
   }, [isMapReady]);
 
-  // --- AUTO-CENTRADO INTELIGENTE (Solo 1 vez por sesión) ---
   useEffect(() => {
     if (userLocation && isMapReady && !hasCenteredSession && webviewRef.current) {
         webviewRef.current.injectJavaScript(`moveTo(${userLocation.latitude}, ${userLocation.longitude}); true;`);
         hasCenteredSession = true; 
-        console.log("📍 Cámara centrada por primera vez en la sesión.");
     }
   }, [userLocation, isMapReady]);
 
-  // 3. Inyectar Paradas
   useEffect(() => {
     if (isMapReady && webviewRef.current && !stopsInjected) {
         fetchGuayanaBusStops().then(data => {
@@ -155,12 +134,10 @@ export default function UnifiedHome() {
     }
   }, [isMapReady, stopsInjected]);
 
-  // 4. Animación ETA
   useEffect(() => {
     Animated.spring(slideAnim, { toValue: ShowEta ? height : 0, useNativeDriver: true, friction: 8 }).start();
   }, [ShowEta]);
 
-  // 5. Manejador Mensajes
   const handleWebViewMessage = (event) => {
     const msg = event.nativeEvent.data;
     if (msg === "MAP_LOADED") { setIsMapReady(true); setStopsInjected(false); }
@@ -174,7 +151,6 @@ export default function UnifiedHome() {
     } catch(e) {}
   };
 
-  // 6. Buscar
   const handleSearch = () => {
     if (!selectedDestinationName) return Alert.alert("Error", "Selecciona destino");
     if (!userLocation) return;
@@ -204,6 +180,7 @@ export default function UnifiedHome() {
       {/* HEADER (PERFIL) */}
       <View style={styles.headerContainer}>
           <View style={styles.headerLeft}>
+              {/* Quitamos el longPress, ahora es un botón normal que te lleva al perfil */}
               <TouchableOpacity onPress={() => router.push('/pages/Pasajero/Profile')} style={styles.avatarBtn}>
                   <Ionicons name="person" size={20} color="#003366" />
               </TouchableOpacity>
@@ -215,11 +192,7 @@ export default function UnifiedHome() {
 
       {/* BUSCADOR */}
       {!isSearchExpanded ? (
-          <TouchableOpacity 
-            style={styles.searchBarCompact} 
-            activeOpacity={0.9}
-            onPress={() => setIsSearchExpanded(true)}
-          >
+          <TouchableOpacity style={styles.searchBarCompact} activeOpacity={0.9} onPress={() => setIsSearchExpanded(true)}>
               <Text style={[styles.searchPlaceholder, selectedDestinationName && {color: '#003366', fontWeight:'bold'}]}>
                   {selectedDestinationName ? `📍 ${selectedDestinationName}` : "¿A dónde vamos?"}
               </Text>
@@ -255,42 +228,63 @@ export default function UnifiedHome() {
           </View>
       )}
 
-      {/* BOTONES FLOTANTES */}
-      <TouchableOpacity 
-        style={[styles.gpsBtn, isRouteActive ? { bottom: 250 } : { bottom: 140 }]} 
-        onPress={centrar}
-      >
+      <TouchableOpacity style={[styles.gpsBtn, isRouteActive ? { bottom: 250 } : { bottom: 140 }]} onPress={centrar}>
          <Ionicons name="locate" size={24} color="#003366" />
       </TouchableOpacity>
 
-      {/* TARJETA SALDO (CON DÓLARES RECUPERADOS) */}
+      {/* TARJETA INFERIOR DINÁMICA (BILLETERA) */}
       {!isSearchExpanded && (
         isRouteActive ? (
-            // MODO MINI
             <View style={styles.miniBalanceCard}>
-                 <Text style={styles.miniBalanceText}>Bs. {saldo.toFixed(2)}</Text>
+                 {perfilCompletado ? (
+                   <Text style={styles.miniBalanceText}>Bs. {saldo.toFixed(2)}</Text>
+                 ) : (
+                   <Text style={[styles.miniBalanceText, {color: '#666', fontSize: 14}]}>Billetera</Text>
+                 )}
                  <TouchableOpacity style={styles.miniAddBtn} onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}>
                     <Ionicons name="wallet" size={20} color="white" />
-                  </TouchableOpacity>
+                 </TouchableOpacity>
             </View>
         ) : (
-            // MODO NORMAL (GRANDE)
             <View style={styles.bottomCard}>
                  <View style={{flex: 1}}>
-                     <Text style={styles.saldoLabel}>Saldo disponible</Text>
-                     <Text style={styles.saldoValue}>Bs. {saldo.toFixed(2)}</Text>
-                     {/* 👇 AQUÍ ESTÁ LA LÍNEA RECUPERADA 👇 */}
-                     <Text style={styles.saldoSub}>≈ ${(saldo / (tasaBCV || 1)).toFixed(2)}</Text>
+                     {perfilCompletado ? (
+                       <>
+                         <Text style={styles.saldoLabel}>Saldo disponible</Text>
+                         <Text style={styles.saldoValue}>Bs. {saldo.toFixed(2)}</Text>
+                         <Text style={styles.saldoSub}>≈ ${(saldo / (tasaBCV || 1)).toFixed(2)} USD</Text>
+                       </>
+                     ) : (
+                       <>
+                         <Text style={[styles.saldoLabel, { color: '#E69500', fontWeight: 'bold' }]}>Billetera Digital</Text>
+                         <Text style={[styles.saldoValue, { fontSize: 20 }]}>¡Actívala gratis!</Text>
+                         <Text style={styles.saldoSub}>Paga pasajes y recibe subsidios</Text>
+                       </>
+                     )}
                  </View>
-                 <TouchableOpacity style={styles.walletBtn} onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}> 
-                    <Text style={styles.walletBtnText}>Mi Tarjeta</Text>
-                    <Ionicons name="wallet-outline" size={20} color="#003366" style={{marginLeft: 5}}/>
-                </TouchableOpacity>
+
+                 <View style={styles.actionButtonsRow}>
+                     {perfilCompletado ? (
+                       <>
+                         <TouchableOpacity style={styles.qrBtn} onPress={() => alert('Abriendo Escáner QR...')}>
+                             <Ionicons name="qr-code-outline" size={20} color="white" style={{marginRight: 6}}/>
+                             <Text style={styles.qrBtnText}>Pagar QR</Text>
+                         </TouchableOpacity>
+                         <TouchableOpacity style={styles.billeteraBtn} onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}> 
+                             <Ionicons name="wallet-outline" size={24} color="#003366" />
+                         </TouchableOpacity>
+                       </>
+                     ) : (
+                       <TouchableOpacity style={[styles.walletBtn, { backgroundColor: '#E69500' }]} onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}> 
+                           <Text style={[styles.walletBtnText, { color: 'white' }]}>Mi Billetera</Text>
+                           <Ionicons name="arrow-forward" size={20} color="white" style={{marginLeft: 5}}/>
+                       </TouchableOpacity>
+                     )}
+                 </View>
             </View>
         )
       )}
 
-      {/* TARJETA ETA */}
       <Animated.View style={[styles.etaCard, { transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.etaHeader}>
               <Text style={styles.etaRouteName}>{RouteName}</Text>
@@ -317,21 +311,13 @@ export default function UnifiedHome() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f2f2f2' },
-  
   headerContainer: { position: 'absolute', top: 50, left: 20, right: 20, zIndex: 10 },
   headerLeft: { flexDirection: 'row', alignItems: 'center' },
   avatarBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', elevation: 5 },
   greetingText: { fontSize: 16, fontWeight: 'bold', color: '#333', backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, overflow:'hidden', elevation: 2 },
-
-  searchBarCompact: {
-    position: 'absolute', top: 100, left: 20, right: 20,
-    backgroundColor: 'white', borderRadius: 25, height: 50,
-    flexDirection: 'row', alignItems: 'center', paddingLeft: 20, paddingRight: 5,
-    elevation: 8, shadowColor: '#000', shadowOpacity: 0.15
-  },
+  searchBarCompact: { position: 'absolute', top: 100, left: 20, right: 20, backgroundColor: 'white', borderRadius: 25, height: 50, flexDirection: 'row', alignItems: 'center', paddingLeft: 20, paddingRight: 5, elevation: 8, shadowColor: '#000', shadowOpacity: 0.15 },
   searchPlaceholder: { flex: 1, fontSize: 16, fontWeight: '600', color: '#666' },
   searchIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#003366', justifyContent: 'center', alignItems: 'center' },
-
   searchPanelExpanded: { position: 'absolute', top: 100, left: 20, right: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, elevation: 15 },
   panelHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   panelTitle: { fontSize: 16, fontWeight: 'bold', color: '#003366' },
@@ -340,38 +326,21 @@ const styles = StyleSheet.create({
   verticalLine: { width: 1, height: 20, backgroundColor: '#ddd', marginLeft: 9 },
   searchBtnLarge: { marginTop: 15, backgroundColor: '#E69500', borderRadius: 12, height: 50, justifyContent: 'center', alignItems: 'center' },
   searchBtnText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-
-  gpsBtn: {
-    position: 'absolute', right: 20, 
-    backgroundColor: 'white', width: 50, height: 50, borderRadius: 25,
-    justifyContent: 'center', alignItems: 'center', elevation: 5, zIndex: 999 
-  },
-
-  bottomCard: {
-    position: 'absolute', bottom: 30, left: 20, right: 20,
-    backgroundColor: 'white', borderRadius: 20, padding: 20,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    elevation: 10
-  },
-  saldoLabel: { fontSize: 12, color: '#666' },
-  saldoValue: { fontSize: 24, fontWeight: 'bold', color: '#003366' },
-  saldoSub: { fontSize: 13, color: '#888', marginTop: 2, fontWeight: '500' }, // ESTILO NUEVO
-  walletBtn: { backgroundColor: '#bde0fe', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, flexDirection: 'row', alignItems: 'center' },
-  walletBtnText: { color: '#003366', fontWeight: 'bold' },
-
-  miniBalanceCard: {
-    position: 'absolute', bottom: 250, left: 20, 
-    backgroundColor: 'white', borderRadius: 30, paddingLeft: 15, paddingRight: 5, paddingVertical: 5,
-    flexDirection: 'row', alignItems: 'center', elevation: 5, height: 50
-  },
+  gpsBtn: { position: 'absolute', right: 20, backgroundColor: 'white', width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', elevation: 5, zIndex: 999 },
+  bottomCard: { position: 'absolute', bottom: 30, left: 20, right: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', elevation: 10 },
+  saldoLabel: { fontSize: 13, color: '#666' },
+  saldoValue: { fontSize: 24, fontWeight: 'bold', color: '#003366', marginVertical: 2 },
+  saldoSub: { fontSize: 13, color: '#888', fontWeight: '500' }, 
+  actionButtonsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  qrBtn: { backgroundColor: '#003366', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14, flexDirection: 'row', alignItems: 'center', elevation: 3 },
+  qrBtnText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+  billeteraBtn: { backgroundColor: '#bde0fe', padding: 12, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  walletBtn: { backgroundColor: '#bde0fe', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 14, flexDirection: 'row', alignItems: 'center' },
+  walletBtnText: { color: '#003366', fontWeight: 'bold', fontSize: 14 },
+  miniBalanceCard: { position: 'absolute', bottom: 250, left: 20, backgroundColor: 'white', borderRadius: 30, paddingLeft: 15, paddingRight: 5, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', elevation: 5, height: 50 },
   miniBalanceText: { fontSize: 16, fontWeight: 'bold', color: '#003366', marginRight: 10 },
   miniAddBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E69500', justifyContent: 'center', alignItems: 'center' },
-
-  etaCard: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: 'white', borderTopLeftRadius: 30, borderTopRightRadius: 30,
-    padding: 25, elevation: 25, height: 230, zIndex: 100
-  },
+  etaCard: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'white', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, elevation: 25, height: 230, zIndex: 100 },
   etaHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   etaRouteName: { fontSize: 18, fontWeight: 'bold', color: '#333' },
   etaDetails: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

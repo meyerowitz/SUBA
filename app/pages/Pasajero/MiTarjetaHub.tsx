@@ -1,128 +1,58 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
-import { supabase } from '../../../lib/supabase';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 
-// Componentes Hijos
-import InvitacionTarjeta from './InvitacionTarjeta'; 
-import VincularTarjeta from './VincularTarjeta'; // 👈 Importado correctamente aquí
+// 💡 1. IMPORTAMOS NUESTRO CENTRO DE CONTROL MAGICO
+import { MOCK_BACKEND } from '../../../lib/SimuladorBackend';
+import BilleteraCentral from './BilleteraCentral'; 
 
 export default function MiTarjetaHub() {
   const router = useRouter();
-  const [estadoUsuario, setEstadoUsuario] = useState('CARGANDO'); 
-  const [datosTarjeta, setDatosTarjeta] = useState<any>(null);
 
-  // 🧠 useFocusEffect ejecuta esto CADA VEZ que la pantalla aparece frente al usuario
-  useFocusEffect(
-    useCallback(() => {
-      revisarEstado();
-    }, [])
-  );
+  // 💡 2. LEEMOS EL ESTADO DIRECTAMENTE DEL SIMULADOR
+  // Ya no necesitamos "AsyncStorage" ni pantallas de carga
+  const perfilCompletado = MOCK_BACKEND.perfil_completado;
 
-  const revisarEstado = async () => {
-    setEstadoUsuario('CARGANDO'); 
-    
-    try {
-      // 🧠 Leemos la memoria directamente
-      const sessionString = await AsyncStorage.getItem('@Sesion_usuario');
-      if (!sessionString) {
-        setEstadoUsuario('NO_TIENE');
-        return;
-      }
-
-      const sessionData = JSON.parse(sessionString);
-      const miUsuarioId = sessionData.id || sessionData._id;
-
-      if (!miUsuarioId) {
-        setEstadoUsuario('NO_TIENE');
-        return;
-      }
-
-      const { data: tarjetas } = await supabase.from('tarjetas_usuarios').select('*').eq('user_id', miUsuarioId.trim());
-
-      if (tarjetas && tarjetas.length > 0) {
-        setDatosTarjeta(tarjetas[0]);
-        setEstadoUsuario('ACTIVA');
-        return; 
-      }
-
-      const { data: solicitudes } = await supabase.from('solicitudes_tarjetas').select('*').eq('user_id', miUsuarioId.trim()).order('created_at', { ascending: false });
-
-      if (solicitudes && solicitudes.length > 0) {
-        const ultimaSolicitud = solicitudes[0];
-        if (ultimaSolicitud.estado === 'pendiente_revision' || ultimaSolicitud.estado === 'PENDIENTE') {
-          setEstadoUsuario('EN_REVISION');
-        } else if (ultimaSolicitud.estado === 'aprobada_esperando_vinculacion') {
-          setEstadoUsuario('PARA_VINCULAR');
-        } else {
-          setEstadoUsuario('NO_TIENE');
-        }
-      } else {
-        setEstadoUsuario('NO_TIENE'); 
-      }
-    } catch (error) {
-      console.log("Error crítico consultando estado:", error);
-      setEstadoUsuario('NO_TIENE'); 
-    }
-  };
-
-  switch (estadoUsuario) {
-    case 'CARGANDO':
-      return (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#FFA311" />
-          <Text style={[styles.text, {marginTop: 15}]}>Consultando tu billetera SUBA...</Text>
+  // ==========================================
+  // NIVEL 1: EL EXPLORADOR (No ha hecho el KYC)
+  // ==========================================
+  if (!perfilCompletado) {
+    return (
+      <View style={styles.containerCenter}>
+        <View style={styles.iconCircleBig}>
+          <FontAwesome6 name="wallet" size={50} color="#023A73" />
         </View>
-      );
-
-    case 'NO_TIENE':
-      return <InvitacionTarjeta />;
-
-    case 'EN_REVISION':
-      return (
-        <View style={styles.center}>
-          <FontAwesome6 name="hourglass-half" size={60} color="#FFA311" style={{marginBottom: 20}} />
-          <Text style={styles.title}>Solicitud en Proceso</Text>
-          <Text style={styles.text}>Estamos validando tus datos y tu pago. Te avisaremos cuando tu tarjeta sea aprobada.</Text>
-          
-          {/* Botón para no quedar atrapados */}
-          <TouchableOpacity style={styles.btnVolver} onPress={() => router.back()}>
-            <FontAwesome6 name="arrow-left" size={16} color="#023A73" />
-            <Text style={styles.btnVolverText}>Volver al Inicio</Text>
-          </TouchableOpacity>
-        </View>
-      );
-
-    case 'PARA_VINCULAR':
-      return (
-        <VincularTarjeta 
-          alCompletar={() => {
-            // Cuando termine de escanear, volvemos a consultar la base de datos
-            revisarEstado(); 
-          }} 
-        />
-      );
-
-    case 'ACTIVA':
-      return (
-        <View style={styles.center}>
-          <Text style={styles.title}>💳 Mi Tarjeta SUBA</Text>
-          <Text style={styles.text}>Saldo: {datosTarjeta?.saldo} Bs</Text>
-          <Text style={styles.text}>UID: {datosTarjeta?.uid_nfc}</Text>
-        </View>
-      );
-
-    default:
-      return <InvitacionTarjeta />;
+        <Text style={styles.title}>Billetera Digital SUBA</Text>
+        <Text style={styles.subtitle}>
+          Para poder recargar saldo, pagar tu pasaje con código QR y acceder a subsidios, primero debes habilitar tu billetera.
+        </Text>
+        <TouchableOpacity 
+          style={styles.primaryButton}
+          onPress={() => router.push('/pages/Pasajero/FormularioPerfil')} 
+        >
+          <Text style={styles.primaryButtonText}>Habilitar Mi Billetera (Gratis)</Text>
+          <FontAwesome6 name="arrow-right" size={16} color="white" />
+        </TouchableOpacity>
+      </View>
+    );
   }
+
+  // ==========================================
+  // NIVEL 2 y 3: EL PASAJERO DIGITAL
+  // ==========================================
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <BilleteraCentral />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30, backgroundColor: '#F9FBFF' },
-  title: { fontSize: 26, fontWeight: 'bold', color: '#023A73', marginBottom: 15, textAlign: 'center' },
-  text: { fontSize: 16, color: '#544F4F', textAlign: 'center', lineHeight: 24, marginBottom: 30 },
-  btnVolver: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E5F0FF', paddingVertical: 15, paddingHorizontal: 25, borderRadius: 100, gap: 10 },
-  btnVolverText: { fontSize: 16, fontWeight: 'bold', color: '#023A73' }
+  containerCenter: { flex: 1, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', padding: 30 },
+  iconCircleBig: { width: 110, height: 110, borderRadius: 55, backgroundColor: '#E0F2FE', justifyContent: 'center', alignItems: 'center', marginBottom: 25 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#0F172A', marginBottom: 15, textAlign: 'center' },
+  subtitle: { fontSize: 16, color: '#64748B', textAlign: 'center', marginBottom: 35, lineHeight: 24 },
+  primaryButton: { flexDirection: 'row', backgroundColor: '#0284C7', paddingVertical: 18, paddingHorizontal: 25, borderRadius: 100, alignItems: 'center', gap: 15, elevation: 5, shadowColor: '#0284C7', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 8 },
+  primaryButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' }
 });

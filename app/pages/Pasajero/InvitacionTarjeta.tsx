@@ -8,7 +8,7 @@ export default function InvitacionTarjeta() {
 
   const irAlRegistro = () => {
     // ¡Ahora sí navegamos de verdad a la pantalla del formulario!
-    router.push('/pages/Pasajero/FormularioSolicitud'); 
+    router.push('/pages/Pasajero/FormularioPerfil'); 
   };
 
   return (
