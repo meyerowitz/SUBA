@@ -38,7 +38,8 @@ const fetchActiveRoutes = async () => {
         name: route.name,
         lat: route.endPoint.lat,
         lon: route.endPoint.lng,
-        address: route.name
+        address: route.name,
+        geometry: route.geometry
       }));
     }
   } catch (error) {
@@ -548,30 +549,28 @@ useEffect(() => {
       );
 
       if (destination) {
-        const userLat = userLocation.latitude;
-        const userLon = userLocation.longitude;
-        const destLat = destination.lat;
-        const destLon = destination.lon;
+        if (destination.geometry) {
+           const geoJsonString = JSON.stringify(destination.geometry);
+           webviewRef.current.injectJavaScript(`drawRouteFromGeoJSON(${geoJsonString}); true;`);
+           setShowEta(false);
+        } else {
+           const userLat = userLocation.latitude;
+           const userLon = userLocation.longitude;
+           const destLat = destination.lat;
+           const destLon = destination.lon;
 
-        // 3. Crear código JS para dibujar la ruta y animar la vista
-        // Se asume la existencia de una función 'drawRouteAndAnimate' en tu map.html
-        const routeJsCode = `
-                drawRouteAndAnimate(
-                    ${userLat},
-                    ${userLon},
-                    ${destLat},
-                    ${destLon}
-                );
-                true;
-            `;
-
-        // 4. Inyectar el código
-        webviewRef.current.injectJavaScript(routeJsCode);
-        console.log(
-          `Solicitud de ruteo y animación inyectada: (${userLat},${userLon}) a (${destLat},${destLon})`,
-        );
-        setShowEta(false);
-
+           const routeJsCode = `
+                  drawRouteAndAnimate(
+                      ${userLat},
+                      ${userLon},
+                      ${destLat},
+                      ${destLon}
+                  );
+                  true;
+              `;
+           webviewRef.current.injectJavaScript(routeJsCode);
+        }
+        
       } else {
         Alert.alert("Error", "El destino seleccionado no fue encontrado.");
       }

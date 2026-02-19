@@ -40,7 +40,8 @@ const fetchActiveRoutes = async () => {
         // Usamos el punto final de la ruta como "Destino" para el ruteo
         lat: route.endPoint.lat,
         lon: route.endPoint.lng,
-        address: route.name // Usamos el nombre como dirección visual
+        address: route.name, // Usamos el nombre como dirección visual
+        geometry: route.geometry // <--- GEOMETRÍA PRECALCULADA
       }));
     }
   } catch (error) {
@@ -548,29 +549,33 @@ useEffect(() => {
       );
 
       if (destination) {
-        const userLat = userLocation.latitude;
-        const userLon = userLocation.longitude;
-        const destLat = destination.lat;
-        const destLon = destination.lon;
+        if (destination.geometry) {
+            // OPCIÓN A: Usar la geometría exacta del backend
+            console.log("🎨 Pintando ruta pre-calculada del backend...");
+            const geoJsonString = JSON.stringify(destination.geometry);
+            const jsCode = `drawRouteFromGeoJSON(${geoJsonString}); true;`;
+            webviewRef.current.injectJavaScript(jsCode);
+            setShowEta(false);
+        } else {
+            // OPCIÓN B: Fallback (calcular en el cliente con OSRM)
+            const userLat = userLocation.latitude;
+            const userLon = userLocation.longitude;
+            const destLat = destination.lat;
+            const destLon = destination.lon;
 
-        // 3. Crear código JS para dibujar la ruta y animar la vista
-        // Se asume la existencia de una función 'drawRouteAndAnimate' en tu map.html
-        const routeJsCode = `
-                drawRouteAndAnimate(
-                    ${userLat},
-                    ${userLon},
-                    ${destLat},
-                    ${destLon}
-                );
-                true;
-            `;
-
-        // 4. Inyectar el código
-        webviewRef.current.injectJavaScript(routeJsCode);
-        console.log(
-          `Solicitud de ruteo y animación inyectada: (${userLat},${userLon}) a (${destLat},${destLon})`,
-        );
-        setShowEta(false);
+            const routeJsCode = `
+                    drawRouteAndAnimate(
+                        ${userLat},
+                        ${userLon},
+                        ${destLat},
+                        ${destLon}
+                    );
+                    true;
+                `;
+            webviewRef.current.injectJavaScript(routeJsCode);
+            console.log(`Solicitud de ruteo cliente inyectada: (${userLat},${userLon}) a (${destLat},${destLon})`);
+            setShowEta(false);
+        }
 
       } else {
         Alert.alert("Error", "El destino seleccionado no fue encontrado.");

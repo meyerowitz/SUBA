@@ -495,6 +495,53 @@ function drawRouteAndAnimate(startLat, startLon, endLat, endLon) {
 }
 
 // =========================================================
+// NUEVA FUNCIÓN: DIBUJAR RUTA DESDE GEOJSON (BACKEND)
+// =========================================================
+window.drawRouteFromGeoJSON = function(geometry) {
+    console.log("Dibujando ruta desde GeoJSON del servidor...");
+
+    // 1. Limpiar ruta anterior (Routing Machine o Layer anterior)
+    if (routingControl) {
+        map.removeControl(routingControl);
+        routingControl = null;
+    }
+    if (window.currentRouteLayer) {
+        map.removeLayer(window.currentRouteLayer);
+        window.currentRouteLayer = null;
+    }
+    
+    // Limpiar marcador de destino anterior si existe
+    if (searchMarker) {
+        map.removeLayer(searchMarker);
+        searchMarker = null;
+    }
+
+    if (!geometry || !geometry.coordinates) return;
+
+    // 2. Crear capa GeoJSON con estilo Neón
+    // Leaflet.js maneja automáticamente la inversión [Lng, Lat] -> [Lat, Lng]
+    window.currentRouteLayer = L.geoJSON(geometry, {
+        style: function (feature) {
+            return {
+                color: '#00e5ff', // Color base (cyan)
+                weight: 8,
+                opacity: 0.8,
+                lineCap: 'round',
+                lineJoin: 'round',
+                className: 'leaflet-ant-path' // Reutilizamos la clase para la animación/estilo
+            };
+        }
+    }).addTo(map);
+
+    // 3. Ajustar la vista para mostrar toda la ruta
+    const bounds = window.currentRouteLayer.getBounds();
+    map.flyToBounds(bounds, {
+        padding: [50, 50],
+        duration: 1.5
+    });
+};
+
+// =========================================================
 map.on('click', function(e) {
             const latlng = { type: 'MAP_CLICK', lat: e.latlng.lat, lng: e.latlng.lng };
             window.ReactNativeWebView.postMessage(JSON.stringify(latlng));

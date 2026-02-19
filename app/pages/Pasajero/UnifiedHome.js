@@ -45,7 +45,8 @@ const fetchActiveRoutes = async () => {
         // Usamos el punto final de la ruta como "Destino" para el ruteo
         lat: route.endPoint.lat,
         lon: route.endPoint.lng,
-        address: route.name // Usamos el nombre como dirección visual
+        address: route.name, // Usamos el nombre como dirección visual
+        geometry: route.geometry // <--- GEOMETRÍA
       }));
     }
   } catch (error) {
@@ -281,7 +282,15 @@ export default function UnifiedHome() {
     // Buscar destino en activeRoutes
     const dest = activeRoutes.find(d => d.name === selectedDestinationName);
     if (dest) {
-      webviewRef.current.injectJavaScript(`drawRouteAndAnimate(${userLocation.latitude}, ${userLocation.longitude}, ${dest.lat}, ${dest.lon}); true;`);
+      if (dest.geometry) {
+          // Usar geometría del backend
+          const geoJsonString = JSON.stringify(dest.geometry);
+          webviewRef.current.injectJavaScript(`drawRouteFromGeoJSON(${geoJsonString}); true;`);
+          setShowEta(false); 
+      } else {
+          // Fallback OSRM Cliente
+          webviewRef.current.injectJavaScript(`drawRouteAndAnimate(${userLocation.latitude}, ${userLocation.longitude}, ${dest.lat}, ${dest.lon}); true;`);
+      }
     }
     setTimeout(() => setIsSearching(false), 1500);
   };
