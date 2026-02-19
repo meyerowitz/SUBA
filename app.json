@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-       "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,7 +28,6 @@
         "backgroundColor": "#FFFFFF"
       },
       "softwareKeyboardLayoutMode": "adjustResize"
-      
     },
     "extra": {
       "router": {},
@@ -72,7 +71,8 @@
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
           "recordAudioAndroid": true
         }
-      ]
+      ],
+      "react-native-nfc-manager"
     ],
     "web": {
       "output": "static",

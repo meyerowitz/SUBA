@@ -1,4 +1,4 @@
-//import {GoogleSignin,isErrorWithCode,isSuccessResponse,statusCodes,} from '@react-native-google-signin/google-signin';
+import {GoogleSignin,isErrorWithCode,isSuccessResponse,statusCodes,} from '@react-native-google-signin/google-signin';
 
 import { Image } from "expo-image"
 import { Asset } from 'expo-asset';
@@ -19,6 +19,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
 
   const [state,setState] = useState({email: "",name:""})
+  const [id,setId] = useState(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Estados para controlar la carga y qué GIF mostrar
@@ -51,7 +52,7 @@ useEffect(()=>{
   
 },[])
 
-/*
+
 GoogleSignin.configure({
   webClientId: '159501895592-5oooqd8f4kvcque2n1aacrk9c93bq0op.apps.googleusercontent.com', // client ID of type WEB for your server. Required to get the `idToken` on the user object, and for offline access.
   offlineAccess: true, // if you want to access Google API on behalf of the user FROM YOUR SERVER
@@ -63,9 +64,30 @@ const signInA = async () => {
     await GoogleSignin.hasPlayServices();
     const response = await GoogleSignin.signIn();
     if (isSuccessResponse(response)) {
-      setState({email:response.data.user.email,name: response.data.user.name});
+      const infoGoogleUser=response.data.user;
+      const infoGoogleToken = response.data.idToken;
+        
+      const gooLogin = await fetch('https://subapp-api.onrender.com/auth/autenticar-google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        idToken: infoGoogleToken,
+        role: "passenger"
+        }),
+      });
+
+      const gooLoginData = await gooLogin.json();
+
+      if (!gooLogin.ok) {
+      setIsLoading(false);
+      Alert.alert("Error", gooLoginData.message || "Credenciales incorrectas");
+      return;
+    }
+
+      setState({email:infoGoogleUser.email,name: infoGoogleUser.name});
+      setId(gooLoginData.user.id);
       setIsAuthenticated(true);
-      console.log("userName:",state);
+
     } else {
       // sign in was cancelled by user
     }
@@ -95,50 +117,60 @@ const signIn = async ()=>{
   }
 
 
-useEffect( () => {
+useEffect(() => {
   async function googleSI() {
-        if (!isAuthenticated) return;//si es el primer render de state no se ejecuta este codigo
-      // Buscamos al usuario (por email o nombre)
-    const user = userData.users.find(
-      (u) =>
-        (u.email.toLowerCase() === state.email.toLowerCase() ||
-        u.fullName.toLowerCase() === state.name.toLowerCase()) 
-        // && u.password === password //modificar o activar cuando se pueda manejar y comprobar el idTocken con el backend
-    );
+    if (!isAuthenticated) return;
 
+    // Ejecutamos la búsqueda y el guardado, y RETORNAMOS el usuario para el siguiente paso
+    const obtenerUsuario = async () => {
       try {
-        const jsonValue = JSON.stringify(user);
-        await AsyncStorage.setItem('@Sesion_usuario', jsonValue);
-        console.log("Sesion guardada con éxito");
+        const response = await fetch(`https://subapp-api.onrender.com/api/pasajeros?email=${encodeURIComponent(state.email)}`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        const profileData = await response.json();
+        const foundUser = profileData.passengers[0];
+
+        if (foundUser) {
+          const jsonValue = JSON.stringify(foundUser);
+          await AsyncStorage.setItem('@Sesion_usuario', jsonValue);
+          console.log("Sesion guardada con éxito");
         const jsonValue2 = await AsyncStorage.getItem('@Sesion_usuario');
         console.log(jsonValue2);
-      } catch (e) {
-        console.error("Error al guardar:", e);
-      }
-
-    if (user) {
-      setUserRole(user.role); // Guardamos el rol ('driver' o 'passenger')
-      setIsLoading(true);     // Activamos la vista de carga
-
-      // Simulamos un tiempo de carga para que se vea el GIF
-      setTimeout(() => {
-        if (user.role === "driver") {
-          router.replace("./pages/Conductor/Home2");
-        } else {
-          router.replace("./pages/Pasajero/Navigation");
+          return foundUser; 
         }
-      }, 4000); // 4 segundos de animación
-    } else {
-      Alert.alert("Error", "Usuario o contraseña incorrectos");
-      GoogleSignin.signOut();
-    }
+        return null;
+      } catch (e) {
+        console.error("Error al obtener datos:", e);
+        throw e;
+      }
+    };
+
+    // Ahora sí podemos usar .then() sobre la función asíncrona
+    obtenerUsuario().then((user) => {
+      if (user) {
+        setUserRole(user.role);
+        setIsLoading(true);
+
+        setTimeout(() => {
+          if (user.role === "driver") {
+            router.replace("./pages/Conductor/Home2");
+          } else {
+            router.replace("./pages/Pasajero/Navigation");
+          }
+        }, 4000);
+      } else {
+        Alert.alert("Error", "Usuario o contraseña incorrectos");
+        GoogleSignin.signOut();
+      }
+    }).catch(e => {
+      console.error("Error final:", e);
+    });
   }
 
   googleSI();
-
-}, [state], [isAuthenticated]);
-*/
-
+}, [state, isAuthenticated]);
 //-------------------------------------------------
 //        UseEffect de carga de imagenes
 //-------------------------------------------------
@@ -350,29 +382,14 @@ const handleLogin2 = async () => {
 
                 <Text style={styles.question}>¿Olvidaste tu contraseña? </Text>
 
-                <TouchableOpacity style={styles.button} onPress={handleLogin2} onLongPress={handleLogin} delayLongPress={1000} >
+                <TouchableOpacity style={styles.button} onPress={handleLogin2}>
                   <Text style={styles.textButton}>INICIAR SESIÓN</Text>
                 </TouchableOpacity>
 
                 <View style={styles.googleContainer}>
                   <TouchableOpacity 
                   style={styles.googleButton} 
-                  onPress={async()=>{ 
-                    
-                     const user = userData.users.find(
-                                (u) => u.email === "meyerowitzrebeca@gmail.com"
-                            );
-                        try {
-                            const jsonValue = JSON.stringify(user);
-                            await AsyncStorage.setItem('@Sesion_usuario', jsonValue);
-                            console.log("Sesion guardada con éxito");
-                            const jsonValue2 = await AsyncStorage.getItem('@Sesion_usuario');
-                            console.log(jsonValue2);
-                        } catch (e) {
-                          console.error("Error al guardar:", e);
-                        }
-                      router.replace('./pages/Pasajero/Navigation')
-                    }} 
+                  onPress={() => signInA()}
                     >
                     <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
                     <Text style={styles.googleText}>Continuar con Google</Text>

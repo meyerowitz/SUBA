@@ -1,3 +1,4 @@
+import {GoogleSignin,isErrorWithCode,isSuccessResponse,statusCodes,} from '@react-native-google-signin/google-signin';
 import React, { useState , useEffect} from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, StatusBar, ScrollView , Alert, Image } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -46,11 +47,13 @@ export default function Profile() {
           text: "Sí, salir", 
           onPress: async () => {
             // 1. Borramos datos de sesión
+            await GoogleSignin.signOut();//CIERRA SESION DE GOOGLE, SI NO SE COLOCA QUEDARA ABIERTA A PESAR DE HABER CERRADO SESION , NO LO QUITENNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
             await AsyncStorage.removeItem('@Sesion_usuario');
-            
+           
             // 2. EL TRUCO NUCLEAR: Reiniciamos el historial de navegación
             // Esto borra el Mapa, el Perfil y todo lo que había antes.
             // Deja "Login" como la única pantalla existente.
+
             navigation.dispatch(
               CommonActions.reset({
                 index: 0,
