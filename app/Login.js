@@ -294,7 +294,9 @@ const handleLogin2 = async () => {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.question}>¿Olvidaste tu contraseña? </Text>
+                <TouchableOpacity onPress={() => router.push("/forgotten-password")}>
+                  <Text style={styles.question}>¿Olvidaste tu contraseña? </Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity style={styles.button} onPress={handleLogin2} onLongPress={handleLogin} delayLongPress={1000} >
                   <Text style={styles.textButton}>INICIAR SESIÓN</Text>

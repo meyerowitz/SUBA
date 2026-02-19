@@ -2,19 +2,28 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
 import { Image } from "expo-image"
 import { useRouter } from "expo-router"
 import { useState } from "react"
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar ,KeyboardAvoidingView,ScrollView , Platform} from "react-native"
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar, KeyboardAvoidingView, ScrollView, Platform, ActivityIndicator } from "react-native"
 import Volver from './Components/Botones_genericos/Volver'
 import { SafeAreaView } from "react-native-safe-area-context";
 
+// ⚠️ Ajusta esta URL a tu servidor de Render o IP Local
+// const API_URL = "https://subapp-api.onrender.com";
+const API_URL = "http://192.168.0.108:3500";
+
 export default function Register() {
   const router = useRouter()
+  
+  // Estados de los campos
   const [mail, setMail] = useState("")
   const [password, setPassword] = useState("")
   const [fullName, setFullName] = useState("")
+  
+  // Estados de validación y UI
   const [nameError, setNameError] = useState("")
   const [emailError, setEmailError] = useState("")
   const [passwordStrength, setPasswordStrength] = useState(0)
   const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   const namePattern = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$/
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -32,6 +41,7 @@ export default function Register() {
     return { strength, hasSpecialChar, hasUpperCase, hasMinLength }
   }
 
+  // Manejadores de cambio
   const handleNameChange = (text: string) => {
     if (text === "" || namePattern.test(text)) {
       setFullName(text)
@@ -58,237 +68,169 @@ export default function Register() {
     setPasswordStrength(validation.strength)
   }
 
-  const handleLogin = async () => {
+  // FUNCIÓN DE REGISTRO UNIFICADA
+  const handleRegister = async () => {
+    // 1. Validaciones previas en el Front
     if (!mail || !password || !fullName) {
       Alert.alert("Error", "Por favor, complete todos los campos.")
       return
     }
-    if (!namePattern.test(fullName)) {
-      Alert.alert("Error", "El nombre solo debe contener letras")
+    if (emailError || nameError) {
+      Alert.alert("Error", "Por favor, corrija los errores en el formulario.")
       return
     }
-    if (!emailPattern.test(mail)) {
-      Alert.alert("Error", "Por favor, ingresa un correo electrónico válido")
+    if (passwordStrength < 3) {
+      Alert.alert("Error", "La contraseña debe cumplir todos los requisitos de seguridad.")
       return
     }
-    const validation = validatePassword(password)
-    if (!validation.hasSpecialChar || !validation.hasUpperCase || !validation.hasMinLength) {
-      Alert.alert("Error", "La contraseña no cumple con los requisitos")
-      return
-    }
+
+    setIsLoading(true)
     try {
-      /*const response = await fetch(`DIRECCION DEL SERVIDOR`, {
+      // 2. Llamada al Backend
+      const response = await fetch(`${API_URL}/auth/registrarse`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mail,fullName, password }),
-      });
-
-      const data = await response.json();*/ //habilitar cuando el back este listo
-
-      if (true) {
-        //reemplazar por data.success cuando el back este listo revisar heilper para ver configuaracion del contexto
-        //setCorreoUsuario(data.mail); activar cuando el back este listo
-        router.replace("./Login") // Redirigir al home
-      } else {
-      }
-    } catch (error) {
-      console.error(error)
-      Alert.alert("Error de red")
-    }
-  }
-
-  const handleLogin2 = async () => {
-    // 1. Validaciones locales (mismas que ya tenías)
-    if (!mail || !password || !fullName) {
-      Alert.alert("Error", "Por favor, complete todos los campos.");
-      return;
-    }
-    if (!namePattern.test(fullName)) {
-      Alert.alert("Error", "El nombre solo debe contener letras");
-      return;
-    }
-    if (!emailPattern.test(mail)) {
-      Alert.alert("Error", "Por favor, ingresa un correo electrónico válido");
-      return;
-    }
-    
-    const validation = validatePassword(password);
-    if (!validation.hasSpecialChar || !validation.hasUpperCase || !validation.hasMinLength) {
-      Alert.alert("Error", "La contraseña no cumple con los requisitos");
-      return;
-    }
-
-    try {
-      // 2. Petición POST a tu API de Render
-      const response = await fetch('https://subapp-api.onrender.com/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fullName: fullName,
-          email: mail.toLowerCase(),
+        body: JSON.stringify({ 
+          fullName: fullName.trim(),
+          email: mail.toLowerCase().trim(), // El back espera 'email'
           password: password,
-          role: "passenger" // O el rol por defecto que desees asignar
+          role: "passenger" 
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // 3. Éxito: Registro completado
-        Alert.alert("¡Éxito!", "Cuenta creada correctamente", [
-          { text: "OK", onPress: () => router.replace("./Login") }
+        // Registro exitoso (Status 201)
+        Alert.alert("¡Éxito!", "Cuenta creada correctamente.", [
+          { text: "OK", onPress: () => router.replace("/Login") }
         ]);
-        router.replace("./Login")
+      } else if (response.status === 409) {
+        // Error de correo duplicado manejado en tu controlador
+        Alert.alert("Registro fallido", data.message || "Este correo ya está en uso.");
       } else {
-        // 4. Error del servidor (ej: el correo ya existe)
-        Alert.alert("Error de registro", data.message || "No se pudo crear la cuenta");
+        // Otros errores (400, 500)
+        Alert.alert("Error", data.message || "No se pudo crear la cuenta.");
       }
     } catch (error) {
-      // 5. Error de red
-      console.error(error);
-      Alert.alert("Error de red", "Asegúrate de estar conectado a internet o que el servidor esté activo.");
+      console.error(error)
+      Alert.alert("Error de red", "Verifica tu conexión a internet.");
+    } finally {
+      setIsLoading(false)
     }
-  };
+  }
 
   const passwordValidation = validatePassword(password)
-  const strengthColor =
-    passwordStrength === 0
-      ? "#D32F2F"
-      : passwordStrength === 1
-        ? "#FFA311"
-        : passwordStrength === 2
-          ? "#FFA311"
-          : "#4CAF50"
+  const strengthColor = passwordStrength === 3 ? "#4CAF50" : passwordStrength >= 1 ? "#FFA311" : "#D32F2F"
   const strengthPercentage = (passwordStrength / 3) * 100
 
   return (
     <SafeAreaView style={styles.page}>
-      <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content"></StatusBar>
+      <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content" />
       <KeyboardAvoidingView 
-                behavior={Platform.OS === "ios" ? "height" : "padding"} 
-                 style={{ flex: 1, width: '100%'}}
-                >
-        <ScrollView contentContainerStyle={{ flexGrow: 1, backgroundColor: "#ffffff", width:'100%'}} 
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-                bounces={false}
-                >
-        <View style={styles.container}>
-          
-          <View style={styles.logo}>
-            <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
-          </View>
-
-          <Text style={styles.title}>¡Registrate!</Text>
-
-          <View>
-            <TextInput
-              placeholder="Nombre Completo"
-              placeholderTextColor="rgba(0, 0, 0, 0.31)" 
-              value={fullName}
-              onChangeText={handleNameChange}
-              style={styles.input}
-            />
-            {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
-          </View>
-
-          <View>
-            <TextInput
-              placeholder="Correo electrónico"
-              placeholderTextColor="rgba(0, 0, 0, 0.31)" 
-              value={mail}
-              onChangeText={handleEmailChange}
-              style={styles.input}
-              keyboardType="email-address"
-            />
-            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-          </View>
-
-          <View style={styles.passwordContainer}>
-            <TextInput
-              textContentType="password"
-              placeholder="Introduce tu contraseña"
-              placeholderTextColor="rgba(0, 0, 0, 0.31)" 
-              value={password}
-              onChangeText={handlePasswordChange}
-              secureTextEntry={!showPassword}
-              style={styles.passwordInput}
-            />
-            <TouchableOpacity style={styles.toggleButton} onPress={() => setShowPassword(!showPassword)}>
-              <FontAwesome6 name={showPassword ? "eye-slash" : "eye"} size={20} color="#023A73" />
-            </TouchableOpacity>
-          </View>
-
-          {password.length > 0 && (
-            <View>
-              <View style={styles.strengthBarContainer}>
-                <View style={[styles.strengthBar, { width: `${strengthPercentage}%`, backgroundColor: strengthColor }]} />
-              </View>
-
-              <View style={styles.requirementsContainer}>
-                <View style={styles.requirementRow}>
-                  <Text
-                    style={[
-                      styles.requirementText,
-                      passwordValidation.hasSpecialChar ? styles.requirementMet : styles.requirementUnmet,
-                    ]}
-                  >
-                    ✓ Carácter especial (!@#$%^&*)
-                  </Text>
-                </View>
-                <View style={styles.requirementRow}>
-                  <Text
-                    style={[
-                      styles.requirementText,
-                      passwordValidation.hasUpperCase ? styles.requirementMet : styles.requirementUnmet,
-                    ]}
-                  >
-                    ✓ Una mayúscula
-                  </Text>
-                </View>
-                <View style={styles.requirementRow}>
-                  <Text
-                    style={[
-                      styles.requirementText,
-                      passwordValidation.hasMinLength ? styles.requirementMet : styles.requirementUnmet,
-                    ]}
-                  >
-                    ✓ Mínimo 8 caracteres
-                  </Text>
-                </View>
-              </View>
+        behavior={Platform.OS === "ios" ? "padding" : "height"} 
+        style={{ flex: 1, width: '100%' }}
+      >
+        <ScrollView 
+          contentContainerStyle={{ flexGrow: 1, backgroundColor: "#ffffff", width: '100%' }} 
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View style={styles.container}>
+            
+            <View style={styles.logo}>
+              <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
             </View>
-          )}
 
-          <Text style={styles.question}>O registrate con redes sociales </Text>
+            <Text style={styles.title}>¡Regístrate!</Text>
 
-          <TouchableOpacity style={styles.button} onPress={handleLogin2} onLongPress={handleLogin}>
-            <Text style={styles.textButton}>CREAR CUENTA</Text>
-          </TouchableOpacity>
+            {/* Input Nombre */}
+            <View>
+              <TextInput
+                placeholder="Nombre Completo"
+                placeholderTextColor="rgba(0, 0, 0, 0.31)" 
+                value={fullName}
+                onChangeText={handleNameChange}
+                style={styles.input}
+              />
+              {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
+            </View>
 
-        <View style={styles.redirect}>
-          <Text style={styles.question}>Ya tienes cuenta? </Text>
-          <TouchableOpacity onPress={() => router.replace("/Login")}>
-            <Text style={styles.register}>Inicia sesión aquí</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Input Email */}
+            <View>
+              <TextInput
+                placeholder="Correo electrónico"
+                placeholderTextColor="rgba(0, 0, 0, 0.31)" 
+                value={mail}
+                onChangeText={handleEmailChange}
+                style={styles.input}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+            </View>
+
+            {/* Input Password */}
+            <View style={styles.passwordContainer}>
+              <TextInput
+                placeholder="Introduce tu contraseña"
+                placeholderTextColor="rgba(0, 0, 0, 0.31)" 
+                value={password}
+                onChangeText={handlePasswordChange}
+                secureTextEntry={!showPassword}
+                style={styles.passwordInput}
+              />
+              <TouchableOpacity style={styles.toggleButton} onPress={() => setShowPassword(!showPassword)}>
+                <FontAwesome6 name={showPassword ? "eye-slash" : "eye"} size={20} color="#023A73" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Barra de Fuerza */}
+            {password.length > 0 && (
+              <View style={{ width: 320 }}>
+                <View style={styles.strengthBarContainer}>
+                  <View style={[styles.strengthBar, { width: `${strengthPercentage}%`, backgroundColor: strengthColor }]} />
+                </View>
+
+                <View style={styles.requirementsContainer}>
+                  <Text style={[styles.requirementText, passwordValidation.hasSpecialChar ? styles.requirementMet : styles.requirementUnmet]}>✓ Carácter especial (!@#$%)</Text>
+                  <Text style={[styles.requirementText, passwordValidation.hasUpperCase ? styles.requirementMet : styles.requirementUnmet]}>✓ Una mayúscula</Text>
+                  <Text style={[styles.requirementText, passwordValidation.hasMinLength ? styles.requirementMet : styles.requirementUnmet]}>✓ Mínimo 8 caracteres</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Botón Principal con Loader */}
+            <TouchableOpacity 
+              style={[styles.button, isLoading && { opacity: 0.7 }]} 
+              onPress={handleRegister}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#023A73" />
+              ) : (
+                <Text style={styles.textButton}>CREAR CUENTA</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.redirect}>
+              <Text style={styles.question}>¿Ya tienes cuenta? </Text>
+              <TouchableOpacity onPress={() => router.replace("/Login")}>
+                <Text style={styles.register}>Inicia sesión aquí</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.question, {marginTop: 30}]}>O regístrate con redes sociales</Text>
   
-          <View style={styles.googleContainer}>
-            <TouchableOpacity style={styles.googleButton}>
-              <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
-              <Text style={styles.googleText}>Continuar con Google</Text>
-            </TouchableOpacity>
-          </View>
+            <View style={styles.googleContainer}>
+              <TouchableOpacity style={styles.googleButton}>
+                <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
+                <Text style={styles.googleText}>Continuar con Google</Text>
+              </TouchableOpacity>
+            </View>
 
-          <View style={styles.redirect}>
-            <Text style={styles.question}>Ya tienes cuenta? </Text>
-            <TouchableOpacity onPress={() => router.replace("/Login")}>
-              <Text style={styles.register}>Inicia sesión aquí</Text>
-            </TouchableOpacity>
           </View>
-        </View>
         </ScrollView>
       </KeyboardAvoidingView>
       <Volver route="/Login" color={null} style={{top:50, left:10}}/>
@@ -297,184 +239,29 @@ export default function Register() {
 }
 
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-  },
-  container: {
-    height: "100%",
-    width: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  logo: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: 320,
-    height: 88.28,
-    marginTop: 50,
-    marginBottom: 40,
-  },
-  wordmark: {
-    width: 320,
-    height: 88.28,
-  },
-  title: {
-    fontSize: 30,
-    fontFamily: "roboto",
-    fontWeight: "bold",
-    color: "#212121",
-    marginBottom: 30,
-  },
-  input: {
-    width: 320,
-    height: 60,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "#DFDFDF",
-    borderRadius: 100,
-    fontFamily: "roboto",
-    color: "black",
-    fontSize: 18,
-    marginBottom: 20,
-  },
-  passwordContainer: {
-    position: "relative",
-    width: 320,
-    marginBottom: 20,
-  },
-  passwordInput: {
-    width: 320,
-    height: 60,
-    padding: 10,
-    paddingRight: 50,
-    borderWidth: 1,
-    borderColor: "#DFDFDF",
-    borderRadius: 100,
-    color: "black",
-    fontFamily: "roboto",
-    fontSize: 18,
-  },
-  toggleButton: {
-    position: "absolute",
-    right: 15,
-    top: 18,
-    padding: 5,
-  },
-  toggleButtonText: {
-    fontSize: 20,
-  },
-  errorText: {
-    color: "#D32F2F",
-    fontFamily: "roboto",
-    fontSize: 14,
-    marginTop: -16,
-    marginBottom: 12,
-  },
-  strengthBarContainer: {
-    width: 320,
-    height: 4,
-    backgroundColor: "#E0E0E0",
-    borderRadius: 2,
-    overflow: "hidden",
-    marginBottom: 12,
-    marginTop: -16,
-  },
-  strengthBar: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  requirementsContainer: {
-    width: 320,
-    marginBottom: 12,
-    paddingHorizontal: 12,
-  },
-  requirementRow: {
-    marginBottom: 6,
-  },
-  requirementText: {
-    fontFamily: "roboto",
-    fontSize: 12,
-  },
-  requirementMet: {
-    color: "#4CAF50",
-  },
-  requirementUnmet: {
-    color: "#BDBDBD",
-  },
-  question: {
-    color: "#544F4F",
-    fontFamily: "roboto",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  button: {
-    display: "flex",
-    marginTop: 20,
-    width: 320,
-    height: 60,
-    borderRadius: 100,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#FFA311",
-  },
-  textButton: {
-    color: "#023A73",
-    fontSize: 18,
-    fontWeight: "bold",
-    fontFamily: "roboto",
-  },
-  googleContainer: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 20,
-  },
-  googleButton: {
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    width: 320,
-    height: 60,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: "#DFDFDF",
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    gap: 10,
-  },
-  googleIcon: {
-    width: 24,
-    height: 24,
-  },
-  googleText: {
-    fontSize: 16,
-    fontFamily: "roboto",
-    fontWeight: "bold",
-    color: "#212121",
-  },
-  redirect: {
-    width: 320,
-    marginTop: 20,
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  register: {
-    color: "#0661BC",
-    fontFamily: "roboto",
-    fontWeight: "bold",
-    fontSize: 16,
-    textDecorationLine: "underline",
-  },
+  page: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flex: 1, alignItems: "center", paddingBottom: 40 },
+  logo: { width: 320, height: 88, marginTop: 60, marginBottom: 30 },
+  wordmark: { width: "100%", height: "100%" },
+  title: { fontSize: 30, fontWeight: "bold", color: "#212121", marginBottom: 30 },
+  input: { width: 320, height: 60, paddingHorizontal: 20, borderWidth: 1, borderColor: "#DFDFDF", borderRadius: 100, fontSize: 16, marginBottom: 20 },
+  passwordContainer: { position: "relative", width: 320, marginBottom: 20 },
+  passwordInput: { width: "100%", height: 60, paddingHorizontal: 20, borderWidth: 1, borderColor: "#DFDFDF", borderRadius: 100, fontSize: 16 },
+  toggleButton: { position: "absolute", right: 20, top: 18 },
+  errorText: { color: "#D32F2F", fontSize: 13, marginTop: -15, marginBottom: 15, marginLeft: 15, alignSelf: 'flex-start' },
+  strengthBarContainer: { width: "100%", height: 4, backgroundColor: "#E0E0E0", borderRadius: 2, marginBottom: 10 },
+  strengthBar: { height: "100%", borderRadius: 2 },
+  requirementsContainer: { width: "100%", marginBottom: 15 },
+  requirementText: { fontSize: 12, marginBottom: 4 },
+  requirementMet: { color: "#4CAF50" },
+  requirementUnmet: { color: "#BDBDBD" },
+  button: { width: 320, height: 60, backgroundColor: "#FFA311", borderRadius: 100, justifyContent: "center", alignItems: "center", marginTop: 20 },
+  textButton: { color: "#023A73", fontSize: 18, fontWeight: "bold" },
+  googleContainer: { marginTop: 20 },
+  googleButton: { flexDirection: "row", width: 320, height: 60, borderWidth: 1, borderColor: "#DFDFDF", borderRadius: 100, justifyContent: "center", alignItems: "center", gap: 10 },
+  googleIcon: { width: 24, height: 24 },
+  googleText: { fontSize: 16, fontWeight: "bold", color: "#212121" },
+  redirect: { flexDirection: "row", marginTop: 20 },
+  question: { color: "#544F4F", fontSize: 15 },
+  register: { color: "#0661BC", fontWeight: "bold", textDecorationLine: "underline" },
 })
