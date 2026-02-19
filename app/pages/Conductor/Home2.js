@@ -73,12 +73,12 @@ export default function HomeConductor() {
 
     if (geocode && geocode.length > 0) {
       const addr = geocode[0];
-      
+
       // Creamos una jerarquía: 
       // 1. Calle (street)
       // 2. Barrio/Distrito (district/subregion)
       // 3. Si todo lo anterior falla, el código que ya conoces (name)
-      
+
       const calle = addr.street;
       const sector = addr.district || addr.subregion;
       const ciud = addr.city;
@@ -86,17 +86,18 @@ export default function HomeConductor() {
 
       let direccionFinal = "";
 
-      if (calle && !calle.includes('+')) { 
+      if (calle && !calle.includes('+')) {
         // Si hay calle y no parece un código (no tiene el signo +)
-        if(sector){
-        direccionFinal = calle+", "+sector+", "+ciud;} 
-        else{
-          
-          direccionFinal = calle+", "+ciud;
+        if (sector) {
+          direccionFinal = calle + ", " + sector + ", " + ciud;
+        }
+        else {
+
+          direccionFinal = calle + ", " + ciud;
         }
       } else if (sector) {
         // Si la calle es nula o es un código, usamos el nombre del Barrio/Sector
-        direccionFinal = sector+", "+ciud;
+        direccionFinal = sector + ", " + ciud;
       } else {
         // Como último recurso, el código numérico
         direccionFinal = codigo || "Ruta en movimiento";
@@ -125,16 +126,18 @@ export default function HomeConductor() {
           longitude: loc.coords.longitude,
           speed: loc.coords.speed || 0,
         };
-        
+
         setMyLocation(coords);
 
         if (mqttClientRef.current?.connected) {
           const payload = {
-            bus_id: busIdRef.current,
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-            speed: coords.speed,
-            status: "active"
+            number_plate: busIdRef.current,
+            name: "fixed",
+            location: {
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+            },
+            status: "active",
           };
           mqttClientRef.current.publish("subapp/driver", JSON.stringify(payload));
           console.log("📤 Ubicación enviada");
@@ -146,6 +149,21 @@ export default function HomeConductor() {
   };
 
   const detenerTurno = () => {
+
+    if (mqttClientRef.current) {
+      const payload = {
+        number_plate: busIdRef.current,
+        name: "fixed",
+        location: {
+          latitude: 0,
+          longitude: 0,
+        },
+        status: "inactive",
+      }
+      mqttClientRef.current.publish("subapp/driver", JSON.stringify(payload));
+      console.log("📤 Disconnection request sent");
+
+    }
     if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
     if (mqttClientRef.current) mqttClientRef.current.end();
     mqttClientRef.current = null;
@@ -172,56 +190,57 @@ export default function HomeConductor() {
     return () => detenerTurno();
   }, [enLinea]);
 
-    const handleLogout = () => {
-  Alert.alert(
-    "Cerrar Sesión",
-    "¿Estás segura de que quieres salir?",
-    [
-      { text: "Cancelar", style: "cancel" },
-      { 
-        text: "Sí, salir", 
-        onPress: async () => {
-          await AsyncStorage.removeItem('@Sesion_usuario');
-          router.replace('/Login');
-        } 
-      }
-    ]
-  );}
+  const handleLogout = () => {
+    Alert.alert(
+      "Cerrar Sesión",
+      "¿Estás segura de que quieres salir?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Sí, salir",
+          onPress: async () => {
+            await AsyncStorage.removeItem('@Sesion_usuario');
+            router.replace('/Login');
+          }
+        }
+      ]
+    );
+  }
 
   return (
     <SafeAreaView style={styles.mainContainer}>
-       <StatusBar  backgroundColor='#003366' barStyle="ligth-content"></StatusBar>
+      <StatusBar backgroundColor='#003366' barStyle="ligth-content"></StatusBar>
       <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
-        
+
         {/* HEADER CONDUCTOR */}
         <View style={styles.headerConductor}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: -40 }}>
             <TouchableOpacity onPress={() => router.push("./Profile")}>
               <Ionicons name="person-circle-outline" size={45} color="white" />
             </TouchableOpacity>
-            
+
             <View>
               <View style={styles.statusBadge}>
                 <Text style={styles.statusText}>{enLinea ? "ONLINE" : "OFFLINE"}</Text>
-                <Switch 
-                  value={enLinea} 
+                <Switch
+                  value={enLinea}
                   onValueChange={setEnLinea}
                   trackColor={{ false: "#767577", true: "#34C759" }}
                 />
               </View>
-              
+
               {/* ID DEL DISPOSITIVO */}
               <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold', marginLeft: 15, marginTop: 5 }}>
                 Operador: {busId.slice(-6)}
               </Text>
-              
+
               {/* COORDENADAS EN TIEMPO REAL */}
               <Text style={{ color: "#767577", fontSize: 9, fontWeight: 'bold', marginLeft: 15 }}>
                 Lat: {myLocation ? myLocation.latitude.toFixed(6) : "---"} Long: {myLocation ? myLocation.longitude.toFixed(6) : "---"}
               </Text>
             </View>
           </View>
-          
+
           <View style={styles.welcomeContainer}>
             <Text style={styles.driverName}>Hola, {DriverName || "Conductor"}</Text>
             <Text style={styles.unitText}>Unidad: #104 - {myRuta || (enLinea ? "Obteniendo calle..." : "En espera")}</Text>
@@ -229,7 +248,7 @@ export default function HomeConductor() {
         </View>
 
         {/* ... Resto de tus componentes (Métricas, Saldo, Acciones) se mantienen igual ... */}
-        
+
         <View style={styles.statsContainer}>
           <View style={[styles.statCard, { borderLeftColor: '#34C759', borderLeftWidth: 5 }]}>
             <Text style={styles.statLabel}>Pasajeros Hoy</Text>
@@ -268,7 +287,7 @@ export default function HomeConductor() {
             <Text style={styles.actionDesc}>Ver mapa y paradas</Text>
           </TouchableOpacity>
         </View>
-  
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -284,12 +303,12 @@ const styles = StyleSheet.create({
     paddingTop: 50,
   },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  statusBadge: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: 'rgba(255,255,255,0.1)', 
-    paddingHorizontal: 10, 
-    borderRadius: 20 
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 10,
+    borderRadius: 20
   },
   statusText: { color: 'white', fontSize: 12, fontWeight: 'bold', marginRight: 10 },
   driverName: { color: 'white', fontSize: 24, fontWeight: 'bold', marginTop: 20 },
@@ -318,13 +337,13 @@ const styles = StyleSheet.create({
   actionDesc: { fontSize: 10, color: '#999', textAlign: 'center' },
   recentSection: { padding: 20 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, color: '#333' },
-  transactionItem: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: 'white', 
-    padding: 15, 
-    borderRadius: 12, 
-    marginBottom: 10 
+  transactionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10
   },
   transUser: { fontWeight: '600', color: '#333' },
   transTime: { fontSize: 12, color: '#999' },
