@@ -23,36 +23,44 @@ import Volver from '../../Components/Botones_genericos/Volver';
 const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
 const { height } = Dimensions.get('window');
-const STOP_CACHE_KEY = "guayana_bus_stops_cache";
+const STOP_CACHE_KEY = "guayana_bus_stops_cache_v2";
 const GUAYANA_BBOX = "8.21,-62.88,8.39,-62.60";
 const FETCH_BUSES_INTERVAL = 5000; // Refrescar buses en el mapa cada 5 seg
+const API_URL = "https://subapp-api.onrender.com";
 
 // --- VARIABLES GLOBALES (Persisten fuera del ciclo de vida de React) ---
 let hasCenteredSession = false; 
 let globalBuses = []; 
 
-const fetchGuayanaBusStops = async (retry = 0) => {
-  if (retry === 0) {
-    try {
-      const cached = await AsyncStorage.getItem(STOP_CACHE_KEY);
-      if (cached) return JSON.parse(cached).data;
-    } catch (e) {}
-  }
-  const serverUrl = "https://overpass-api.de/api/interpreter"; 
-  const overpassQuery = `[out:json][timeout:25];node[highway=bus_stop](${GUAYANA_BBOX});out center;`;
-  const url = `${serverUrl}?data=${encodeURIComponent(overpassQuery)}`;
+const fetchGuayanaBusStops = async () => {
   try {
-    const response = await fetch(url);
-    if (response.ok) {
-      const data = await response.json();
-      AsyncStorage.setItem(STOP_CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: data }));
-      return data;
+    const cached = await AsyncStorage.getItem(STOP_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      // 24 horas de expiración
+      if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) return parsed.data;
     }
-    throw new Error("Error HTTP");
+  } catch (e) {}
+
+  try {
+    console.log("📥 Obteniendo paradas desde API Propia...");
+    const response = await fetch(`${API_URL}/api/paradas/activas`);
+    const json = await response.json();
+
+    if (json.success && json.data) {
+        const stops = json.data.map(stop => ({
+            lat: stop.location.lat,
+            lon: stop.location.lng,
+            name: stop.name
+        }));
+        AsyncStorage.setItem(STOP_CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: stops }));
+        console.log(`✅ ${stops.length} paradas obtenidas.`);
+        return stops;
+    }
   } catch (error) {
-    if (retry < 2) return fetchGuayanaBusStops(retry + 1);
-    return null;
+    console.error("Error fetching stops:", error);
   }
+  return [];
 };
 
 export default function UnifiedHome() {
@@ -209,9 +217,8 @@ export default function UnifiedHome() {
   // 4. Inyectar Paradas
   useEffect(() => {
     if (isMapReady && webviewRef.current && !stopsInjected) {
-        fetchGuayanaBusStops().then(data => {
-            if (data?.elements) {
-                const stops = data.elements.filter(el => el.type === 'node').map(el => ({ lat: el.lat, lon: el.lon, name: el.tags?.name || 'Parada' }));
+        fetchGuayanaBusStops().then(stops => {
+            if (stops && stops.length > 0) {
                 webviewRef.current.injectJavaScript(`renderBusStops(${JSON.stringify(stops)}); true;`);
                 setStopsInjected(true);
             }

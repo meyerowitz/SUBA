@@ -18,126 +18,59 @@ import Volver from '../../Components/Botones_genericos/Volver';
 
 const { height } = Dimensions.get('window');
 // --- CONSTANTES DE LA API DEL BUS ---
-const BASE_URL = "https://api-bus-w29v.onrender.com/api/v1";
+const BASE_URL = "https://subapp-api.onrender.com/api"; // URL del Backend
 const BUSES_API_URL = `${BASE_URL}/buses`; // GET para obtener todas las ubicaciones
 const FETCH_INTERVAL = 5000; // Cargar buses cada 5 segundos (500ms)
-// BBOX estático para Ciudad Guayana: [LatSur, LonOeste, LatNorte, LonEste]
-const GUAYANA_BBOX = "8.21,-62.88,8.39,-62.60";
 let buses = []
 let busesxd = []
 
-// -------------------------------------------------------------
-// 2) .FUNCIÓN DE CONSULTA A OVERPASS
-// -------------------------------------------------------------
-const OVERPASS_SERVERS = [
-  "https://overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter",
-  "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
-];
-
-const STOP_CACHE_KEY = "guayana_bus_stops_cache";
+const STOP_CACHE_KEY = "guayana_bus_stops_cache_v2"; // Cambiamos key para invalidar caché viejo
 const STOP_CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 horas
 
-const fetchGuayanaBusStops = async (retry = 0) => {
-  // 1. Intentar cargar desde caché primero (solo en el primer intento)
-  if (retry === 0) {
-    try {
-      const cached = await AsyncStorage.getItem(STOP_CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        const now = Date.now();
-        if (now - parsed.timestamp < STOP_CACHE_EXPIRY) {
-          console.log("✅ Paradas cargadas desde caché local (AsyncStorage).");
-          return parsed.data;
-        } else {
-          console.log("⚠️ Caché de paradas expirado. Descargando nuevo...");
-        }
-      }
-    } catch (e) {
-      console.warn("Error leyendo caché de paradas:", e);
-    }
-  }
-
-  const MAX_RETRIES = 5;
-  const DELAY_MS = 2000 * (retry + 1); 
-
-  // Selección de servidor Round-Robin basado en el número de intento
-  const serverUrl = OVERPASS_SERVERS[retry % OVERPASS_SERVERS.length];
-
-  console.log("");
-  console.log(`---> fetchGuayanaBusStops (Intento ${retry + 1}/${MAX_RETRIES + 1})`);
-  console.log(`--->       Servidor: ${serverUrl}`);
-  console.log("");
-
-  // Reducimos timeout del query a 25s para fallar rápido y cambiar de servidor si está colgado
-  const overpassQuery = `
-        [out:json][timeout:25];
-        node[highway=bus_stop](${GUAYANA_BBOX});
-        out center;
-    `;
-  const encodedQuery = encodeURIComponent(overpassQuery);
-  const url = `${serverUrl}?data=${encodedQuery}`;
-
+const fetchGuayanaBusStops = async () => {
+  // 1. Intentar cargar desde caché
   try {
-    const response = await fetch(url);
-    
-    // Verificar Content-Type para evitar "Unexpected character <"
-    const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("text/html")) {
-        throw new Error(`Respuesta HTML inesperada (posible error 502/504 o Captive Portal). Status: ${response.status}`);
-    }
-
-    if (response.ok) {
-      console.log(`Paradas obtenidas exitosamente.`);
-      const data = await response.json();
-      
-      // Guardar en caché
-      try {
-          await AsyncStorage.setItem(STOP_CACHE_KEY, JSON.stringify({
-              timestamp: Date.now(),
-              data: data
-          }));
-          console.log("💾 Paradas guardadas en caché.");
-      } catch (e) {
-          console.warn("No se pudo guardar en caché:", e);
+    const cached = await AsyncStorage.getItem(STOP_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      const now = Date.now();
+      if (now - parsed.timestamp < STOP_CACHE_EXPIRY) {
+        console.log("✅ Paradas cargadas desde caché local.");
+        return parsed.data;
       }
-      
-      return data;
     }
-
-    // Manejo de errores: 429 (Too Many Requests) y 5xx (Server Errors: 504, 502, 503)
-    if ((response.status === 429 || response.status >= 500) && retry < MAX_RETRIES) {
-      console.warn(
-        `Error HTTP ${response.status}. Cambiando servidor/reintentando en ${DELAY_MS / 1000}s...`,
-      );
-      await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
-      return fetchGuayanaBusStops(retry + 1); 
-    }
-
-    throw new Error(`Error HTTP: ${response.status}`);
-  } catch (error) {
-    console.error("Error al obtener paradas de Overpass:", error);
-    
-    // Si es un error de red (fetch falló) y quedan intentos, reintentamos
-    if (retry < MAX_RETRIES) {
-       console.warn(`Error de conexión. Reintentando en ${DELAY_MS / 1000}s...`);
-       await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
-       return fetchGuayanaBusStops(retry + 1);
-    }
-
-    // Fallback final: Si falla todo, intentar devolver caché expirado si existe
-    if (retry === MAX_RETRIES) {
-        try {
-            const cached = await AsyncStorage.getItem(STOP_CACHE_KEY);
-            if (cached) {
-                console.log("⚠️ Usando caché expirado como fallback por error de red.");
-                return JSON.parse(cached).data;
-            }
-        } catch (e) {}
-    }
-
-    return null;
+  } catch (e) {
+    console.warn("Error caché paradas:", e);
   }
+
+  // 2. Fetch API Propia
+  try {
+    console.log("📥 Obteniendo paradas desde API Propia...");
+    const response = await fetch(`${BASE_URL}/paradas/activas`);
+    const json = await response.json();
+
+    if (json.success && json.data) {
+        // Mapear al formato que espera el mapa: { lat, lon, name }
+        const stops = json.data.map(stop => ({
+            lat: stop.location.lat,
+            lon: stop.location.lng,
+            name: stop.name,
+            address: stop.address
+        }));
+
+        // Guardar en caché
+        await AsyncStorage.setItem(STOP_CACHE_KEY, JSON.stringify({
+            timestamp: Date.now(),
+            data: stops
+        }));
+        
+        console.log(`✅ ${stops.length} paradas obtenidas y cacheadas.`);
+        return stops;
+    }
+  } catch (error) {
+    console.error("❌ Error fetching stops from API:", error);
+  }
+  return [];
 };
 
 
@@ -393,18 +326,9 @@ export default function WebMap() {
     console.log()
     if (isMapReady && webviewRef.current && !stopsInjected) {
         fetchGuayanaBusStops()
-            .then(overpassData => {
-                if (overpassData && overpassData.elements) {
-                    // Filtrar y aligerar los datos antes de enviarlos al Bridge
-                    const simpleStops = overpassData.elements
-                        .filter(el => el.type === 'node')
-                        .map(el => ({
-                            lat: el.lat,
-                            lon: el.lon,
-                            name: (el.tags && el.tags.name) ? el.tags.name : 'Parada'
-                        }));
-
-                    const dataString = JSON.stringify(simpleStops);
+            .then(stops => {
+                if (stops && stops.length > 0) {
+                    const dataString = JSON.stringify(stops);
 
                     // Inyectar JavaScript en el WebView
                     const stopsJsCode = `renderBusStops(${dataString}); true;`;
