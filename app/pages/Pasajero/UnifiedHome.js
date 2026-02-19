@@ -17,7 +17,7 @@ import { getuserid, getusername } from '../../Components/AsyncStorage';
 import { useRoute } from '../../Components/Providers/RouteContext';
 
 import mqtt from "mqtt"; // <-- IMPORTANTE: Asegúrate de tener instalado 'mqtt'
-import Destinos from "../../Components/Destinos.json";
+// import Destinos from "../../Components/Destinos.json"; // Reemplazado por API
 import Volver from '../../Components/Botones_genericos/Volver';
 
 const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
@@ -31,6 +31,28 @@ const API_URL = "https://subapp-api.onrender.com";
 // --- VARIABLES GLOBALES (Persisten fuera del ciclo de vida de React) ---
 let hasCenteredSession = false; 
 let globalBuses = []; 
+
+// --- FUNCION PARA OBTENER RUTAS ACTIVAS ---
+const fetchActiveRoutes = async () => {
+  try {
+    const response = await fetch(`${API_URL}/api/rutas/activas`);
+    const json = await response.json();
+    if (json.success && json.data) {
+      console.log("✅ Rutas activas cargadas:", json.data.length);
+      // Mapeamos la respuesta de la API al formato que usa el frontend (lat/lon del endPoint)
+      return json.data.map(route => ({
+        name: route.name,
+        // Usamos el punto final de la ruta como "Destino" para el ruteo
+        lat: route.endPoint.lat,
+        lon: route.endPoint.lng,
+        address: route.name // Usamos el nombre como dirección visual
+      }));
+    }
+  } catch (error) {
+    console.error("❌ Error cargando rutas:", error);
+  }
+  return [];
+};
 
 const fetchGuayanaBusStops = async () => {
   try {
@@ -83,6 +105,9 @@ export default function UnifiedHome() {
   const [tasaBCV, setTasaBCV] = useState(382.63); 
   const [loadingSaldo, setLoadingSaldo] = useState(true);
   const { destino } = useLocalSearchParams();
+
+  // NUEVO ESTADO: Rutas disponibles (reemplaza Destinos.json)
+  const [activeRoutes, setActiveRoutes] = useState([]);
 
   const [ShowEta, setShowEta]= useState(true); 
   const [Eta, SetEta]= useState("-- min");
@@ -153,6 +178,9 @@ export default function UnifiedHome() {
 
   // 1. Cargar Datos Iniciales
   useEffect(() => {
+    // Cargar rutas activas al iniciar
+    fetchActiveRoutes().then(routes => setActiveRoutes(routes));
+
     const cargarDatos = async () => {
         const name = await getusername();
         if(name) setUsername(name);
@@ -250,7 +278,8 @@ export default function UnifiedHome() {
   const handleSearch = () => {
     if (!selectedDestinationName || !userLocation) return;
     setIsSearching(true);
-    const dest = Destinos.find(d => d.name === selectedDestinationName);
+    // Buscar destino en activeRoutes
+    const dest = activeRoutes.find(d => d.name === selectedDestinationName);
     if (dest) {
       webviewRef.current.injectJavaScript(`drawRouteAndAnimate(${userLocation.latitude}, ${userLocation.longitude}, ${dest.lat}, ${dest.lon}); true;`);
     }
@@ -315,9 +344,9 @@ export default function UnifiedHome() {
                 <View style={styles.inputRow}>
                     <Ionicons name="location" size={20} color="#E69500" />
                     <View style={{flex: 1, marginLeft: 5}}>
-                      <Picker selectedValue={selectedDestinationName} onValueChange={(v) => {setSelectedDestinationName(v),setSelectedRoute(v ? rutaCompleta || { name: v } : null);}} style={{ height: 50, width: '100%' }}>
+                      <Picker selectedValue={selectedDestinationName} onValueChange={(v) => {setSelectedDestinationName(v),setSelectedRoute(v ? { name: v } : null);}} style={{ height: 50, width: '100%' }}>
                           <Picker.Item label="Selecciona destino..." value="" color="#999" />
-                          {Destinos.map((d) => (<Picker.Item key={d.name} label={d.name} value={d.name} />))}
+                          {activeRoutes.map((d) => (<Picker.Item key={d.name} label={d.name} value={d.name} />))}
                       </Picker>
                     </View>
                 </View>

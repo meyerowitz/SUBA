@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import SearchRoot from "../../Components/SearchRoot";
-import Destinos from "../../Components/Destinos.json";
+// import Destinos from "../../Components/Destinos.json"; // Reemplazado por API
 import mqtt from "mqtt";
 import Volver from '../../Components/Botones_genericos/Volver';
 
@@ -26,6 +26,26 @@ let busesxd = []
 
 const STOP_CACHE_KEY = "guayana_bus_stops_cache_v2"; // Key actualizada
 const STOP_CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 horas
+
+// --- FUNCION PARA OBTENER RUTAS ACTIVAS ---
+const fetchActiveRoutes = async () => {
+  try {
+    const response = await fetch(`${BASE_URL}/rutas/activas`);
+    const json = await response.json();
+    if (json.success && json.data) {
+      console.log("✅ Rutas activas cargadas:", json.data.length);
+      return json.data.map(route => ({
+        name: route.name,
+        lat: route.endPoint.lat,
+        lon: route.endPoint.lng,
+        address: route.name
+      }));
+    }
+  } catch (error) {
+    console.error("❌ Error cargando rutas:", error);
+  }
+  return [];
+};
 
 const fetchGuayanaBusStops = async () => {
   // 1. Intentar cargar desde caché
@@ -126,6 +146,9 @@ export default function WebMap() {
   const [busLocations, setBusLocations] = useState([]);
   const { destino } = useLocalSearchParams();
   const [hasCenteredOnce, setHasCenteredOnce] = useState(false);
+
+  // NUEVO ESTADO: Rutas disponibles (reemplaza Destinos.json)
+  const [activeRoutes, setActiveRoutes] = useState([]);
 
   const [ShowEta, setShowEta]= useState(true);
 //-----------Todo lo relacionado al Eta--------
@@ -237,6 +260,9 @@ export default function WebMap() {
 
   //----------- 1) .UseEffet loadhtmlUri-----------------------
   useEffect(() => {
+    // Cargar rutas activas al iniciar
+    fetchActiveRoutes().then(routes => setActiveRoutes(routes));
+
     //loadMapHtml().then(setMapHtmlUri);
     const loadHTML = async () => {
       try {
@@ -516,8 +542,8 @@ useEffect(() => {
     try {
       console.log(`Buscando destino seleccionado: ${selectedDestinationName}`);
 
-      // 2. Buscar destino
-      const destination = Destinos.find(
+      // 2. Buscar destino en activeRoutes en vez de JSON
+      const destination = activeRoutes.find(
         (dest) => dest.name === selectedDestinationName,
       );
 
@@ -773,7 +799,7 @@ useEffect(() => {
               value=""
               enabled={false}
             />
-            {Destinos.map((dest) => (
+            {activeRoutes.map((dest) => (
               <Picker.Item
                 key={dest.name}
                 label={dest.name}

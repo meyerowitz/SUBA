@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert, TextInput, TouchableOpacity,  StatusBar, Image, ScrollView, Button } from 'react-native';
 import * as Location from 'expo-location';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import Destinos from "../../Components/Destinos.json";
+// import Destinos from "../../Components/Destinos.json"; // Reemplazado por API
 import { Picker } from "@react-native-picker/picker";
 import Feather from 'react-native-vector-icons/Feather';
 import { useRouter } from 'expo-router';
@@ -24,6 +24,9 @@ export default function Home({ navigation }) {
 
   const [DolarBcv,setPrecioBCV ]=useState('1');
   const [DolarBcvLoading,setPrecioBCVLoad ]=useState(true);
+
+  // NUEVO ESTADO: Rutas disponibles (reemplaza Destinos.json)
+  const [activeRoutes, setActiveRoutes] = useState([]);
 
   const [TicketBs,setTicketBs]=useState(1);
   const [TicketBsLoad,setTicketBsLoad]=useState(true);
@@ -133,6 +136,21 @@ const obtenerSaldoReal = async () => {
  useEffect(() => {
     // A. Cargar Ubicación
     obtenerUbicacionOrigen();
+
+    // A.2 Cargar Rutas
+    fetch('https://subapp-api.onrender.com/api/rutas/activas')
+      .then(res => res.json())
+      .then(json => {
+        if(json.success) {
+          const mapped = json.data.map(r => ({
+            name: r.name,
+            lat: r.endPoint.lat,
+            lon: r.endPoint.lng
+          }));
+          setActiveRoutes(mapped);
+        }
+      })
+      .catch(err => console.error("Error cargando rutas en Home:", err));
 
     // B. Cargar Datos Financieros de forma secuencial
     const cargarFinanzas = async () => {
@@ -284,7 +302,7 @@ const handleSearch = () => {
                   enabled={!isSearching}
                 >
                   <Picker.Item label="Selecciona un destino..." value="" color="#999" />
-                  {Destinos.map((dest) => (
+                  {activeRoutes.map((dest) => (
                     <Picker.Item key={dest.name} label={dest.name} value={dest.name} />
                   ))}
                 </Picker>
