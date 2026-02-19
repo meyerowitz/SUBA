@@ -86,24 +86,32 @@
             object-fit: contain; /* Asegura que la imagen se vea completa */
         }
 
-        .leaflet-overlay-pane svg path.leaflet-ant-path, 
-        .leaflet-overlay-pane svg path {
-            stroke: url(#route-gradient) !important;
-            stroke-width: 8;
-            stroke-linecap: round;
-            /* Opcional: añade este filtro para un efecto neón */
-            filter: drop-shadow(0 0 5px rgba(0, 229, 255, 0.5));
-        }
-
-        /* Animación de "hormigueo" opcional */
-        .leaflet-overlay-pane svg path {
-            stroke-dasharray: 20, 10;
-            animation: dash-move 20s linear infinite;
-        }
-
+        /* --- ESTILOS DE RUTA DIFERENCIADOS --- */
+        
+        /* Animación de flujo */
         @keyframes dash-move {
             from { stroke-dashoffset: 1000; }
             to { stroke-dashoffset: 0; }
+        }
+
+        /* IDA (Outbound) - Cyan Neon */
+        .route-outbound-path {
+            stroke: #00e5ff !important;
+            stroke-width: 8;
+            stroke-linecap: round;
+            filter: drop-shadow(0 0 5px rgba(0, 229, 255, 0.6));
+            stroke-dasharray: 20, 15;
+            animation: dash-move 30s linear infinite;
+        }
+
+        /* VUELTA (Inbound) - Naranja Neon */
+        .route-inbound-path {
+            stroke: #ff9900 !important;
+            stroke-width: 8;
+            stroke-linecap: round;
+            filter: drop-shadow(0 0 5px rgba(255, 153, 0, 0.6));
+            stroke-dasharray: 20, 15;
+            animation: dash-move 30s linear infinite reverse; /* Flujo inverso opcional */
         }
 
         .dest-marker-icon {
@@ -498,43 +506,48 @@ function drawRouteAndAnimate(startLat, startLon, endLat, endLon) {
 // NUEVA FUNCIÓN: DIBUJAR RUTA DESDE GEOJSON (BACKEND)
 // =========================================================
 window.drawRouteFromGeoJSON = function(geometry) {
-    console.log("Dibujando ruta desde GeoJSON del servidor...");
+    console.log("Dibujando ruta dividida (Ida/Vuelta)...");
 
-    // 1. Limpiar ruta anterior (Routing Machine o Layer anterior)
+    // 1. Limpiar rutas anteriores
     if (routingControl) {
         map.removeControl(routingControl);
         routingControl = null;
     }
-    if (window.currentRouteLayer) {
-        map.removeLayer(window.currentRouteLayer);
-        window.currentRouteLayer = null;
-    }
+    // Limpiar capas globales si existen
+    if (window.outboundLayer) map.removeLayer(window.outboundLayer);
+    if (window.inboundLayer) map.removeLayer(window.inboundLayer);
+    if (window.currentRouteLayer) map.removeLayer(window.currentRouteLayer);
     
-    // Limpiar marcador de destino anterior si existe
+    // Limpiar marcador de destino
     if (searchMarker) {
         map.removeLayer(searchMarker);
         searchMarker = null;
     }
 
-    if (!geometry || !geometry.coordinates) return;
+    if (!geometry || !geometry.coordinates || geometry.coordinates.length === 0) return;
 
-    // 2. Crear capa GeoJSON con estilo Neón
-    // Leaflet.js maneja automáticamente la inversión [Lng, Lat] -> [Lat, Lng]
-    window.currentRouteLayer = L.geoJSON(geometry, {
-        style: function (feature) {
-            return {
-                color: '#00e5ff', // Color base (cyan)
-                weight: 8,
-                opacity: 0.8,
-                lineCap: 'round',
-                lineJoin: 'round',
-                className: 'leaflet-ant-path' // Reutilizamos la clase para la animación/estilo
-            };
-        }
+    // 2. Procesar Coordenadas (GeoJSON [lon, lat] -> Leaflet [lat, lon])
+    const allCoords = geometry.coordinates.map(c => [c[1], c[0]]);
+    const totalPoints = allCoords.length;
+    const midPoint = Math.floor(totalPoints / 2);
+
+    // Dividir en Ida (0 -> mitad) y Vuelta (mitad -> fin)
+    // Se solapa 1 punto para que no quede hueco visual
+    const idaCoords = allCoords.slice(0, midPoint + 1);
+    const vueltaCoords = allCoords.slice(midPoint);
+
+    // 3. Dibujar Segmento IDA (Cyan)
+    window.outboundLayer = L.polyline(idaCoords, {
+        className: 'route-outbound-path' // Usamos la clase CSS definida arriba
     }).addTo(map);
 
-    // 3. Ajustar la vista para mostrar toda la ruta
-    const bounds = window.currentRouteLayer.getBounds();
+    // 4. Dibujar Segmento VUELTA (Naranja)
+    window.inboundLayer = L.polyline(vueltaCoords, {
+        className: 'route-inbound-path'
+    }).addTo(map);
+
+    // 5. Ajustar vista para abarcar toda la ruta
+    const bounds = L.latLngBounds(allCoords);
     map.flyToBounds(bounds, {
         padding: [50, 50],
         duration: 1.5

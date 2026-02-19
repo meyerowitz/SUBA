@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-       "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "adaptiveIcon": {
@@ -22,18 +22,19 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "splash": {
         "backgroundColor": "#FFFFFF"
       },
       "softwareKeyboardLayoutMode": "adjustResize"
-      
     },
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "c66c9288-e9ff-4d2d-bc16-26a995e42e6a"
+        "projectId": "9b668a1b-788e-452c-a874-ac36b3fb475d"
       }
     },
     "plugins": [

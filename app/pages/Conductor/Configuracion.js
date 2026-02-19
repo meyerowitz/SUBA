@@ -83,8 +83,8 @@ export default function Configuracion() {
       });
 
       const API_URL = "https://subapp-api.onrender.com"; 
-      console.log("📤 Subiendo a:", `${API_URL}/auth/profile-picture`);
-      const response = await fetch(`${API_URL}/auth/profile-picture`, {
+      console.log("📤 Subiendo a:", `${API_URL}/auth/foto-perfil`);
+      const response = await fetch(`${API_URL}/auth/foto-perfil`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
