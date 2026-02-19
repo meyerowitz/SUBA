@@ -1,4 +1,4 @@
-import {GoogleSignin,isErrorWithCode,isSuccessResponse,statusCodes,} from '@react-native-google-signin/google-signin';
+//import {GoogleSignin,isErrorWithCode,isSuccessResponse,statusCodes,} from '@react-native-google-signin/google-signin';
 
 import { Image } from "expo-image"
 import { Asset } from 'expo-asset';
@@ -53,7 +53,7 @@ useEffect(()=>{
 },[])
 
 
-GoogleSignin.configure({
+/*GoogleSignin.configure({
   webClientId: '159501895592-5oooqd8f4kvcque2n1aacrk9c93bq0op.apps.googleusercontent.com', // client ID of type WEB for your server. Required to get the `idToken` on the user object, and for offline access.
   offlineAccess: true, // if you want to access Google API on behalf of the user FROM YOUR SERVER
   iosClientId: '159501895592-rg8n8i2ab5le35m97m3p8b76657cgnal.apps.googleusercontent.com', // [iOS] if you want to specify the client ID of type iOS (otherwise, it is taken from GoogleService-Info.plist)
@@ -170,7 +170,7 @@ useEffect(() => {
   }
 
   googleSI();
-}, [state, isAuthenticated]);
+}, [state, isAuthenticated]);*/
 //-------------------------------------------------
 //        UseEffect de carga de imagenes
 //-------------------------------------------------
@@ -389,7 +389,7 @@ const handleLogin2 = async () => {
                 <View style={styles.googleContainer}>
                   <TouchableOpacity 
                   style={styles.googleButton} 
-                  onPress={() => signInA()}
+                  /*onPress={() => signInA()}*/
                     >
                     <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
                     <Text style={styles.googleText}>Continuar con Google</Text>
