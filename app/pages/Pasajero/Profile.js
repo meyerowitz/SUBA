@@ -66,6 +66,15 @@ export default function Profile() {
 
     setUserName(name);
     setUserEmail(email);
+
+    (async () => {
+      try {
+        const img = await AsyncStorage.getItem("@profile_image");
+        if (img) setProfileImage(img);
+      } catch (e) {
+        console.log("profile image load error", e);
+      }
+    })();
   }, []);
 
   const handleLogout = () => {

@@ -39,14 +39,16 @@ const fetchActiveRoutes = async () => {
     const json = await response.json();
     if (json.success && json.data) {
       console.log("✅ Rutas activas cargadas:", json.data.length);
-      // Mapeamos la respuesta de la API al formato que usa el frontend (lat/lon del endPoint)
+      // Mapeamos la respuesta de la API al formato que usa el frontend
       return json.data.map(route => ({
+        _id: route._id,
         name: route.name,
         // Usamos el punto final de la ruta como "Destino" para el ruteo
         lat: route.endPoint.lat,
         lon: route.endPoint.lng,
         address: route.name, // Usamos el nombre como dirección visual
-        geometry: route.geometry // <--- GEOMETRÍA
+        geometry: route.geometry, // <--- GEOMETRÍA
+        stops: route.stops // <--- PARADAS (Para filtrado)
       }));
     }
   } catch (error) {
@@ -109,6 +111,11 @@ export default function UnifiedHome() {
 
   // NUEVO ESTADO: Rutas disponibles (reemplaza Destinos.json)
   const [activeRoutes, setActiveRoutes] = useState([]);
+  
+  // --- NUEVOS ESTADOS PARA FLUJO DE PARADAS ---
+  const [allStops, setAllStops] = useState([]);
+  const [selectedStop, setSelectedStop] = useState("");
+  const [filteredRoutes, setFilteredRoutes] = useState([]);
 
   const [ShowEta, setShowEta]= useState(true); 
   const [Eta, SetEta]= useState("-- min");
@@ -180,7 +187,28 @@ export default function UnifiedHome() {
   // 1. Cargar Datos Iniciales
   useEffect(() => {
     // Cargar rutas activas al iniciar
-    fetchActiveRoutes().then(routes => setActiveRoutes(routes));
+    fetchActiveRoutes().then(routes => {
+        setActiveRoutes(routes);
+        
+        // Extraer paradas únicas de todas las rutas activas
+        const uniqueStopsMap = new Map();
+        routes.forEach(route => {
+            if (route.stops && Array.isArray(route.stops)) {
+                route.stops.forEach(stop => {
+                    // Usamos el nombre como clave para evitar duplicados
+                    if (stop.name) {
+                        uniqueStopsMap.set(stop.name, stop);
+                    }
+                });
+            }
+        });
+        
+        // Convertir a array y ordenar alfabéticamente
+        const stopsArray = Array.from(uniqueStopsMap.values())
+            .sort((a, b) => a.name.localeCompare(b.name));
+            
+        setAllStops(stopsArray);
+    });
 
     const cargarDatos = async () => {
         const name = await getusername();
@@ -276,6 +304,28 @@ export default function UnifiedHome() {
     } catch(e) {}
   };
 
+  const handleStopChange = (stopName) => {
+      setSelectedStop(stopName);
+      setSelectedDestinationName(""); // Resetear ruta seleccionada
+      
+      if (stopName) {
+          // Filtrar rutas que contienen esta parada
+          const routes = activeRoutes.filter(route => 
+              route.stops && route.stops.some(s => s.name === stopName)
+          );
+          setFilteredRoutes(routes);
+          
+          // Si solo hay una ruta, seleccionarla automáticamente
+          if (routes.length === 1) {
+              const routeName = routes[0].name;
+              setSelectedDestinationName(routeName);
+              setSelectedRoute({ name: routeName });
+          }
+      } else {
+          setFilteredRoutes([]);
+      }
+  };
+
   const handleSearch = () => {
     if (!selectedDestinationName || !userLocation) return;
     setIsSearching(true);
@@ -345,21 +395,52 @@ export default function UnifiedHome() {
                         <Ionicons name="close" size={24} color="#666" />
                     </TouchableOpacity>
                 </View>
+                
+                {/* 1. SELECCIÓN DE PARADA */}
                 <View style={styles.inputRow}>
-                    <Ionicons name="radio-button-on" size={20} color="#003366" />
-                    <Text style={styles.locationText} numberOfLines={1}>{ubicacionTexto}</Text>
-                </View>
-                <View style={styles.verticalLine} />
-                <View style={styles.inputRow}>
-                    <Ionicons name="location" size={20} color="#E69500" />
+                    <Ionicons name="bus" size={20} color="#003366" />
                     <View style={{flex: 1, marginLeft: 5}}>
-                      <Picker selectedValue={selectedDestinationName} onValueChange={(v) => {setSelectedDestinationName(v),setSelectedRoute(v ? { name: v } : null);}} style={{ height: 50, width: '100%' }}>
-                          <Picker.Item label="Selecciona destino..." value="" color="#999" />
-                          {activeRoutes.map((d) => (<Picker.Item key={d.name} label={d.name} value={d.name} />))}
+                      <Picker 
+                        selectedValue={selectedStop} 
+                        onValueChange={handleStopChange} 
+                        style={{ height: 50, width: '100%' }}
+                      >
+                          <Picker.Item label="Selecciona parada destino..." value="" color="#999" />
+                          {allStops.map((stop, index) => (
+                              <Picker.Item key={`${stop.name}-${index}`} label={stop.name} value={stop.name} />
+                          ))}
                       </Picker>
                     </View>
                 </View>
-                <TouchableOpacity style={styles.searchBtnLarge} onPress={handleSearch} disabled={isSearching}>
+
+                <View style={styles.verticalLine} />
+
+                {/* 2. SELECCIÓN DE RUTA (FILTRADA) */}
+                <View style={styles.inputRow}>
+                    <Ionicons name="map" size={20} color="#E69500" />
+                    <View style={{flex: 1, marginLeft: 5}}>
+                      <Picker 
+                        selectedValue={selectedDestinationName} 
+                        onValueChange={(v) => {
+                            setSelectedDestinationName(v);
+                            setSelectedRoute(v ? { name: v } : null);
+                        }} 
+                        style={{ height: 50, width: '100%' }}
+                        enabled={filteredRoutes.length > 0}
+                      >
+                          <Picker.Item 
+                            label={selectedStop ? "Selecciona la mejor ruta..." : "Primero selecciona una parada"} 
+                            value="" 
+                            color="#999" 
+                          />
+                          {filteredRoutes.map((d) => (
+                              <Picker.Item key={d.name} label={d.name} value={d.name} />
+                          ))}
+                      </Picker>
+                    </View>
+                </View>
+
+                <TouchableOpacity style={styles.searchBtnLarge} onPress={handleSearch} disabled={isSearching || !selectedDestinationName}>
                     {isSearching ? <ActivityIndicator color="#003366" /> : <Text style={styles.searchBtnText}>Buscar Ruta</Text>}
                 </TouchableOpacity>
             </View>

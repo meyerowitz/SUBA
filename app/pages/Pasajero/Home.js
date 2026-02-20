@@ -27,6 +27,11 @@ export default function Home({ navigation }) {
 
   // NUEVO ESTADO: Rutas disponibles (reemplaza Destinos.json)
   const [activeRoutes, setActiveRoutes] = useState([]);
+  
+  // --- NUEVOS ESTADOS PARA FLUJO DE PARADAS ---
+  const [allStops, setAllStops] = useState([]);
+  const [selectedStop, setSelectedStop] = useState("");
+  const [filteredRoutes, setFilteredRoutes] = useState([]);
 
   const [TicketBs,setTicketBs]=useState(1);
   const [TicketBsLoad,setTicketBsLoad]=useState(true);
@@ -41,6 +46,8 @@ export default function Home({ navigation }) {
   const { theme, toggleTheme, isDark } = useTheme();
 
   const router= useRouter();
+  const API_URL = "https://subapp-api.onrender.com";
+  const STOP_CACHE_KEY = "guayana_bus_stops_cache_v2";
 
   useEffect(() => {
     const loadUserImage = async () => {
@@ -54,6 +61,58 @@ export default function Home({ navigation }) {
     };
     loadUserImage();
   }, []);
+
+  const fetchGuayanaBusStops = async () => {
+    try {
+      const cached = await AsyncStorage.getItem(STOP_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        // 24 horas de expiración
+        if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) return parsed.data;
+      }
+    } catch (e) {}
+  
+    try {
+      const response = await fetch(`${API_URL}/api/paradas/activas`);
+      const json = await response.json();
+  
+      if (json.success && json.data) {
+          const stops = json.data.map(stop => ({
+              lat: stop.location.lat,
+              lon: stop.location.lng,
+              name: stop.name
+          }));
+          AsyncStorage.setItem(STOP_CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: stops }));
+          return stops;
+      }
+    } catch (error) {
+      console.error("Error fetching stops:", error);
+    }
+    return [];
+  };
+
+  const handleStopChange = (stopName) => {
+    setSelectedStop(stopName);
+    setSelectedDestinationName(""); // Resetear ruta seleccionada
+    
+    if (stopName) {
+        // Filtrar rutas que contienen esta parada
+        const routes = activeRoutes.filter(route => 
+            route.stops && route.stops.some(s => s.name === stopName)
+        );
+        setFilteredRoutes(routes);
+        
+        // Si solo hay una ruta, seleccionarla automáticamente
+        if (routes.length === 1) {
+            const routeName = routes[0].name;
+            setSelectedDestinationName(routeName);
+            setSelectedRoute({ name: routeName });
+        }
+    } else {
+        setFilteredRoutes([]);
+    }
+};
+
   // === LÓGICA DE GEOLOCALIZACIÓN (Mantenemos tu lógica original) ===
   const obtenerUbicacionOrigen = async () => {
     setCargandoOrigen(true);
@@ -138,16 +197,34 @@ const obtenerSaldoReal = async () => {
     obtenerUbicacionOrigen();
 
     // A.2 Cargar Rutas
-    fetch('https://subapp-api.onrender.com/api/rutas/activas')
+    fetch(`${API_URL}/api/rutas/activas`)
       .then(res => res.json())
       .then(json => {
         if(json.success) {
           const mapped = json.data.map(r => ({
             name: r.name,
             lat: r.endPoint.lat,
-            lon: r.endPoint.lng
+            lon: r.endPoint.lng,
+            stops: r.stops // Importante para filtrar
           }));
           setActiveRoutes(mapped);
+
+           // Extraer paradas únicas
+           const uniqueStopsMap = new Map();
+           mapped.forEach(route => {
+               if (route.stops && Array.isArray(route.stops)) {
+                   route.stops.forEach(stop => {
+                       if (stop.name) {
+                           uniqueStopsMap.set(stop.name, stop);
+                       }
+                   });
+               }
+           });
+           
+           const stopsArray = Array.from(uniqueStopsMap.values())
+               .sort((a, b) => a.name.localeCompare(b.name));
+               
+           setAllStops(stopsArray);
         }
       })
       .catch(err => console.error("Error cargando rutas en Home:", err));
@@ -289,9 +366,26 @@ const handleSearch = () => {
 
             <View style={{ height: 1, backgroundColor: '#EEE' }} />
 
+            {/* NUEVO: SELECCIÓN DE PARADA */}
+            <View style={{ height: 60, justifyContent: 'center' }}>
+              <Text style={{ fontSize: 12, color: '#999' }}>Parada Destino (Filtro)</Text>
+              <Picker 
+                  selectedValue={selectedStop} 
+                  onValueChange={handleStopChange} 
+                  style={{ marginLeft: -15, width: '110%' }}
+                >
+                    <Picker.Item label="Todas las paradas..." value="" color="#999" />
+                    {allStops.map((stop, index) => (
+                        <Picker.Item key={`${stop.name}-${index}`} label={stop.name} value={stop.name} />
+                    ))}
+                </Picker>
+            </View>
+
+            <View style={{ height: 1, backgroundColor: '#EEE' }} />
+
             {/* DESTINO CON PICKER */}
           <View style={{ height: 60, justifyContent: 'center' }}>
-              <Text style={{ fontSize: 12, color: '#999' }}>Hacia</Text>
+              <Text style={{ fontSize: 12, color: '#999' }}>Ruta a elegir</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Picker
                   selectedValue={selectedDestinationName}
@@ -301,8 +395,12 @@ const handleSearch = () => {
                   style={{ flex: 1, marginLeft: -15 }}
                   enabled={!isSearching}
                 >
-                  <Picker.Item label="Selecciona un destino..." value="" color="#999" />
-                  {activeRoutes.map((dest) => (
+                  <Picker.Item 
+                    label={selectedStop ? (filteredRoutes.length > 0 ? "Selecciona ruta..." : "Sin rutas disponibles") : "Selecciona una ruta..."} 
+                    value="" 
+                    color="#999" 
+                  />
+                  {(selectedStop ? filteredRoutes : activeRoutes).map((dest) => (
                     <Picker.Item key={dest.name} label={dest.name} value={dest.name} />
                   ))}
                 </Picker>

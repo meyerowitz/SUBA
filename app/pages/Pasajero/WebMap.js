@@ -41,7 +41,8 @@ const fetchActiveRoutes = async () => {
         lat: route.endPoint.lat,
         lon: route.endPoint.lng,
         address: route.name, // Usamos el nombre como dirección visual
-        geometry: route.geometry // <--- GEOMETRÍA PRECALCULADA
+        geometry: route.geometry, // <--- GEOMETRÍA PRECALCULADA
+        stops: route.stops // <--- PARADAS (Para filtrado)
       }));
     }
   } catch (error) {
@@ -149,6 +150,11 @@ export default function WebMap() {
 
   // NUEVO ESTADO: Rutas disponibles (reemplaza Destinos.json)
   const [activeRoutes, setActiveRoutes] = useState([]);
+  
+  // --- NUEVOS ESTADOS PARA FLUJO DE PARADAS ---
+  const [allStops, setAllStops] = useState([]);
+  const [selectedStop, setSelectedStop] = useState("");
+  const [filteredRoutes, setFilteredRoutes] = useState([]);
 
   const [ShowEta, setShowEta]= useState(true);
   //-----------Todo lo relacionado al Eta--------
@@ -178,6 +184,26 @@ export default function WebMap() {
     }
   };
 
+  const handleStopChange = (stopName) => {
+    setSelectedStop(stopName);
+    setSelectedDestinationName(""); // Resetear ruta seleccionada
+    
+    if (stopName) {
+        // Filtrar rutas que contienen esta parada
+        const routes = activeRoutes.filter(route => 
+            route.stops && route.stops.some(s => s.name === stopName)
+        );
+        setFilteredRoutes(routes);
+        
+        // Si solo hay una ruta, seleccionarla automáticamente
+        if (routes.length === 1) {
+            const routeName = routes[0].name;
+            setSelectedDestinationName(routeName);
+        }
+    } else {
+        setFilteredRoutes([]);
+    }
+  };
 
 
   const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
@@ -261,8 +287,24 @@ export default function WebMap() {
 
   //----------- 1) .UseEffet loadhtmlUri-----------------------
   useEffect(() => {
-    // Cargar rutas activas al iniciar
-    fetchActiveRoutes().then(routes => setActiveRoutes(routes));
+    // Cargar rutas activas al iniciar (con paradas)
+    fetchActiveRoutes().then(mapped => {
+        if (mapped && mapped.length > 0) {
+             setActiveRoutes(mapped);
+             // Extraer paradas únicas
+             const uniqueStopsMap = new Map();
+             mapped.forEach(route => {
+                 if (route.stops && Array.isArray(route.stops)) {
+                     route.stops.forEach(stop => {
+                         if (stop.name) uniqueStopsMap.set(stop.name, stop);
+                     });
+                 }
+             });
+             const stopsArray = Array.from(uniqueStopsMap.values())
+                 .sort((a, b) => a.name.localeCompare(b.name));
+             setAllStops(stopsArray);
+        }
+    });
 
     //loadMapHtml().then(setMapHtmlUri);
     const loadHTML = async () => {
@@ -779,7 +821,7 @@ useEffect(() => {
       
         <View
           style={{
-            flexDirection: "row",
+            flexDirection: "column",
             position:'absolute',
             padding: 5,
             backgroundColor: "#fff",
@@ -790,50 +832,67 @@ useEffect(() => {
             shadowOpacity: 0.1,
             shadowRadius: 3,
             top:45,
-            left:30
+            left:50,
+            right: 20
           }}
         >
-          <Picker
-            selectedValue={selectedDestinationName}
-            onValueChange={(itemValue) => setSelectedDestinationName(itemValue)}
-            style={{ height: 50, width: "80%" }}
-            enabled={!isSearching}
-          >
-            <Picker.Item
-              label="Selecciona un destino..."
-              value=""
-              enabled={false}
-            />
-            {activeRoutes.map((dest) => (
-              <Picker.Item
-                key={dest.name}
-                label={dest.name}
-                value={dest.name}
-              />
-            ))}
-          </Picker>
+          {/* STOP PICKER */}
+          <View style={{borderBottomWidth: 1, borderBottomColor: '#eee', marginBottom: 0}}>
+             <Picker 
+                selectedValue={selectedStop} 
+                onValueChange={handleStopChange} 
+                style={{ height: 50, width: "100%" }}
+             >
+                <Picker.Item label="Filtro: Todas las paradas" value="" color="#999" />
+                {allStops.map((stop, index) => (
+                    <Picker.Item key={`${stop.name}-${index}`} label={stop.name} value={stop.name} />
+                ))}
+             </Picker>
+          </View>
 
-          <TouchableOpacity
-            style={{
-              backgroundColor: "#007bff",
-              borderRadius: 9,
-              paddingHorizontal: 8,
-              paddingVertical: 8,
-              justifyContent: "center",
-              alignItems: "center",
-              minWidth: 45,
-              marginTop: 5,
-              marginRight:-20
-            }}
-            onPress={handleSearch}
-            disabled={isSearching || !selectedDestinationName}
-          >
-            {isSearching ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Feather name="search" size={24} color="#ffffffff" />
-            )}
-          </TouchableOpacity>
+          {/* ROUTE PICKER & BUTTON */}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Picker
+              selectedValue={selectedDestinationName}
+              onValueChange={(itemValue) => setSelectedDestinationName(itemValue)}
+              style={{ height: 50, flex: 1 }}
+              enabled={!isSearching}
+            >
+              <Picker.Item
+                label={selectedStop ? (filteredRoutes.length > 0 ? "Selecciona ruta..." : "Sin rutas") : "Selecciona una ruta..."}
+                value=""
+                enabled={false}
+              />
+              {(selectedStop ? filteredRoutes : activeRoutes).map((dest) => (
+                <Picker.Item
+                  key={dest.name}
+                  label={dest.name}
+                  value={dest.name}
+                />
+              ))}
+            </Picker>
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: "#007bff",
+                borderRadius: 9,
+                paddingHorizontal: 8,
+                paddingVertical: 8,
+                justifyContent: "center",
+                alignItems: "center",
+                minWidth: 45,
+                marginLeft: 5
+              }}
+              onPress={handleSearch}
+              disabled={isSearching || !selectedDestinationName}
+            >
+              {isSearching ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Feather name="search" size={24} color="#ffffffff" />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       <Volver route="/pages/Pasajero/Navigation" color={"white"} style={{top:60, left:1}}/>
     </View>
