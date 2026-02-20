@@ -12,9 +12,10 @@ import * as FileSystem from "expo-file-system/legacy";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router'; 
 import { getusername } from '../../Components/AsyncStorage';
+import Destinos from "../../Components/Destinos.json";
 
-// 💡 1. IMPORTAMOS NUESTRO CENTRO DE CONTROL MAGICO
-import { MOCK_BACKEND } from '../../../lib/SimuladorBackend';
+// 💡 NUESTRO CENTRO DE CONTROL MAGICO
+import { MOCK_BACKEND } from '../../../lib/SimuladorBackend'; 
 
 const { height } = Dimensions.get('window');
 const STOP_CACHE_KEY = "guayana_bus_stops_cache";
@@ -62,7 +63,7 @@ export default function UnifiedHome() {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedDestinationName, setSelectedDestinationName] = useState("");
   
-  // 💡 2. LEEMOS EL ESTADO DIRECTAMENTE DEL SIMULADOR
+  // 💡 LEEMOS EL ESTADO DIRECTAMENTE DEL SIMULADOR
   const perfilCompletado = MOCK_BACKEND.perfil_completado;
   const saldo = MOCK_BACKEND.saldo;
   const tasaBCV = MOCK_BACKEND.tasa_bcv;
@@ -180,7 +181,6 @@ export default function UnifiedHome() {
       {/* HEADER (PERFIL) */}
       <View style={styles.headerContainer}>
           <View style={styles.headerLeft}>
-              {/* Quitamos el longPress, ahora es un botón normal que te lleva al perfil */}
               <TouchableOpacity onPress={() => router.push('/pages/Pasajero/Profile')} style={styles.avatarBtn}>
                   <Ionicons name="person" size={20} color="#003366" />
               </TouchableOpacity>
@@ -266,10 +266,13 @@ export default function UnifiedHome() {
                  <View style={styles.actionButtonsRow}>
                      {perfilCompletado ? (
                        <>
-                         <TouchableOpacity style={styles.qrBtn} onPress={() => alert('Abriendo Escáner QR...')}>
-                             <Ionicons name="qr-code-outline" size={20} color="white" style={{marginRight: 6}}/>
-                             <Text style={styles.qrBtnText}>Pagar QR</Text>
-                         </TouchableOpacity>
+                         <TouchableOpacity 
+                            style={styles.qrBtn} 
+                            onPress={() => router.push('/Components/ScannerQR')} // 💡 Ruta corregida
+                          >
+                            <Ionicons name="qr-code-outline" size={20} color="white" style={{marginRight: 6}}/>
+                            <Text style={styles.qrBtnText}>Pagar QR</Text>
+                          </TouchableOpacity>
                          <TouchableOpacity style={styles.billeteraBtn} onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}> 
                              <Ionicons name="wallet-outline" size={24} color="#003366" />
                          </TouchableOpacity>

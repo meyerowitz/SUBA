@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator, Image, Modal } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -11,14 +10,24 @@ import { decode } from 'base64-arraybuffer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ==========================================
-// 🎭 SIMULACRO DE API (KYC Light)
+// 🎭 SIMULACROS DE API (KYC Light y Subsidios)
 // ==========================================
 const mockCompletarPerfil = async (datosPerfil) => {
   return new Promise((resolve) => {
-    console.log("Enviando al Backend (KYC Light):", datosPerfil);
+    console.log("1. Enviando Perfil al Backend (KYC Light):", datosPerfil);
     setTimeout(() => {
       resolve({ success: true, message: "Perfil completado" });
     }, 1500); 
+  });
+};
+
+// 💡 NUEVO SIMULADOR PARA EL SUBSIDIO
+const mockSolicitarDescuento = async (datosDescuento) => {
+  return new Promise((resolve) => {
+    console.log("2. Enviando Solicitud de Subsidio Automática:", datosDescuento);
+    setTimeout(() => {
+      resolve({ success: true, message: "Subsidio en revisión" });
+    }, 1000); 
   });
 };
 // ==========================================
@@ -29,7 +38,7 @@ export default function FormularioPerfil() {
   const [enviando, setEnviando] = useState(false);
 
   // --- VARIABLES PASO 1 (Identidad) ---
-  const [tipoDoc, setTipoDoc] = useState('V'); // Por defecto Venezolano
+  const [tipoDoc, setTipoDoc] = useState('V'); 
   const [cedula, setCedula] = useState('');
   const [nombres, setNombres] = useState('');
   const [apellidos, setApellidos] = useState('');
@@ -37,10 +46,10 @@ export default function FormularioPerfil() {
   const [fechaNac, setFechaNac] = useState(new Date());
   const [fechaTexto, setFechaTexto] = useState('');
   const [mostrarCalendario, setMostrarCalendario] = useState(false);
-  const [modalDocVisible, setModalDocVisible] = useState(false); // Modal para el tipo de documento
+  const [modalDocVisible, setModalDocVisible] = useState(false); 
 
   // --- VARIABLES PASO 2 (Documento) ---
-  const [fotoCedula, setFotoCedula] = useState<string | null>(null);
+  const [fotoCedula, setFotoCedula] = useState(null);
 
   // Lógica automática de Tercera Edad
   const edadUsuario = React.useMemo(() => {
@@ -56,7 +65,7 @@ export default function FormularioPerfil() {
 
   const esTerceraEdad = edadUsuario >= 60; 
 
-  const cambiarFecha = (event: any, fechaSeleccionada?: Date) => {
+  const cambiarFecha = (event, fechaSeleccionada) => {
     const fechaActual = fechaSeleccionada || fechaNac;
     setMostrarCalendario(Platform.OS === 'ios'); 
     setFechaNac(fechaActual);
@@ -71,7 +80,7 @@ export default function FormularioPerfil() {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) return;
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'], // 💡 AQUÍ ESTÁ EL CAMBIO (usando un arreglo)
+      mediaTypes: ['images'], 
       allowsEditing: true, 
       quality: 0.5,
     });
@@ -80,7 +89,7 @@ export default function FormularioPerfil() {
     }
   };
 
-  const subirImagenASupabase = async (uri: string, prefijo: string) => {
+  const subirImagenASupabase = async (uri, prefijo) => {
     if (!uri) return null;
     try {
       const ext = uri.substring(uri.lastIndexOf('.') + 1) || 'jpg';
@@ -119,26 +128,32 @@ export default function FormularioPerfil() {
           Alert.alert('Error de Sesión', 'No pudimos identificar tu cuenta. Inicia sesión de nuevo.');
           setEnviando(false); return;
         }
-        const sessionData = JSON.parse(sessionString);
-        const miUsuarioId = sessionData.id || sessionData._id;
 
         const urlCedula = await subirImagenASupabase(fotoCedula, 'cedula_kyc');
-
-        // 🧠 Unimos el tipo de documento con el número para el backend
         const documentoCompleto = `${tipoDoc}-${cedula}`;
 
+        // 🧠 1. PAYLOAD KYC: Lo que pide el backend para actualizar el usuario
         const payloadBackend = {
-          userId: miUsuarioId,
+          fullName: `${nombres} ${apellidos}`,
           cedula: documentoCompleto, 
-          nombres: nombres,
-          apellidos: apellidos,
           phone: telefono, 
           birthDate: fechaNac.toISOString(), 
-          idDocumentImageUrl: urlCedula, 
-          esTerceraEdad: esTerceraEdad 
+          idDocumentImageUrl: urlCedula 
         };
 
         await mockCompletarPerfil(payloadBackend);
+
+        // 💡 2. MAGIA AUTOMÁTICA: Si es Tercera Edad, disparamos el subsidio
+        if (esTerceraEdad) {
+          const payloadSubsidio = {
+            discountType: 'tercera_edad',
+            documentType: 'cedula_senior',
+            documentNumber: documentoCompleto, 
+            documentImageUrl: urlCedula
+          };
+          await mockSolicitarDescuento(payloadSubsidio);
+        }
+
         await AsyncStorage.setItem('@Perfil_Completado', 'true');
 
         Alert.alert(
@@ -169,7 +184,6 @@ export default function FormularioPerfil() {
       <Text style={styles.title}>Completa tu Perfil</Text>
       <Text style={styles.subtitle}>Necesitamos unos datos básicos para habilitar tus funciones financieras.</Text>
       
-      {/* 💡 EL NUEVO CAMPO COMPUESTO PARA LA CÉDULA */}
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Documento de Identidad</Text>
         <View style={styles.cedulaContainer}>
@@ -180,7 +194,7 @@ export default function FormularioPerfil() {
           <TextInput 
             style={styles.cedulaInput} 
             placeholder="Ej: 28123456" 
-            keyboardType={tipoDoc === 'P' ? 'default' : 'numeric'} // Inteligencia de UX
+            keyboardType={tipoDoc === 'P' ? 'default' : 'numeric'} 
             autoCapitalize="characters"
             value={cedula} 
             onChangeText={setCedula} 
@@ -268,7 +282,7 @@ export default function FormularioPerfil() {
 
   return (
     <View style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <View style={styles.header}>
           <TouchableOpacity onPress={retroceder} style={styles.backButton} disabled={enviando}><FontAwesome6 name="arrow-left" size={24} color={enviando ? "#ccc" : "#023A73"} /></TouchableOpacity>
           <View style={styles.progressContainer}><View style={[styles.progressBar, { width: `${(pasoActual / 3) * 100}%` }]} /></View>
@@ -292,7 +306,6 @@ export default function FormularioPerfil() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* 💡 MODAL PARA ELEGIR TIPO DE DOCUMENTO */}
       <Modal visible={modalDocVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -334,7 +347,6 @@ const styles = StyleSheet.create({
   dateText: { fontSize: 16, color: '#212121' },
   datePlaceholder: { fontSize: 16, color: '#999' },
   
-  // 💡 ESTILOS NUEVOS PARA EL CAMPO DE CÉDULA
   cedulaContainer: { flexDirection: 'row', height: 60, borderWidth: 1, borderColor: '#DFDFDF', borderRadius: 15, backgroundColor: '#FAFAFA', overflow: 'hidden' },
   cedulaPrefix: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, borderRightWidth: 1, borderRightColor: '#DFDFDF', backgroundColor: '#F0F5FA', justifyContent: 'center' },
   cedulaPrefixText: { fontSize: 16, fontWeight: 'bold', color: '#023A73' },
@@ -356,7 +368,6 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#FFA311', width: '100%', height: 60, borderRadius: 100, justifyContent: 'center', alignItems: 'center', shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 5, elevation: 4 },
   buttonText: { color: '#023A73', fontSize: 16, fontWeight: 'bold' },
 
-  // 💡 ESTILOS PARA EL MODAL TIPO DOC
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#FFFFFF', borderRadius: 20, width: '80%', padding: 20, alignItems: 'center' },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#023A73', marginBottom: 15 },

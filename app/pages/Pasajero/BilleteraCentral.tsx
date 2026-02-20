@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, StatusBar, Modal, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useRouter } from 'expo-router';
 
@@ -180,7 +179,13 @@ export default function BilleteraCentral() {
             <Text style={styles.modalSubtitle}>¿Qué deseas hacer con tu dinero?</Text>
 
             {/* Opcion 1: Recargar */}
-            <TouchableOpacity style={styles.modalOptionBtn} onPress={() => { setModalDineroVisible(false); alert('Ir a Recargar'); }}>
+            <TouchableOpacity 
+              style={styles.modalOptionBtn} 
+              onPress={() => { 
+                setModalDineroVisible(false); 
+                router.push('/pages/Pasajero/RecargarSaldo'); // 💡 AQUÍ ESTÁ LA MAGIA
+              }}
+            >
               <View style={[styles.modalOptionIcon, {backgroundColor: '#DCFCE7'}]}><FontAwesome6 name="bolt" size={20} color="#16A34A" /></View>
               <View style={{flex: 1}}>
                 <Text style={styles.modalOptionTitle}>Recargar Saldo</Text>
@@ -190,7 +195,13 @@ export default function BilleteraCentral() {
             </TouchableOpacity>
 
             {/* Opcion 2: Transferir */}
-            <TouchableOpacity style={styles.modalOptionBtn} onPress={() => { setModalDineroVisible(false); alert('Ir a Transferir'); }}>
+            <TouchableOpacity 
+              style={styles.modalOptionBtn} 
+              onPress={() => { 
+                setModalDineroVisible(false); 
+                router.push('/pages/Pasajero/TransferirSaldo'); // 💡 AQUÍ ESTÁ EL CAMBIO
+              }}
+            >
               <View style={[styles.modalOptionIcon, {backgroundColor: '#E0F2FE'}]}><FontAwesome6 name="paper-plane" size={20} color="#0284C7" /></View>
               <View style={{flex: 1}}>
                 <Text style={styles.modalOptionTitle}>Transferir (P2P)</Text>
@@ -200,7 +211,13 @@ export default function BilleteraCentral() {
             </TouchableOpacity>
 
             {/* Opcion 3: Retirar */}
-            <TouchableOpacity style={[styles.modalOptionBtn, {borderBottomWidth: 0}]} onPress={() => { setModalDineroVisible(false); alert('Ir a Retirar'); }}>
+            <TouchableOpacity 
+              style={styles.modalOptionBtn} 
+              onPress={() => { 
+                setModalDineroVisible(false); 
+                router.push('/pages/Pasajero/RetirarSaldo'); // 💡 LO CONECTAMOS AQUÍ
+              }}
+            >
               <View style={[styles.modalOptionIcon, {backgroundColor: '#F3E8FF'}]}><FontAwesome6 name="building-columns" size={20} color="#9333EA" /></View>
               <View style={{flex: 1}}>
                 <Text style={styles.modalOptionTitle}>Retirar Saldo</Text>
