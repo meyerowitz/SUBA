@@ -228,62 +228,82 @@ export default function UnifiedHome() {
           </View>
       )}
 
-      <TouchableOpacity style={[styles.gpsBtn, isRouteActive ? { bottom: 250 } : { bottom: 140 }]} onPress={centrar}>
+      <TouchableOpacity style={[styles.gpsBtn, isRouteActive ? { bottom: 250 } : { bottom: 160 }]} onPress={centrar}>
          <Ionicons name="locate" size={24} color="#003366" />
       </TouchableOpacity>
 
       {/* TARJETA INFERIOR DINÁMICA (BILLETERA) */}
       {!isSearchExpanded && (
         isRouteActive ? (
-            <View style={styles.miniBalanceCard}>
-                 {perfilCompletado ? (
-                   <Text style={styles.miniBalanceText}>Bs. {saldo.toFixed(2)}</Text>
-                 ) : (
-                   <Text style={[styles.miniBalanceText, {color: '#666', fontSize: 14}]}>Billetera</Text>
-                 )}
-                 <TouchableOpacity style={styles.miniAddBtn} onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}>
-                    <Ionicons name="wallet" size={20} color="white" />
-                 </TouchableOpacity>
-            </View>
-        ) : (
-            <View style={styles.bottomCard}>
-                 <View style={{flex: 1}}>
+            // ESTADO MINI (CANDO ESTÁ EL ETA ACTIVO)
+            <View style={styles.miniActionsContainer}>
+                 <View style={styles.miniBalanceCard}>
                      {perfilCompletado ? (
-                       <>
-                         <Text style={styles.saldoLabel}>Saldo disponible</Text>
-                         <Text style={styles.saldoValue}>Bs. {saldo.toFixed(2)}</Text>
-                         <Text style={styles.saldoSub}>≈ ${(saldo / (tasaBCV || 1)).toFixed(2)} USD</Text>
-                       </>
+                       <Text style={styles.miniBalanceText}>Bs. {saldo.toFixed(2)}</Text>
                      ) : (
-                       <>
-                         <Text style={[styles.saldoLabel, { color: '#E69500', fontWeight: 'bold' }]}>Billetera Digital</Text>
-                         <Text style={[styles.saldoValue, { fontSize: 20 }]}>¡Actívala gratis!</Text>
-                         <Text style={styles.saldoSub}>Paga pasajes y recibe subsidios</Text>
-                       </>
+                       <Text style={[styles.miniBalanceText, {color: '#666', fontSize: 14}]}>Billetera</Text>
                      )}
+                     <TouchableOpacity style={styles.miniAddBtn} onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}>
+                        <Ionicons name="wallet" size={20} color="white" />
+                     </TouchableOpacity>
                  </View>
 
-                 <View style={styles.actionButtonsRow}>
-                     {perfilCompletado ? (
-                       <>
-                         <TouchableOpacity 
-                            style={styles.qrBtn} 
-                            onPress={() => router.push('/Components/ScannerQR')} // 💡 Ruta corregida
-                          >
-                            <Ionicons name="qr-code-outline" size={20} color="white" style={{marginRight: 6}}/>
-                            <Text style={styles.qrBtnText}>Pagar QR</Text>
-                          </TouchableOpacity>
-                         <TouchableOpacity style={styles.billeteraBtn} onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}> 
-                             <Ionicons name="wallet-outline" size={24} color="#003366" />
-                         </TouchableOpacity>
-                       </>
-                     ) : (
-                       <TouchableOpacity style={[styles.walletBtn, { backgroundColor: '#E69500' }]} onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}> 
-                           <Text style={[styles.walletBtnText, { color: 'white' }]}>Mi Billetera</Text>
-                           <Ionicons name="arrow-forward" size={20} color="white" style={{marginLeft: 5}}/>
-                       </TouchableOpacity>
-                     )}
-                 </View>
+                 {perfilCompletado && (
+                   <TouchableOpacity style={styles.miniQrBtn} onPress={() => router.push('/Components/ScannerQR')}>
+                      <Ionicons name="qr-code" size={22} color="white" />
+                   </TouchableOpacity>
+                 )}
+            </View>
+        ) : (
+            // 💡 ESTADO COMPLETO COMPACTADO
+            <View style={styles.bottomCardVertical}>
+                 {perfilCompletado ? (
+                   <>
+                     <Text style={styles.saldoLabel}>Saldo disponible</Text>
+                     {/* 💡 AQUI ES DONDE UNIMOS LOS VALORES */}
+                     <View style={styles.balanceRow}>
+                       <Text style={styles.saldoValue}>Bs. {saldo.toFixed(2)}</Text>
+                       <Text style={styles.saldoSub}>≈ ${(saldo / (tasaBCV || 1)).toFixed(2)} USD</Text>
+                     </View>
+
+                     {/* 💡 BOTONES MÁS BAJITOS Y CERCA DEL TEXTO */}
+                     <View style={styles.actionButtonsRowBottom}>
+                        <TouchableOpacity 
+                          style={styles.billeteraBtnYellow} 
+                          onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}
+                        > 
+                           <Ionicons name="wallet" size={20} color="white" style={{marginRight: 6}}/>
+                           <Text style={styles.billeteraBtnText}>Mi Billetera</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                          style={styles.qrBtnCompact} 
+                          onPress={() => router.push('/Components/ScannerQR')}
+                        >
+                          <Ionicons name="qr-code-outline" size={20} color="white" style={{marginRight: 4}}/>
+                          <Text style={styles.qrBtnCompactText}>QR</Text>
+                        </TouchableOpacity>
+                     </View>
+                   </>
+                 ) : (
+                   // SI NO HA COMPLETADO EL PERFIL
+                   <View style={styles.incompleteProfileRow}>
+                      <View style={{flex: 1}}>
+                          <Text style={[styles.saldoLabel, { color: '#E69500', fontWeight: 'bold', fontSize: 16 }]}>
+                              Billetera Digital
+                          </Text>
+                          <Text style={[styles.saldoValue, { fontSize: 24 }]}>
+                              ¡Actívala gratis!
+                          </Text>
+                          <Text style={[styles.saldoSub, { marginLeft: 0, marginTop: 4 }]}>
+                              Paga tus pasajes y habilita subsidios
+                          </Text>
+                      </View>
+                       <TouchableOpacity style={styles.walletBtnMini} onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}>
+                          <Ionicons name="arrow-forward" size={28} color="white" />
+                      </TouchableOpacity>
+                   </View>
+                 )}
             </View>
         )
       )}
@@ -330,19 +350,36 @@ const styles = StyleSheet.create({
   searchBtnLarge: { marginTop: 15, backgroundColor: '#E69500', borderRadius: 12, height: 50, justifyContent: 'center', alignItems: 'center' },
   searchBtnText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   gpsBtn: { position: 'absolute', right: 20, backgroundColor: 'white', width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', elevation: 5, zIndex: 999 },
-  bottomCard: { position: 'absolute', bottom: 30, left: 20, right: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', elevation: 10 },
-  saldoLabel: { fontSize: 13, color: '#666' },
-  saldoValue: { fontSize: 24, fontWeight: 'bold', color: '#003366', marginVertical: 2 },
-  saldoSub: { fontSize: 13, color: '#888', fontWeight: '500' }, 
-  actionButtonsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  qrBtn: { backgroundColor: '#003366', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14, flexDirection: 'row', alignItems: 'center', elevation: 3 },
-  qrBtnText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
-  billeteraBtn: { backgroundColor: '#bde0fe', padding: 12, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  walletBtn: { backgroundColor: '#bde0fe', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 14, flexDirection: 'row', alignItems: 'center' },
-  walletBtnText: { color: '#003366', fontWeight: 'bold', fontSize: 14 },
-  miniBalanceCard: { position: 'absolute', bottom: 250, left: 20, backgroundColor: 'white', borderRadius: 30, paddingLeft: 15, paddingRight: 5, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', elevation: 5, height: 50 },
+  
+  // 💡 ESTILOS COMPACTADOS (MENOS PADDING, MÁS JUNTOS)
+  bottomCardVertical: { 
+    position: 'absolute', bottom: 30, left: 20, right: 20, 
+    backgroundColor: 'white', borderRadius: 20, padding: 18, 
+    elevation: 10, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10 
+  },
+  saldoLabel: { fontSize: 13, color: '#666', marginBottom: 0 },
+  
+  // 💡 AJUSTE CLAVE: flex-start une los elementos, baseline los alinea por debajo
+  balanceRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-start', marginBottom: 10 },
+  saldoValue: { fontSize: 28, fontWeight: 'bold', color: '#003366' },
+  saldoSub: { fontSize: 13, color: '#888', fontWeight: '600', marginLeft: 10 }, 
+  
+  // 💡 BOTONES MÁS BAJITOS (paddingVertical ajustado)
+  actionButtonsRowBottom: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  billeteraBtnYellow: { flex: 1, backgroundColor: '#E69500', paddingVertical: 12, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', elevation: 3 },
+  billeteraBtnText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
+  qrBtnCompact: { backgroundColor: '#003366', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', elevation: 3 },
+  qrBtnCompactText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
+
+  incompleteProfileRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  walletBtnMini: { backgroundColor: '#003366', width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
+  
+  miniActionsContainer: { position: 'absolute', bottom: 250, left: 20, flexDirection: 'row', alignItems: 'center' },
+  miniBalanceCard: { backgroundColor: 'white', borderRadius: 30, paddingLeft: 15, paddingRight: 5, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', elevation: 5, height: 50 },
   miniBalanceText: { fontSize: 16, fontWeight: 'bold', color: '#003366', marginRight: 10 },
   miniAddBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E69500', justifyContent: 'center', alignItems: 'center' },
+  miniQrBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#003366', justifyContent: 'center', alignItems: 'center', elevation: 5, marginLeft: 10 },
+  
   etaCard: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'white', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, elevation: 25, height: 230, zIndex: 100 },
   etaHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   etaRouteName: { fontSize: 18, fontWeight: 'bold', color: '#333' },
