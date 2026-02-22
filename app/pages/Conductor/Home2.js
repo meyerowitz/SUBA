@@ -11,6 +11,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
 import mqtt from "mqtt";
+import { ActivityIndicator } from 'react-native';
 
 const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
@@ -22,6 +23,7 @@ export default function HomeConductor() {
   const [resumenHoy, setResumenHoy] = useState({ pasajeros: 0, totalBs: 0 });
   const [saldoTotal, setSaldoTotal] = useState(0.00);
   const [DriverName, setDriverName] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   // --- ESTADOS DE RASTREO ---
@@ -181,14 +183,27 @@ export default function HomeConductor() {
     setResumenHoy({ pasajeros: 24, totalBs: 480.00 });
   }, []);
 
-  useEffect(() => {
-    if (enLinea) {
-      iniciarTurno();
+  const handleToggleSwitch = async (value) => {
+    if (loading) return; // Prevent interaction if already processing
+
+    setLoading(true); // Block the UI
+
+    if (value) {
+      // Logic for turning ON
+      try {
+        await iniciarTurno();
+        setEnLinea(true);
+      } catch (error) {
+        Alert.alert("Error", "No se pudo conectar.");
+        console.error(error);
+      }
     } else {
+      // Logic for turning OFF
       detenerTurno();
+      setEnLinea(false);
     }
-    return () => detenerTurno();
-  }, [enLinea]);
+    setLoading(false); // Unblock the UI
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -220,13 +235,24 @@ export default function HomeConductor() {
             </TouchableOpacity>
 
             <View>
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>{enLinea ? "ONLINE" : "OFFLINE"}</Text>
-                <Switch
-                  value={enLinea}
-                  onValueChange={setEnLinea}
-                  trackColor={{ false: "#767577", true: "#34C759" }}
-                />
+              <View style={[styles.statusBadge, loading && { backgroundColor: '#F1C40F' }]}>
+                <Text style={styles.statusText}>{loading ? "CONECTANDO..." : (enLinea ? "ONLINE" : "OFFLINE")}</Text>
+                {loading ? (
+                  <ActivityIndicator size="small" color="white" style={{ marginLeft: 10 }} />
+                ) : (
+                  <Switch
+                    value={enLinea}
+                    onValueChange={handleToggleSwitch} // Use the new handler
+                    disabled={loading} // Disable interaction
+                    trackColor={{ false: "#767577", true: "#34C759" }}
+                    thumbColor={loading ? "#F1C40F" : (enLinea ? "#fff" : "#f4f3f4")}
+                  />
+                )}
+                {/* <Switch */}
+                {/*   value={enLinea} */}
+                {/*   onValueChange={setEnLinea} */}
+                {/*   trackColor={{ false: "#767577", true: "#34C759" }} */}
+                {/* /> */}
               </View>
 
               {/* ID DEL DISPOSITIVO */}
