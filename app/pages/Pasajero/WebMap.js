@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
   Image,
   StyleSheet,
@@ -21,7 +21,7 @@ import * as Location from "expo-location";
 import * as FileSystem from "expo-file-system/legacy";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../Components/Temas_y_colores/ThemeContext";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 
 import SearchRoot from "../../Components/SearchRoot";
 import mqtt from "mqtt";
@@ -297,45 +297,62 @@ export default function WebMap() {
     loadHTML();
   }, []);
 
-  useEffect(() => {
-    console.log("-----Solicitando permisos de Locacion------");
-    let locationSubscription = null;
-    const requestPermissionsAndGetLocation = async () => {
-      try {
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") {
-          console.log("Permiso denegado");
-          setUbicacionTexto("Permiso de ubicación denegado");
-          setLoading(false);
-          return;
-        }
-        console.log("--------> Permisos de ubicacion aprobados ♿ ☑️------");
-        locationSubscription = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.BestForNavigation,
-            timeInterval: 5000,
-            distanceInterval: 2,
-          },
-          (location) => {
-            const { latitude, longitude } = location.coords;
-            setUserLocation({ latitude, longitude });
-            setUbicacionTexto("Tu ubicación actual");
+  useFocusEffect(
+    useCallback(() => {
+      console.log("-----Solicitando permisos de Locacion (Focus)------");
+      let locationSubscription = null;
+      let isMounted = true;
+
+      const requestPermissionsAndGetLocation = async () => {
+        try {
+          let { status } = await Location.requestForegroundPermissionsAsync();
+          if (!isMounted) return;
+          
+          if (status !== "granted") {
+            console.log("Permiso denegado");
+            setUbicacionTexto("Permiso de ubicación denegado");
             setLoading(false);
-          },
-        );
-      } catch (error) {
-        console.error("Error obteniendo ubicación:", error);
-        setUbicacionTexto("Error obteniendo ubicación");
-        setLoading(false);
-      }
-    };
-    requestPermissionsAndGetLocation();
-    return () => {
-      if (locationSubscription) {
-        locationSubscription.remove();
-      }
-    };
-  }, []);
+            return;
+          }
+          console.log("--------> Permisos de ubicacion aprobados ♿ ☑️------");
+          const sub = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.BestForNavigation,
+              timeInterval: 5000,
+              distanceInterval: 2,
+            },
+            (location) => {
+              if (!isMounted) return;
+              const { latitude, longitude } = location.coords;
+              setUserLocation({ latitude, longitude });
+              setUbicacionTexto("Tu ubicación actual");
+              setLoading(false);
+            },
+          );
+          
+          if (!isMounted) {
+            sub.remove();
+          } else {
+            locationSubscription = sub;
+          }
+        } catch (error) {
+          console.error("Error obteniendo ubicación:", error);
+          if (isMounted) {
+            setUbicacionTexto("Error obteniendo ubicación");
+            setLoading(false);
+          }
+        }
+      };
+      requestPermissionsAndGetLocation();
+      return () => {
+        console.log("🛑 Deteniendo actualizaciones de ubicación (Blur)");
+        isMounted = false;
+        if (locationSubscription) {
+          locationSubscription.remove();
+        }
+      };
+    }, [])
+  );
 
   useEffect(() => {
     console.log();
@@ -375,69 +392,75 @@ export default function WebMap() {
     }
   }, [isMapReady, stopsInjected]);
 
-  useEffect(() => {
-    let fetchBusesInterval;
-    console.log();
-    console.log(" marcador de los BUSES 📍 ");
-    console.log();
-    const loadAndRenderBuses = async () => {
-      const transformedData = buses.map((bus) => ({
-        bus_id: bus.bus_id,
-        lat: bus.latitude,
-        lon: bus.longitude,
-      }));
+  useFocusEffect(
+    useCallback(() => {
+      let fetchBusesInterval;
+      console.log();
+      console.log(" 🚌 Iniciando rastreo de BUSES (Focus) 📍 ");
+      console.log();
+      const loadAndRenderBuses = async () => {
+        const transformedData = buses.map((bus) => ({
+          bus_id: bus.bus_id,
+          lat: bus.latitude,
+          lon: bus.longitude,
+        }));
 
-      setBusLocations(transformedData);
-      if (isMapReady && webviewRef.current) {
-        if (isMapReady === true) {
-          console.log("isMapReady: true ");
+        setBusLocations(transformedData);
+        if (isMapReady && webviewRef.current) {
+          if (isMapReady === true) {
+            console.log("isMapReady: true ");
+          }
+          const busDataString = JSON.stringify(transformedData);
+          const busJsCode = `renderBusLocations(${busDataString}); true;`;
+          webviewRef.current.injectJavaScript(busJsCode);
+          console.log(
+            `Ubicaciones de ${transformedData.length} buses inyectadas.`,
+          );
         }
-        const busDataString = JSON.stringify(transformedData);
-        const busJsCode = `renderBusLocations(${busDataString}); true;`;
-        webviewRef.current.injectJavaScript(busJsCode);
-        console.log(
-          `Ubicaciones de ${transformedData.length} buses inyectadas.`,
-        );
+      };
+
+      if (isMapReady) {
+        loadAndRenderBuses();
+        fetchBusesInterval = setInterval(loadAndRenderBuses, FETCH_INTERVAL);
       }
-    };
 
-    loadAndRenderBuses();
-    fetchBusesInterval = setInterval(loadAndRenderBuses, FETCH_INTERVAL);
+      return () => {
+        clearInterval(fetchBusesInterval);
+        console.log("🛑 Intervalo de carga de buses detenido (Blur).");
+      };
+    }, [isMapReady])
+  );
 
-    return () => {
-      clearInterval(fetchBusesInterval);
-      console.log("Intervalo de carga de buses detenido.");
-    };
-  }, [isMapReady]);
+  useFocusEffect(
+    useCallback(() => {
+      console.log("📡 Conectando al broker MQTT (Focus)");
+      const mqttClient = mqtt.connect(
+        "wss://3ef878324832459c8b966598a4c58112.s1.eu.hivemq.cloud:8884/mqtt",
+        {
+          username: "testeo",
+          password: "123456Abc",
+        },
+      );
 
-  useEffect(() => {
-    console.log("conectando al broker");
-    const mqttClient = mqtt.connect(
-      "wss://3ef878324832459c8b966598a4c58112.s1.eu.hivemq.cloud:8884/mqtt",
-      {
-        username: "testeo",
-        password: "123456Abc",
-      },
-    );
-
-    mqttClient.on("connect", () => {
-      console.log("✅ Conectado al broker MQTT");
-      mqttClient.subscribe("subapp/passenger");
-    });
-    mqttClient.on("error", (err) => {
-      console.error("Error MQTT:", err);
-    });
-    mqttClient.on("message", (topic, message) => {
-      const datos = JSON.parse(message.toString());
-      console.log(` Mensaje recibido en ${topic}:`, datos._id);
-      createOrUpdateBusData(datos);
-    });
-    setClient(mqttClient);
-    return () => {
-      if (mqttClient) mqttClient.end();
-      console.log("mqtt client destroyed");
-    };
-  }, []);
+      mqttClient.on("connect", () => {
+        console.log("✅ Conectado al broker MQTT");
+        mqttClient.subscribe("subapp/passenger");
+      });
+      mqttClient.on("error", (err) => {
+        console.error("Error MQTT:", err);
+      });
+      mqttClient.on("message", (topic, message) => {
+        const datos = JSON.parse(message.toString());
+        console.log(` Mensaje recibido en ${topic}:`, datos._id);
+        createOrUpdateBusData(datos);
+      });
+      setClient(mqttClient);
+      return () => {
+        if (mqttClient) mqttClient.end();
+        console.log("🔌 Cliente MQTT desconectado y destruido (Blur)");
+      };
+    }, [])
+  );
 
   useEffect(() => {
     console.log("HasCenteredOnce:" + hasCenteredOnce);
