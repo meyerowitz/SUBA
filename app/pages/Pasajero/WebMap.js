@@ -22,6 +22,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../Components/Temas_y_colores/ThemeContext";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { useRoute } from "@react-navigation/native"; //Importante para la Comunicacion con HOME
 
 import SearchRoot from "../../Components/SearchRoot";
 import mqtt from "mqtt";
@@ -32,7 +33,6 @@ const BASE_URL = "https://subapp-api.onrender.com/api";
 const BUSES_API_URL = `${BASE_URL}/buses`;
 const FETCH_INTERVAL = 5000;
 let buses = [];
-let busesxd = [];
 
 const STOP_CACHE_KEY = "guayana_bus_stops_cache_v2";
 const STOP_CACHE_EXPIRY = 24 * 60 * 60 * 1000;
@@ -115,23 +115,9 @@ function createOrUpdateBusData(busData) {
   }
 }
 
-const fetchBusLocations = async () => {
-  console.log("---> fetchBusLocation en la API()");
-  try {
-    const response = await fetch(BUSES_API_URL);
-    if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error al obtener ubicaciones de buses:", error);
-    return [];
-  }
-};
-
 export default function WebMap() {
   const insets = useSafeAreaInsets();
   const webviewRef = useRef(null);
-  const [mapHtmlUri, setMapHtmlUri] = useState(null);
   const [mapHtmlContent, setMapHtmlContent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mapLoading, setMapLoading] = useState(true);
@@ -144,7 +130,12 @@ export default function WebMap() {
   const [selectedDestinationName, setSelectedDestinationName] = useState("");
   const [client, setClient] = useState(null);
   const [busLocations, setBusLocations] = useState([]);
-  const { destino } = useLocalSearchParams();
+
+  const { destino: localDestino } = useLocalSearchParams();
+  const route = useRoute();
+  // Prioridad: Parámetros de navegación (Tab) > Parámetros de URL (Deep Link / Stack)
+  const destino = route.params?.destino || localDestino;
+
   const [hasCenteredOnce, setHasCenteredOnce] = useState(false);
 
   const [activeRoutes, setActiveRoutes] = useState([]);
@@ -178,7 +169,14 @@ export default function WebMap() {
     setSelectedDestinationName("");
     setFilteredRoutes([]);
     if (webviewRef.current) {
-      webviewRef.current.injectJavaScript("clearHighlight(); true;");
+      // Limpiamos todo: paradas resaltadas, rutas dibujadas y marcadores de búsqueda
+      webviewRef.current.injectJavaScript(`
+        clearHighlight(); 
+        if(window.currentRouteLayer) { map.removeLayer(window.currentRouteLayer); window.currentRouteLayer = null; }
+        if(typeof searchMarker !== 'undefined' && searchMarker) { map.removeLayer(searchMarker); searchMarker = null; }
+        if(typeof routingControl !== 'undefined' && routingControl) { map.removeControl(routingControl); routingControl = null; }
+        true;
+      `);
     }
   };
 
@@ -307,7 +305,7 @@ export default function WebMap() {
         try {
           let { status } = await Location.requestForegroundPermissionsAsync();
           if (!isMounted) return;
-          
+
           if (status !== "granted") {
             console.log("Permiso denegado");
             setUbicacionTexto("Permiso de ubicación denegado");
@@ -329,7 +327,7 @@ export default function WebMap() {
               setLoading(false);
             },
           );
-          
+
           if (!isMounted) {
             sub.remove();
           } else {
@@ -351,7 +349,7 @@ export default function WebMap() {
           locationSubscription.remove();
         }
       };
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -428,7 +426,7 @@ export default function WebMap() {
         clearInterval(fetchBusesInterval);
         console.log("🛑 Intervalo de carga de buses detenido (Blur).");
       };
-    }, [isMapReady])
+    }, [isMapReady]),
   );
 
   useFocusEffect(
@@ -459,7 +457,7 @@ export default function WebMap() {
         if (mqttClient) mqttClient.end();
         console.log("🔌 Cliente MQTT desconectado y destruido (Blur)");
       };
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -470,14 +468,6 @@ export default function WebMap() {
       console.log("✅ Cámara centrada inicialmente en el usuario");
     }
   }, [isMapReady]);
-
-  useEffect(() => {
-    if (destino) {
-      console.log("📍 Destino recibido por URL/Params:", destino);
-      setSelectedDestinationName(destino);
-      handleSearch();
-    }
-  }, [destino, isMapReady, userLocation]);
 
   const handleWebViewMessage = (event) => {
     const message = event.nativeEvent.data;
@@ -528,17 +518,10 @@ export default function WebMap() {
     }
   }, [ShowEta]);
 
-  const handleSearch = () => {
-    // VALIDACIÓN: Debe haber seleccionado parada y ruta
-    if (!selectedStop) {
-      Alert.alert(
-        "Selecciona una parada",
-        "Primero debes seleccionar una parada de origen.",
-      );
-      return;
-    }
-
-    if (!selectedDestinationName) {
+  // Modificado para aceptar argumento opcional
+  const handleSearch = (targetName = selectedDestinationName) => {
+    // VALIDACIÓN: Relajada. Si no hay parada, usamos GPS.
+    if (!targetName) {
       Alert.alert("Selecciona una ruta", "Debes seleccionar una ruta destino.");
       return;
     }
@@ -555,12 +538,10 @@ export default function WebMap() {
 
     try {
       console.log(
-        `Buscando: Parada ${selectedStop} → Ruta ${selectedDestinationName}`,
+        `Buscando: Origen ${selectedStop || "GPS"} → Ruta ${targetName}`,
       );
 
-      const destination = activeRoutes.find(
-        (dest) => dest.name === selectedDestinationName,
-      );
+      const destination = activeRoutes.find((dest) => dest.name === targetName);
 
       if (destination) {
         if (destination.geometry) {
@@ -601,6 +582,21 @@ export default function WebMap() {
     }
   };
 
+  // NUEVO EFECTO: Escuchar cambios en 'destino' (Navigation Params)
+  useEffect(() => {
+    // Solo ejecutamos si tenemos los datos necesarios
+    if (destino && isMapReady && userLocation && activeRoutes.length > 0) {
+      console.log("📍 Procesando destino recibido:", destino);
+
+      if (destino !== selectedDestinationName) {
+        setSelectedDestinationName(destino);
+      }
+
+      // Llamada directa con el valor de param para evitar problemas de estado
+      handleSearch(destino);
+    }
+  }, [destino, isMapReady, userLocation, activeRoutes]);
+
   const MoveToUser = () => {
     console.log("📷--> MoveToUser ");
     if (userLocation && webviewRef.current && isMapReady) {
@@ -625,7 +621,7 @@ export default function WebMap() {
   if (loading || mapLoading) {
     return (
       <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color="#d92b74" />
+        <ActivityIndicator size="large" color="#FFFFFF" />
         <Text style={styles.loadingText}>
           {mapLoading ? "Cargando mapa..." : "Buscando tu ubicación..."}
         </Text>
@@ -784,7 +780,7 @@ export default function WebMap() {
               (!selectedStop || !selectedDestinationName) &&
                 styles.disabledButton,
             ]}
-            onPress={handleSearch}
+            onPress={() => handleSearch()}
             disabled={isSearching || !selectedStop || !selectedDestinationName}
           >
             {isSearching ? (
@@ -986,7 +982,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: "#026b9c",
+    color: "#FFFFFF",
   },
 
   // ESTILOS DEL BUSCADOR - CENTRADO Y COMPACTO
