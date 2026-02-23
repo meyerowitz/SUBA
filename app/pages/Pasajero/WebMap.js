@@ -135,6 +135,7 @@ export default function WebMap() {
   const route = useRoute();
   // Prioridad: Parámetros de navegación (Tab) > Parámetros de URL (Deep Link / Stack)
   const destino = route.params?.destino || localDestino;
+  const lastProcessedDestino = useRef(null);
 
   const [hasCenteredOnce, setHasCenteredOnce] = useState(false);
 
@@ -582,21 +583,24 @@ export default function WebMap() {
     }
   };
 
-  // NUEVO EFECTO: Escuchar cambios en 'destino' (Navigation Params)
-  useEffect(() => {
-    // Solo ejecutamos si tenemos los datos necesarios
-    if (destino && isMapReady && userLocation && activeRoutes.length > 0) {
-      console.log("📍 Procesando destino recibido:", destino);
-
-      if (destino !== selectedDestinationName) {
-        setSelectedDestinationName(destino);
+    // NUEVO EFECTO: Escuchar cambios en 'destino' (Navigation Params)
+    useEffect(() => {
+      // Solo ejecutamos si tenemos los datos necesarios
+      if (destino && isMapReady && userLocation && activeRoutes.length > 0) {
+        // Evitar re-procesar el mismo destino si ya fue manejado (ej. por actualizaciones de GPS)
+        if (lastProcessedDestino.current === destino) return;
+  
+        console.log("📍 Procesando destino recibido:", destino);
+        lastProcessedDestino.current = destino;
+        
+        if (destino !== selectedDestinationName) {
+          setSelectedDestinationName(destino);
+        }
+        
+        // Llamada directa con el valor de param para evitar problemas de estado
+        handleSearch(destino);
       }
-
-      // Llamada directa con el valor de param para evitar problemas de estado
-      handleSearch(destino);
-    }
-  }, [destino, isMapReady, userLocation, activeRoutes]);
-
+    }, [destino, isMapReady, userLocation, activeRoutes]);
   const MoveToUser = () => {
     console.log("📷--> MoveToUser ");
     if (userLocation && webviewRef.current && isMapReady) {
@@ -800,64 +804,22 @@ export default function WebMap() {
 
       {/* CARD FLOTANTE: ETA DEL BUS MÁS CERCANO */}
       {ShowEta && nearestBusEta && !isSearchExpanded && (
-        <View
-          style={{
-            backgroundColor: "#ffffff",
-            width: "90%",
-            position: "absolute",
-            bottom: 30,
-            alignSelf: "center",
-            borderRadius: 15,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 5,
-            elevation: 10,
-            padding: 15,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <View style={{ flex: 1 }}>
-            <Text
-              style={{
-                fontWeight: "bold",
-                color: "#333",
-                fontSize: 16,
-                marginBottom: 4,
-              }}
-            >
-              {selectedStopLocation
-                ? "Bus más cercano a la parada"
-                : "Bus más cercano a ti"}
+        <View style={styles.etaFloatingCard}>
+          <View style={styles.etaIconContainer}>
+             <Ionicons name="bus" size={24} color="white" />
+          </View>
+          
+          <View style={styles.etaTextContainer}>
+            <Text style={styles.etaTitle}>
+               {selectedStopLocation ? "A la parada" : "A tu ubicación"}
             </Text>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <View style={{ marginRight: 15 }}>
-                <Text style={{ color: "#666", fontSize: 12 }}>
-                  Tiempo estimado
-                </Text>
-                <Text
-                  style={{ fontWeight: "bold", fontSize: 20, color: "#007bff" }}
-                >
-                  {calculatingBusEta ? "..." : nearestBusEta}
-                </Text>
-              </View>
-              <View>
-                <Text style={{ color: "#666", fontSize: 12 }}>Distancia</Text>
-                <Text
-                  style={{ fontWeight: "bold", fontSize: 20, color: "#007bff" }}
-                >
-                  {calculatingBusEta ? "..." : nearestBusDist}
-                </Text>
-              </View>
-            </View>
+            <Text style={styles.etaSubtitle}>Tiempo de espera</Text>
           </View>
 
-          <Image
-            source={require("../../../assets/img/autobus.png")}
-            style={{ height: 60, width: 60, resizeMode: "contain" }}
-          />
+          <View style={styles.etaDataContainer}>
+             <Text style={styles.etaTimeText}>{calculatingBusEta ? "..." : nearestBusEta}</Text>
+             <Text style={styles.etaDistanceText}>{calculatingBusEta ? "..." : nearestBusDist}</Text>
+          </View>
         </View>
       )}
 
@@ -1090,4 +1052,58 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
+  // ESTILOS NUEVOS PARA LA TARJETA ETA
+  etaFloatingCard: {
+    position: 'absolute',
+    bottom: 30,
+    alignSelf: 'center',
+    width: '90%',
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#F0F0F0'
+  },
+  etaIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#003366', // Blue theme
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15
+  },
+  etaTextContainer: {
+    flex: 1,
+  },
+  etaTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#003366',
+    marginBottom: 2
+  },
+  etaSubtitle: {
+    fontSize: 12,
+    color: '#888'
+  },
+  etaDataContainer: {
+    alignItems: 'flex-end'
+  },
+  etaTimeText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFA311' // Orange theme for highlight
+  },
+  etaDistanceText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2
+  }
 });
