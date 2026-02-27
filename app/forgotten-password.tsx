@@ -6,10 +6,8 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
 import { useRecovery } from "@/context/RecoveryContext"
 import { sendVerificationCode } from "@/services/emailService"
 
-// ⚠️ REEMPLAZA ESTA URL POR TU IP LOCAL O TU DOMINIO DE BACKEND
-// Si usas emulador de Android usa: http://10.0.2.2:3000
-// Si usas dispositivo físico usa la IP de tu PC: http://192.168.1.XX:3000
-const API_URL = "http://192.168.0.108:3500";
+// URL de Producción en Render
+const API_URL = "https://subapp-api.onrender.com";
 
 export default function ForgottenPassword() {
   const router = useRouter()

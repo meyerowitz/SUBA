@@ -6,8 +6,8 @@ import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
 import { useRecovery } from "@/context/RecoveryContext"
 import { SafeAreaView } from "react-native-safe-area-context"
 
-// Ajusta según tu IP
-const API_URL = "http://192.168.0.108:3500";
+// URL de Producción en Render
+const API_URL = "https://subapp-api.onrender.com";
 
 export default function ResetPassword() {
   const router = useRouter()

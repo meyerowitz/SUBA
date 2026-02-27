@@ -6,9 +6,8 @@ import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar, 
 import Volver from './Components/Botones_genericos/Volver'
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// ⚠️ Ajusta esta URL a tu servidor de Render o IP Local
-// const API_URL = "https://subapp-api.onrender.com";
-const API_URL = "http://192.168.0.108:3500";
+// URL de Producción en Render
+const API_URL = "https://subapp-api.onrender.com";
 
 export default function Register() {
   const router = useRouter()
