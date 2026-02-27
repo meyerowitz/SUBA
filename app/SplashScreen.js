@@ -84,6 +84,8 @@ useEffect(() => {
         <View style={{width:'100%',justifyContent:'center', alignItems:'center', marginTop:'45%'}}>
             <Text style={{color:'white', }}>Bienvenido a SUBA</Text>
             <Text style={{color:'white',textAlign: 'center'}}>Proyecto realizado por los estudiantes de la Universidad Nacional Experimental de Guayana</Text>
+            <Text style={{color:'white',textAlign: 'center'}}>Version 1.2.0</Text>
+            
         </View>
        
       </ImageBackground>
