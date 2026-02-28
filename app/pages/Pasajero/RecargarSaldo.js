@@ -4,18 +4,18 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
+import { createClient } from "@supabase/supabase-js";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ==========================================
-// 🎭 SIMULACRO DE API
+// 🔗 CONEXIÓN AL BACKEND Y STORAGE
 // ==========================================
-const mockEnviarRecarga = async (datosPago) => {
-  return new Promise((resolve) => {
-    console.log("Enviando comprobante al backend:", datosPago);
-    setTimeout(() => {
-      resolve({ success: true, message: "Recarga en proceso de validación" });
-    }, 2000);
-  });
-};
+const supabase = createClient(
+  "https://wkkdynuopaaxtzbchxgv.supabase.co",
+  "sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP",
+);
+
+const API_URL = "https://subapp-api.onrender.com";
 
 export default function RecargarSaldo() {
   const router = useRouter();
@@ -53,7 +53,7 @@ export default function RecargarSaldo() {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) return;
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ['images'], // 💡 Evitamos el warning de Expo
       allowsEditing: true, 
       quality: 0.5,
     });
@@ -74,14 +74,45 @@ export default function RecargarSaldo() {
 
     setEnviando(true);
     try {
+      // 1. Obtener Token
+      const sessionString = await AsyncStorage.getItem("@Sesion_usuario");
+      if (!sessionString) throw new Error("No hay sesión activa");
+      const token = JSON.parse(sessionString).token;
+
+      // 2. Subir imagen a Supabase (usando FormData para evitar error de red nativo)
+      const ext = captura.substring(captura.lastIndexOf('.') + 1) || 'jpg';
+      const fileName = `captures/${Date.now()}.${ext}`;
+      
+      const formData = new FormData();
+      formData.append("file", { 
+        uri: Platform.OS === "android" ? captura : captura.replace("file://", ""), 
+        name: fileName, 
+        type: `image/${ext === 'jpg' ? 'jpeg' : ext}` 
+      });
+
+      const { error: storageError } = await supabase.storage.from('comprobantes').upload(fileName, formData);
+      if (storageError) throw storageError;
+      
+      const { data: urlData } = supabase.storage.from('comprobantes').getPublicUrl(fileName);
+
+      // 3. Enviar al Backend de SUBA
       const payload = {
         monto: montoNumerico,
-        referenciaPago: referencia,
-        banco: "Banesco",
-        comprobantUrl: "https://ruta-de-tu-storage/capture.jpg" 
+        referencia: referencia,
+        comprobanteUrl: urlData.publicUrl 
       };
 
-      await mockEnviarRecarga(payload);
+      const response = await fetch(`${API_URL}/api/billetera/recarga`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Error procesando la recarga en el servidor");
 
       Alert.alert(
         "¡Recarga Enviada! 🚀", 
@@ -89,7 +120,8 @@ export default function RecargarSaldo() {
         [{ text: "Entendido", onPress: () => router.back() }]
       );
     } catch (error) {
-      Alert.alert("Error", "Hubo un problema enviando tu recarga. Intenta de nuevo.");
+      console.log("Error recarga:", error);
+      Alert.alert("Error", error.message || "Hubo un problema enviando tu recarga. Intenta de nuevo.");
     } finally {
       setEnviando(false);
     }
@@ -112,7 +144,6 @@ export default function RecargarSaldo() {
           
           {/* --- TARJETA RESALTADA (Azul SUBA) --- */}
           <View style={styles.resumenCard}>
-            {/* 💡 TÍTULO MOVIDO AQUÍ ADENTRO */}
             <Text style={styles.cardTitle}>Datos de Pago</Text>
 
             <View style={styles.resumenFila}>
@@ -140,7 +171,6 @@ export default function RecargarSaldo() {
             </TouchableOpacity>
           </View>
 
-          {/* 💡 SUBTÍTULO MOVIDO AQUÍ ABAJO */}
           <Text style={styles.subtitle}>Realiza tu pago móvil y registra el comprobante aquí.</Text>
 
           {/* --- FORMULARIO --- */}
@@ -209,34 +239,25 @@ const styles = StyleSheet.create({
   backButton: { padding: 5 },
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#023A73' },
   scrollContent: { flexGrow: 1, paddingHorizontal: 30, paddingTop: 20, paddingBottom: 30 },
-  
-  // 💡 ESTILO DEL TÍTULO ADENTRO DE LA TARJETA
   cardTitle: { fontSize: 24, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', marginBottom: 20 },
-  
-  // 💡 ESTILO DEL SUBTÍTULO AFUERA DE LA TARJETA
   subtitle: { fontSize: 15, color: '#544F4F', textAlign: 'center', marginBottom: 25, lineHeight: 22 },
-
   resumenCard: { backgroundColor: '#023A73', padding: 20, borderRadius: 15, marginBottom: 20, shadowColor: '#023A73', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 8 },
   resumenFila: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   resumenLabel: { fontSize: 15, color: 'rgba(255, 255, 255, 0.7)' },
   resumenValor: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF' },
   btnCopiar: { flexDirection: 'row', backgroundColor: '#FFA311', paddingVertical: 12, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 15 },
   btnCopiarText: { color: '#023A73', fontSize: 13, fontWeight: 'bold', marginLeft: 8 },
-
   inputGroup: { marginBottom: 20 },
   label: { fontSize: 14, fontWeight: 'bold', color: '#023A73', marginBottom: 8, marginLeft: 5 },
   input: { width: '100%', height: 60, padding: 15, borderWidth: 1, borderColor: '#DFDFDF', borderRadius: 15, fontSize: 16, color: '#212121', backgroundColor: '#FAFAFA' },
-  
   montoContainer: { flexDirection: 'row', height: 60, borderWidth: 1, borderColor: '#DFDFDF', borderRadius: 15, backgroundColor: '#FAFAFA', overflow: 'hidden' },
   currencyPrefix: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, borderRightWidth: 1, borderRightColor: '#DFDFDF', backgroundColor: '#F0F5FA', justifyContent: 'center' },
   currencyPrefixText: { fontSize: 16, fontWeight: 'bold', color: '#023A73' },
   montoInput: { flex: 1, paddingHorizontal: 15, fontSize: 18, fontWeight: 'bold', color: '#212121' },
-
   fotoBtn: { width: '100%', height: 160, borderRadius: 15, overflow: 'hidden', borderWidth: 2, borderColor: '#DFDFDF', backgroundColor: '#FAFAFA', borderStyle: 'dashed', marginTop: 5 },
   fotoPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   fotoPlaceholderText: { color: '#666', fontSize: 14, fontWeight: '500' },
   fotoPreview: { width: '100%', height: '100%', resizeMode: 'cover' },
-
   footer: { paddingHorizontal: 30, paddingBottom: Platform.OS === 'ios' ? 40 : 30, paddingTop: 15, backgroundColor: '#FFFFFF' },
   button: { backgroundColor: '#FFA311', width: '100%', height: 60, borderRadius: 100, justifyContent: 'center', alignItems: 'center', shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 5, elevation: 4 },
   buttonText: { color: '#023A73', fontSize: 16, fontWeight: 'bold' }

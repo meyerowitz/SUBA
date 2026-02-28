@@ -10,25 +10,40 @@ import { decode } from 'base64-arraybuffer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ==========================================
-// 🎭 SIMULACROS DE API (KYC Light y Subsidios)
+// 🔗 CONEXIÓN REAL CON EL BACKEND (SUBA API)
 // ==========================================
-const mockCompletarPerfil = async (datosPerfil) => {
-  return new Promise((resolve) => {
-    console.log("1. Enviando Perfil al Backend (KYC Light):", datosPerfil);
-    setTimeout(() => {
-      resolve({ success: true, message: "Perfil completado" });
-    }, 1500); 
+const API_URL = "https://subapp-api.onrender.com";
+
+const completarPerfilAPI = async (datosPerfil, token) => {
+  console.log("📤 Enviando Perfil al Backend (KYC Light)...");
+  const response = await fetch(`${API_URL}/auth/completar-perfil`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(datosPerfil)
   });
+  
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || data.error || "Error al completar perfil");
+  return data;
 };
 
-// 💡 NUEVO SIMULADOR PARA EL SUBSIDIO
-const mockSolicitarDescuento = async (datosDescuento) => {
-  return new Promise((resolve) => {
-    console.log("2. Enviando Solicitud de Subsidio Automática:", datosDescuento);
-    setTimeout(() => {
-      resolve({ success: true, message: "Subsidio en revisión" });
-    }, 1000); 
+const solicitarDescuentoAPI = async (datosDescuento, token) => {
+  console.log("📤 Enviando Solicitud de Subsidio (Tercera Edad)...");
+  const response = await fetch(`${API_URL}/api/descuentos/solicitar`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(datosDescuento)
   });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || data.error || "Error al solicitar subsidio");
+  return data;
 };
 // ==========================================
 
@@ -80,7 +95,7 @@ export default function FormularioPerfil() {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) return;
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'], 
+      mediaTypes: ['images'], // 💡 Corrección del Warning de Expo
       allowsEditing: true, 
       quality: 0.5,
     });
@@ -94,9 +109,18 @@ export default function FormularioPerfil() {
     try {
       const ext = uri.substring(uri.lastIndexOf('.') + 1) || 'jpg';
       const fileName = `${prefijo}_${Date.now()}.${ext}`;
-      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
-      const { error } = await supabase.storage.from('documentos_suba').upload(fileName, decode(base64), { contentType: `image/${ext}` });
+      
+      // 💡 Corrección: Usamos FormData igual que en tu Wallet.js para evitar el Network Error
+      const formData = new FormData();
+      formData.append("file", { 
+        uri: Platform.OS === "android" ? uri : uri.replace("file://", ""), 
+        name: fileName, 
+        type: `image/${ext === 'jpg' ? 'jpeg' : ext}` 
+      });
+
+      const { error } = await supabase.storage.from('documentos_suba').upload(fileName, formData);
       if (error) throw error;
+      
       const { data: urlData } = supabase.storage.from('documentos_suba').getPublicUrl(fileName);
       return urlData.publicUrl;
     } catch (error) {
@@ -123,27 +147,36 @@ export default function FormularioPerfil() {
     else if (pasoActual === 3) {
       setEnviando(true);
       try {
+        // 1. Obtener Token de la sesión
         const sessionString = await AsyncStorage.getItem('@Sesion_usuario');
         if (!sessionString) {
           Alert.alert('Error de Sesión', 'No pudimos identificar tu cuenta. Inicia sesión de nuevo.');
           setEnviando(false); return;
         }
+        
+        const session = JSON.parse(sessionString);
+        const token = session.token;
 
+        if (!token) throw new Error("Token no encontrado en la sesión local");
+
+        // 2. Subir imagen a Supabase
         const urlCedula = await subirImagenASupabase(fotoCedula, 'cedula_kyc');
         const documentoCompleto = `${tipoDoc}-${cedula}`;
 
-        // 🧠 1. PAYLOAD KYC: Lo que pide el backend para actualizar el usuario
+        // 🧠 3. PAYLOAD KYC: Tal cual lo pide el backend en la sección 4.0
         const payloadBackend = {
           fullName: `${nombres} ${apellidos}`,
           cedula: documentoCompleto, 
           phone: telefono, 
-          birthDate: fechaNac.toISOString(), 
+          // 💡 Corrección: Cortamos la fecha para enviar SOLO 'YYYY-MM-DD' y hacer feliz a Zod
+          birthDate: fechaNac.toISOString().split('T')[0], 
           idDocumentImageUrl: urlCedula 
         };
 
-        await mockCompletarPerfil(payloadBackend);
+        // LLAMADA REAL A LA API
+        await completarPerfilAPI(payloadBackend, token);
 
-        // 💡 2. MAGIA AUTOMÁTICA: Si es Tercera Edad, disparamos el subsidio
+        // 💡 4. MAGIA AUTOMÁTICA: Subsidio de Tercera Edad (Sección 4.5)
         if (esTerceraEdad) {
           const payloadSubsidio = {
             discountType: 'tercera_edad',
@@ -151,9 +184,13 @@ export default function FormularioPerfil() {
             documentNumber: documentoCompleto, 
             documentImageUrl: urlCedula
           };
-          await mockSolicitarDescuento(payloadSubsidio);
+          // LLAMADA REAL A LA API DE SUBSIDIOS
+          await solicitarDescuentoAPI(payloadSubsidio, token);
         }
 
+        // 5. Actualizar la sesión local para que la app sepa que el perfil está listo
+        const updatedSession = { ...session, isProfileComplete: true };
+        await AsyncStorage.setItem('@Sesion_usuario', JSON.stringify(updatedSession));
         await AsyncStorage.setItem('@Perfil_Completado', 'true');
 
         Alert.alert(
@@ -165,8 +202,8 @@ export default function FormularioPerfil() {
         );
 
       } catch (error) {
-        Alert.alert('Error de conexión', 'No pudimos activar la billetera. Intenta de nuevo.');
-        console.log(error);
+        Alert.alert('Error de conexión', error.message || 'No pudimos activar la billetera. Intenta de nuevo.');
+        console.log("Error en FormularioPerfil:", error);
       } finally {
         setEnviando(false);
       }

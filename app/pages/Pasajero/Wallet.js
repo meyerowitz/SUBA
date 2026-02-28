@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -22,15 +22,21 @@ import { createClient } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../Components/Temas_y_colores/ThemeContext";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 
-// Configuración de Supabase
+// Configuración de Supabase (Solo para subir los comprobantes, NO para base de datos)
 const supabase = createClient(
   "https://wkkdynuopaaxtzbchxgv.supabase.co",
   "sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP",
 );
 
+// 🔗 CONEXIÓN AL BACKEND
+const API_URL = "https://subapp-api.onrender.com";
+
 export default function WalletScreen() {
+  // --- ESTADOS DE SEGURIDAD ---
+  const [verificando, setVerificando] = useState(true);
+
   // --- ESTADOS DE LOGICA (ORIGINALES) ---
   const [operaciones, setOperaciones] = useState([]);
   const [cargandoHistorial, setCargandoHistorial] = useState(true);
@@ -54,11 +60,10 @@ export default function WalletScreen() {
 
   // --- ESTADOS DE UI (NUEVOS) ---
   const [seccionAbierta, setSeccionAbierta] = useState(null);
-  const [modalDineroVisible, setModalDineroVisible] = useState(false); // Bottom Sheet
+  const [modalDineroVisible, setModalDineroVisible] = useState(false); 
   
-  // Datos simulados o fijos
-  const tasaDolar = 45.00; // Puedes traer esto de una API si quieres
-  const estadoTarjetaFisica = 'SIN_TARJETA'; // 'SIN_TARJETA' | 'APROBADA' | 'VINCULADA'
+  const tasaDolar = 45.00; 
+  const estadoTarjetaFisica = 'POR_VINCULAR'; 
 
   const router = useRouter();
 
@@ -68,22 +73,49 @@ export default function WalletScreen() {
     identidad: "V-30366440",
   };
 
-  // --- EFECTOS ---
-  useEffect(() => {
-    const inicializar = async () => {
-      const nombre = await getusername();
-      setUserName(nombre || "Usuario");
-      await obtenerSaldoReal();
-      await cargarHistorial();
-    };
-    inicializar();
-  }, []);
+  // 🛡️ GUARDIA DE SEGURIDAD (INTERCEPTOR KYC)
+  useFocusEffect(
+    useCallback(() => {
+      const verificarKYC = async () => {
+        try {
+          const sessionData = await AsyncStorage.getItem("@Sesion_usuario");
+          const perfilCompletado = await AsyncStorage.getItem("@Perfil_Completado");
+
+          if (sessionData) {
+            const session = JSON.parse(sessionData);
+            // Si falta la cédula y no está la bandera de completado, lo echamos al KYC
+            if (!session.cedula && perfilCompletado !== 'true' && !session.isProfileComplete) {
+              console.log("🛑 KYC Incompleto. Redirigiendo al Formulario...");
+              router.replace("/pages/Pasajero/FormularioPerfil"); 
+              return;
+            }
+          } else {
+             router.replace("/Login");
+             return;
+          }
+          // Si todo está bien, lo dejamos entrar
+          setVerificando(false);
+          await inicializar();
+        } catch (error) {
+          console.error("Error verificando KYC:", error);
+          setVerificando(false);
+        }
+      };
+
+      verificarKYC();
+    }, [])
+  );
+
+  const inicializar = async () => {
+    const nombre = await getusername();
+    setUserName(nombre || "Usuario");
+    await obtenerSaldoReal();
+    await cargarHistorial();
+  };
 
   useEffect(() => {
-    // Simulación de búsqueda de usuario
+    // Simulación de búsqueda de usuario (Idealmente esto también iría al backend)
     if (destinatarioID.length >= 5) {
-        // Aquí podrías hacer un fetch real a supabase para buscar el nombre
-        // Por ahora mantenemos la lógica local si existe, o simulada
         if (destinatarioID === "12345") setNombreDestinatario("Juan Pérez");
         else if (destinatarioID === "67890") setNombreDestinatario("María García");
         else setNombreDestinatario("Usuario SUBA");
@@ -92,67 +124,63 @@ export default function WalletScreen() {
     }
   }, [destinatarioID]);
 
-  // --- FUNCIONES DE LÓGICA ---
-  const getuserid = async () => {
+  // --- FUNCIONES DE LÓGICA CON EL BACKEND ---
+  const getToken = async () => {
     const session = await AsyncStorage.getItem("@Sesion_usuario");
-    if (!session) return null;
-    return JSON.parse(session)._id;
+    return session ? JSON.parse(session).token : null;
   };
 
   const getusername = async () => {
     const session = await AsyncStorage.getItem("@Sesion_usuario");
-    if (!session) return "";
-    return JSON.parse(session).fullName;
+    return session ? JSON.parse(session).fullName : "";
   };
 
   const obtenerSaldoReal = async () => {
     try {
-      const userid = await getuserid();
-      if (!userid) return;
+      const token = await getToken();
+      if (!token) return;
 
-      const { data, error } = await supabase
-        .from("Saldo_usuarios")
-        .select("saldo")
-        .eq("external_user_id", userid.trim())
-        .maybeSingle();
-
-      if (error) {
-        console.log("Error saldo:", error.message);
-        return;
+      const response = await fetch(`${API_URL}/api/billetera/saldo`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      if (response.ok && data.saldo !== undefined) {
+        setSaldo(data.saldo);
+      } else {
+        setSaldo(0.0);
       }
-      if (data) setSaldo(data.saldo);
-      else setSaldo(0.0);
     } catch (error) {
-      console.log("Error crítico:", error);
+      console.log("Error al obtener saldo del servidor:", error);
     }
   };
 
   const cargarHistorial = async () => {
     try {
-      const userid = await getuserid();
-      if (!userid) return;
+      const token = await getToken();
+      if (!token) return;
 
-      const { data, error } = await supabase
-        .from("validaciones_pago")
-        .select("*")
-        .eq("external_user_id", userid.trim())
-        .order("created_at", { ascending: false });
+      const response = await fetch(`${API_URL}/api/billetera/historial`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
 
-      if (data) {
-        const formateados = data.map((item) => ({
-          id: item.id.toString(),
-          titulo: item.estado === "completado" ? "Recarga Exitosa" : "Validación en curso",
-          subtitulo: item.evidencia_url.includes('Envío') ? `Envío a otro usuario` : `Ref: ${item.referencia}`,
-          hora: new Date(item.created_at).toLocaleDateString(),
-          monto: item.monto_informado,
-          esIngreso: !item.evidencia_url.includes('Envío') && !item.evidencia_url.includes('Pago'), // Lógica simple para determinar signo
-          tipo: item.evidencia_url.includes('Envío') ? 'Transferencia P2P' : 'Recarga de Saldo',
-          icono: item.evidencia_url.includes('Envío') ? 'paper-plane' : 'bolt'
+      if (response.ok && data.historial) {
+        // Adaptamos el historial del backend a tu UI
+        const formateados = data.historial.map((item) => ({
+          id: item.id || item._id,
+          titulo: item.estado === "completado" ? "Operación Exitosa" : "En proceso",
+          subtitulo: item.tipo === 'transferencia' ? `P2P` : `Ref: ${item.referencia || 'N/A'}`,
+          hora: new Date(item.createdAt || item.created_at).toLocaleDateString(),
+          monto: item.monto,
+          esIngreso: item.tipo === 'recarga' || item.es_receptor, 
+          tipo: item.tipo === 'transferencia' ? 'Transferencia P2P' : 'Recarga de Saldo',
+          icono: item.tipo === 'transferencia' ? 'paper-plane' : 'bolt'
         }));
         setOperaciones(formateados);
       }
     } catch (error) {
-      console.log("Error historial:", error);
+      console.log("Error cargando historial:", error);
     } finally {
       setCargandoHistorial(false);
     }
@@ -180,37 +208,42 @@ export default function WalletScreen() {
     }
     setCargando(true);
     try {
-      const userid = await getuserid();
-      const cleanUserId = userid.trim();
+      const token = await getToken();
       const montoARecargar = parseFloat(montoInput);
 
+      // 1. Subir imagen a Supabase Storage (Mantenemos tu lógica de Storage)
       const fileName = `captures/${Date.now()}.jpg`;
       const formData = new FormData();
-      formData.append("file", { uri: image, name: fileName, type: "image/jpeg" });
+      formData.append("file", { uri: Platform.OS === "android" ? image : image.replace("file://", ""), name: fileName, type: "image/jpeg" });
 
       const { error: storageError } = await supabase.storage.from("comprobantes").upload(fileName, formData);
       if (storageError) throw storageError;
+      
+      const { data: urlData } = supabase.storage.from('comprobantes').getPublicUrl(fileName);
 
-      const { error: dbError } = await supabase.from("validaciones_pago").insert([{
-        external_user_id: cleanUserId,
+      // 2. Enviar la solicitud de recarga al Backend (El backend se encarga de sumar el saldo)
+      const payload = {
+        monto: montoARecargar,
         referencia: referencia,
-        monto_informado: montoARecargar,
-        evidencia_url: fileName,
-        estado: "completado",
-      }]);
-      if (dbError) throw dbError;
+        comprobanteUrl: urlData.publicUrl
+      };
 
-      const nuevoSaldoCalculado = saldo + montoARecargar;
-      const { error: saldoError } = await supabase.from("Saldo_usuarios").upsert(
-        { external_user_id: cleanUserId, saldo: nuevoSaldoCalculado },
-        { onConflict: "external_user_id" }
-      );
-      if (saldoError) throw saldoError;
+      const response = await fetch(`${API_URL}/api/billetera/recarga`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
 
-      setSaldo(nuevoSaldoCalculado);
-      Alert.alert("Recarga Exitosa", `Tu saldo ha sido actualizado. Nuevo saldo: Bs. ${nuevoSaldoCalculado.toFixed(2)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Error al procesar la recarga");
+
+      Alert.alert("Recarga en Revisión", "Tu pago ha sido reportado exitosamente. En breve actualizaremos tu saldo.");
       setModalVisible(false);
-      cargarHistorial();
+      await obtenerSaldoReal(); // Refrescamos el saldo
+      await cargarHistorial();  // Refrescamos el historial
     } catch (error) {
       Alert.alert("Error", "No pudimos procesar el reporte: " + error.message);
     } finally {
@@ -218,6 +251,7 @@ export default function WalletScreen() {
       setImage(null);
       setReferencia("");
       setMontoInput("");
+      setStep(1);
     }
   };
 
@@ -229,31 +263,32 @@ export default function WalletScreen() {
 
     setCargando(true);
     try {
-      const userid = await getuserid();
-      const myId = userid.trim();
-      const targetId = destinatarioID.trim();
-      const referenciaUnica = `TRF-${Date.now().toString().slice(-6)}`;
+      const token = await getToken();
 
-      const { error: errorResta } = await supabase.from("Saldo_usuarios").update({ saldo: saldo - monto }).eq("external_user_id", myId);
-      if (errorResta) throw errorResta;
+      // Enviar la transferencia al Backend
+      const payload = {
+        destinatarioId: destinatarioID.trim(),
+        monto: monto
+      };
 
-      const { data: dataDest } = await supabase.from("Saldo_usuarios").select("saldo").eq("external_user_id", targetId).maybeSingle();
-      const nuevoSaldoDest = (dataDest ? dataDest.saldo : 0) + monto;
+      const response = await fetch(`${API_URL}/api/billetera/transferir`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
 
-      const { error: errorSuma } = await supabase.from("Saldo_usuarios").upsert({ external_user_id: targetId, saldo: nuevoSaldoDest }, { onConflict: "external_user_id" });
-      if (errorSuma) throw errorSuma;
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Error al realizar la transferencia");
 
-      await supabase.from("validaciones_pago").insert([
-        { external_user_id: myId, referencia: referenciaUnica, monto_informado: monto, evidencia_url: `Envío a: ${nombreDestinatario}`, estado: "completado" },
-        { external_user_id: targetId, referencia: referenciaUnica, monto_informado: monto, evidencia_url: `Recibido de: ${userName}`, estado: "completado" }
-      ]);
-
-      setSaldo(saldo - monto);
       Alert.alert("¡Transferencia Exitosa!", `Has enviado Bs. ${monto.toFixed(2)} a ${nombreDestinatario}`);
       setModalTransferVisible(false);
       setMontoTransferir("");
       setDestinatarioID("");
-      cargarHistorial();
+      await obtenerSaldoReal(); // El backend ya restó el saldo, lo traemos fresco
+      await cargarHistorial();
     } catch (error) {
       Alert.alert("Error", error.message);
     } finally {
@@ -264,6 +299,16 @@ export default function WalletScreen() {
   const toggleSeccion = (seccion) => {
     setSeccionAbierta(seccionAbierta === seccion ? null : seccion);
   };
+
+  // 🛡️ Pantalla de carga mientras el Guardia verifica
+  if (verificando) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#023A73" />
+        <Text style={{ marginTop: 10, color: '#023A73', fontWeight: 'bold' }}>Cargando billetera segura...</Text>
+      </View>
+    );
+  }
 
   // --- RENDER ---
   return (
@@ -317,7 +362,9 @@ export default function WalletScreen() {
             <View style={styles.accordionTitleBox}>
               <Text style={styles.accordionTitle}>Tarjeta Física SUBA</Text>
               <Text style={styles.accordionSubtitle}>
-                {estadoTarjetaFisica === 'SIN_TARJETA' ? 'Solicítala por 5$' : 'Activa'}
+                {estadoTarjetaFisica === 'SIN_TARJETA' ? 'Solicítala por 5$' 
+                  : estadoTarjetaFisica === 'POR_VINCULAR' ? '¡Lista para vincular!' 
+                  : 'Activa y Protegida'}
               </Text>
             </View>
             <FontAwesome6 name={seccionAbierta === 'tarjeta' ? "chevron-up" : "chevron-down"} size={16} color="#94A3B8" />
@@ -325,10 +372,51 @@ export default function WalletScreen() {
           
           {seccionAbierta === 'tarjeta' && (
             <View style={styles.accordionContent}>
-              <Text style={styles.accordionTextInfo}>Si te quedas sin batería a veces, pide tu tarjeta de plástico con chip NFC para pagar en el bus sin depender de tu celular.</Text>
-              <TouchableOpacity style={styles.btnAccordionPrimary} onPress={() => alert('Funcionalidad en desarrollo')}>
-                <Text style={styles.btnAccordionPrimaryText}>Solicitar Tarjeta</Text>
-              </TouchableOpacity>
+              
+              {/* ESTADO 1: SIN TARJETA */}
+              {estadoTarjetaFisica === 'SIN_TARJETA' && (
+                <>
+                  <Text style={styles.accordionTextInfo}>Si te quedas sin batería a veces, pide tu tarjeta de plástico con chip NFC para pagar en el bus sin depender de tu celular.</Text>
+                  <TouchableOpacity style={styles.btnAccordionPrimary} onPress={() => router.push('/pages/Pasajero/SolicitarTarjeta')}>
+                    <Text style={styles.btnAccordionPrimaryText}>Solicitar Tarjeta Física</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {/* ESTADO 2: SOLICITADA / POR VINCULAR */}
+              {estadoTarjetaFisica === 'POR_VINCULAR' && (
+                <>
+                  <Text style={styles.accordionTextInfo}>Tu solicitud fue procesada. Si ya tienes el plástico físico en tus manos, vincúlalo a tu cuenta para activarlo.</Text>
+                  <TouchableOpacity style={[styles.btnAccordionPrimary, {backgroundColor: '#16A34A', flexDirection: 'row', justifyContent: 'center'}]} onPress={() => router.push('/pages/Pasajero/VincularTarjeta')}>
+                    <FontAwesome6 name="wifi" size={16} color="white" style={{marginRight: 10, transform: [{rotate: '90deg'}]}} />
+                    <Text style={styles.btnAccordionPrimaryText}>Vincular Mi Tarjeta</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {/* ESTADO 3: VINCULADA (LA TARJETA VIRTUAL) */}
+              {estadoTarjetaFisica === 'VINCULADA' && (
+                <View style={{ alignItems: 'center', marginTop: 5 }}>
+                  {/* Diseño de la Tarjeta */}
+                  <View style={{ width: '100%', height: 180, backgroundColor: '#1E293B', borderRadius: 20, padding: 20, justifyContent: 'space-between', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 5 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ color: 'white', fontSize: 20, fontWeight: '900', letterSpacing: 2 }}>SUBA</Text>
+                      <FontAwesome6 name="wifi" size={24} color="rgba(255,255,255,0.5)" style={{ transform: [{rotate: '90deg'}] }} />
+                    </View>
+                    <View>
+                      <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 5 }}>ID de Tarjeta</Text>
+                      <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold', letterSpacing: 3 }}>{/* Aquí iría la variable del ID */} SUB-8492-X9</Text>
+                    </View>
+                  </View>
+                  
+                  {/* Botón de Congelar */}
+                  <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', marginTop: 20, backgroundColor: '#FEF2F2', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, borderWidth: 1, borderColor: '#FECACA' }} onPress={() => Alert.alert('Congelar', '¿Seguro que deseas bloquear esta tarjeta? No podrá usarse para pagar.')}>
+                    <FontAwesome6 name="snowflake" size={16} color="#DC2626" />
+                    <Text style={{ color: '#DC2626', fontWeight: 'bold', marginLeft: 10 }}>Congelar Plástico</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
             </View>
           )}
 
@@ -404,7 +492,7 @@ export default function WalletScreen() {
               style={styles.modalOptionBtn} 
               onPress={() => { 
                 setModalDineroVisible(false); 
-                setModalVisible(true); // ABRIR MODAL ANTIGUO DE RECARGA
+                router.push('/pages/Pasajero/RecargarSaldo'); // <--- ENCHUFE NUEVO 🔌
               }}
             >
               <View style={[styles.modalOptionIcon, {backgroundColor: '#DCFCE7'}]}><FontAwesome6 name="bolt" size={20} color="#16A34A" /></View>
@@ -420,7 +508,7 @@ export default function WalletScreen() {
               style={styles.modalOptionBtn} 
               onPress={() => { 
                 setModalDineroVisible(false); 
-                setModalTransferVisible(true); // ABRIR MODAL ANTIGUO DE TRANSFERENCIA
+                router.push('/pages/Pasajero/TransferirSaldo'); // <--- ENCHUFE NUEVO 🔌
               }}
             >
               <View style={[styles.modalOptionIcon, {backgroundColor: '#E0F2FE'}]}><FontAwesome6 name="paper-plane" size={20} color="#0284C7" /></View>
@@ -434,7 +522,10 @@ export default function WalletScreen() {
             {/* Opcion 3: Retirar */}
             <TouchableOpacity 
               style={styles.modalOptionBtn} 
-              onPress={() => Alert.alert("Próximamente", "Función de retiro a cuenta bancaria en desarrollo.")}
+              onPress={() => { 
+                setModalDineroVisible(false); 
+                router.push('/pages/Pasajero/RetirarSaldo'); // <--- ENCHUFE NUEVO 🔌
+              }}
             >
               <View style={[styles.modalOptionIcon, {backgroundColor: '#F3E8FF'}]}><FontAwesome6 name="building-columns" size={20} color="#9333EA" /></View>
               <View style={{flex: 1}}>
@@ -448,7 +539,7 @@ export default function WalletScreen() {
       </Modal>
 
       {/* ========================================== */}
-      {/* MODALES ANTIGUOS (Lógica preservada)       */}
+      {/* MODALES ANTIGUOS (Lógica adaptada)         */}
       {/* ========================================== */}
       
       {/* MODAL RECARGA */}
@@ -655,4 +746,3 @@ const styles = StyleSheet.create({
   previewImage: { width: "100%", height: "100%", borderRadius: 20 },
   inputPro: { backgroundColor: "#F2F4F4", padding: 18, borderRadius: 15, marginBottom: 15, fontSize: 16, color: "#2C3E50" }
 });
-

@@ -1,22 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator, Modal } from 'react-native';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useRouter } from 'expo-router';
-
-// 💡 IMPORTAMOS EL SIMULADOR
-import { MOCK_BACKEND } from '../../../lib/SimuladorBackend';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ==========================================
-// 🎭 SIMULACRO DE API (Endpoint /api/billetera/retirar)
+// 🔗 CONEXIÓN AL BACKEND
 // ==========================================
-const mockRetirarSaldo = async (datosRetiro) => {
-  return new Promise((resolve) => {
-    console.log("Enviando solicitud de retiro al backend:", datosRetiro);
-    setTimeout(() => {
-      resolve({ success: true });
-    }, 1500);
-  });
-};
+const API_URL = "https://subapp-api.onrender.com";
 
 // 🏦 LISTA DE BANCOS VENEZOLANOS
 const LISTA_BANCOS = [
@@ -36,11 +27,13 @@ const LISTA_BANCOS = [
 
 export default function RetirarSaldo() {
   const router = useRouter();
-  const saldoDisponible = MOCK_BACKEND.saldo;
 
   // --- ESTADOS ---
+  const [saldoDisponible, setSaldoDisponible] = useState(0.0);
+  const [cargandoSaldo, setCargandoSaldo] = useState(true);
+
   const [cedula, setCedula] = useState('');
-  const [cuenta, setCuenta] = useState(''); // 💡 Cambiado de teléfono a cuenta
+  const [cuenta, setCuenta] = useState(''); 
   const [rawMonto, setRawMonto] = useState('0'); 
   const [enviando, setEnviando] = useState(false);
 
@@ -50,6 +43,32 @@ export default function RetirarSaldo() {
   
   const [tipoDoc, setTipoDoc] = useState('V');
   const [modalDocVisible, setModalDocVisible] = useState(false);
+
+  // --- OBTENER EL SALDO REAL AL CARGAR LA PANTALLA ---
+  useEffect(() => {
+    const obtenerSaldo = async () => {
+      try {
+        const sessionString = await AsyncStorage.getItem("@Sesion_usuario");
+        if (!sessionString) return;
+        const token = JSON.parse(sessionString).token;
+
+        const response = await fetch(`${API_URL}/api/billetera/saldo`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        
+        if (response.ok && data.saldo !== undefined) {
+          setSaldoDisponible(data.saldo);
+        }
+      } catch (error) {
+        console.log("Error al obtener saldo:", error);
+      } finally {
+        setCargandoSaldo(false);
+      }
+    };
+
+    obtenerSaldo();
+  }, []);
 
   // --- LÓGICA DE TECLADO BANCARIO ---
   const handleMontoChange = (text) => {
@@ -81,9 +100,14 @@ export default function RetirarSaldo() {
 
     setEnviando(true);
     try {
+      // 1. Obtener Token
+      const sessionString = await AsyncStorage.getItem("@Sesion_usuario");
+      if (!sessionString) throw new Error("No hay sesión activa");
+      const token = JSON.parse(sessionString).token;
+
       const documentoCompleto = `${tipoDoc}-${cedula.trim()}`;
       
-      // 🧠 Payload en el orden que le gusta al backend
+      // 🧠 2. Payload exacto para Retiro de Fondos
       const payload = {
         banco: banco.split(' - ')[1], 
         cedula: documentoCompleto,     
@@ -91,7 +115,17 @@ export default function RetirarSaldo() {
         monto: montoNumerico
       };
 
-      await mockRetirarSaldo(payload);
+      const response = await fetch(`${API_URL}/api/billetera/retirar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Error al procesar el retiro");
       
       Alert.alert(
         "¡Retiro en Proceso! 🏦", 
@@ -99,7 +133,8 @@ export default function RetirarSaldo() {
         [{ text: "Entendido", onPress: () => router.back() }]
       );
     } catch (error) {
-      Alert.alert("Error", "No se pudo procesar tu retiro. Intenta de nuevo más tarde.");
+      console.log("Error en retiro:", error);
+      Alert.alert("Error", error.message || "No se pudo procesar tu retiro. Intenta de nuevo más tarde.");
     } finally {
       setEnviando(false);
     }
@@ -124,12 +159,17 @@ export default function RetirarSaldo() {
               <FontAwesome6 name="building-columns" size={16} color="rgba(255,255,255,0.7)" />
               <Text style={styles.balanceTitle}>Saldo Disponible</Text>
             </View>
-            <Text style={styles.balanceAmount}>Bs. {saldoDisponible.toFixed(2)}</Text>
+            {cargandoSaldo ? (
+              <ActivityIndicator color="#FFFFFF" size="small" style={{ marginVertical: 10 }} />
+            ) : (
+              <Text style={styles.balanceAmount}>Bs. {saldoDisponible.toFixed(2)}</Text>
+            )}
             <Text style={styles.balanceInfo}>Monto máximo a retirar</Text>
           </View>
 
           <Text style={styles.title}>Datos de la Cuenta</Text>
           <Text style={styles.subtitle}>Recibe el dinero de tu cuenta SUBA a una cuenta bancaria de tu pertenencia.</Text>
+          
           {/* 1. CÉDULA */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Cédula del Titular</Text>
@@ -167,7 +207,7 @@ export default function RetirarSaldo() {
               style={styles.input} 
               placeholder="Ej: 01020000000000000000" 
               keyboardType="numeric" 
-              maxLength={20} // 💡 20 dígitos obligatorios en Venezuela
+              maxLength={20} 
               value={cuenta} 
               onChangeText={setCuenta} 
             />
@@ -193,7 +233,7 @@ export default function RetirarSaldo() {
         </ScrollView>
 
         <View style={styles.footer}>
-          <TouchableOpacity style={styles.button} onPress={procesarRetiro} disabled={enviando}>
+          <TouchableOpacity style={styles.button} onPress={procesarRetiro} disabled={enviando || cargandoSaldo}>
             {enviando ? (
               <ActivityIndicator color="#023A73" size="small" />
             ) : (
