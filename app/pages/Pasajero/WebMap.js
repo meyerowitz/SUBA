@@ -30,12 +30,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { height } = Dimensions.get("window");
 const BASE_URL = "https://subapp-api.onrender.com/api";
-const BUSES_API_URL = `${BASE_URL}/buses`;
-const FETCH_INTERVAL = 5000;
+const FETCH_INTERVAL = 5 * 1000;
+const BUS_TIMEOUT_MS = 60 * 1000 //seconds
 let buses = [];
 
 const STOP_CACHE_KEY = "guayana_bus_stops_cache_v2";
 const STOP_CACHE_EXPIRY = 24 * 60 * 60 * 1000;
+
+
 
 const fetchActiveRoutes = async () => {
   try {
@@ -105,15 +107,45 @@ const fetchGuayanaBusStops = async () => {
 
 function createOrUpdateBusData(busData) {
   const exists = buses.some((bus) => bus.bus_id === busData.bus_id);
+  const currentTime = new Date().toISOString();
   if (exists) {
     const busIndex = buses.findIndex((bus) => bus.bus_id === busData.bus_id);
-    console.log("Updating data for bus: ", buses[busIndex].bus_id);
-    buses[busIndex] = busData;
-  } else if (!exists) {
+    if (busData.status === "inactive") {
+      console.log("Removing inactive bus: ", busData.bus_id);
+      buses.splice(busIndex, 1);
+      return;
+    }
+    // console.log("Updating data for bus: ", buses[busIndex].bus_id);
+    buses[busIndex] = {
+      ...busData,
+      lastUpdate: currentTime
+    };
+  } else if (!exists && busData.status === "active") {
     console.log("New bus created: ", busData.bus_id);
-    buses.push(busData);
+    buses.push({
+      ...busData,
+      lastUpdate: currentTime
+    });
   }
+  console.log(buses)
 }
+
+function cleanupStaleBuses() {
+  const now = Date.now();
+
+  const initialCount = buses.length;
+
+  buses = buses.filter((bus) => {
+    const lastSeen = new Date(bus.lastUpdate).getTime();
+    const isFresh = (now - lastSeen) < BUS_TIMEOUT_MS;
+
+    if (!isFresh) {
+      console.log(`🧹 Auto-removing stale bus: ${bus.bus_id} (No signal for >30s)`);
+    }
+    return isFresh;
+  });
+}
+
 
 export default function WebMap() {
   const insets = useSafeAreaInsets();
@@ -202,9 +234,9 @@ export default function WebMap() {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(deg2rad(lat1)) *
-        Math.cos(deg2rad(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+      Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
@@ -212,6 +244,16 @@ export default function WebMap() {
   const deg2rad = (deg) => {
     return deg * (Math.PI / 180);
   };
+
+  useEffect(() => {
+    // Run cleanup every 5 seconds
+    const cleanupInterval = setInterval(() => {
+      cleanupStaleBuses();
+    }, 10 * 1000);
+
+    return () => clearInterval(cleanupInterval);
+  }, []);
+
 
   useEffect(() => {
     const originLocation = selectedStopLocation || userLocation;
@@ -407,7 +449,7 @@ export default function WebMap() {
         setBusLocations(transformedData);
         if (isMapReady && webviewRef.current) {
           if (isMapReady === true) {
-            console.log("isMapReady: true ");
+            // console.log("isMapReady: true ");
           }
           const busDataString = JSON.stringify(transformedData);
           const busJsCode = `renderBusLocations(${busDataString}); true;`;
@@ -450,7 +492,10 @@ export default function WebMap() {
       });
       mqttClient.on("message", (topic, message) => {
         const datos = JSON.parse(message.toString());
-        console.log(` Mensaje recibido en ${topic}:`, datos._id);
+        // console.log(` Mensaje recibido en ${topic}:`, datos._id);
+        if (datos.status === "inactive") {
+          console.log("Received disconnection req from bus: ", datos.bus_id)
+        }
         createOrUpdateBusData(datos);
       });
       setClient(mqttClient);
@@ -583,24 +628,24 @@ export default function WebMap() {
     }
   };
 
-    // NUEVO EFECTO: Escuchar cambios en 'destino' (Navigation Params)
-    useEffect(() => {
-      // Solo ejecutamos si tenemos los datos necesarios
-      if (destino && isMapReady && userLocation && activeRoutes.length > 0) {
-        // Evitar re-procesar el mismo destino si ya fue manejado (ej. por actualizaciones de GPS)
-        if (lastProcessedDestino.current === destino) return;
-  
-        console.log("📍 Procesando destino recibido:", destino);
-        lastProcessedDestino.current = destino;
-        
-        if (destino !== selectedDestinationName) {
-          setSelectedDestinationName(destino);
-        }
-        
-        // Llamada directa con el valor de param para evitar problemas de estado
-        handleSearch(destino);
+  // NUEVO EFECTO: Escuchar cambios en 'destino' (Navigation Params)
+  useEffect(() => {
+    // Solo ejecutamos si tenemos los datos necesarios
+    if (destino && isMapReady && userLocation && activeRoutes.length > 0) {
+      // Evitar re-procesar el mismo destino si ya fue manejado (ej. por actualizaciones de GPS)
+      if (lastProcessedDestino.current === destino) return;
+
+      console.log("📍 Procesando destino recibido:", destino);
+      lastProcessedDestino.current = destino;
+
+      if (destino !== selectedDestinationName) {
+        setSelectedDestinationName(destino);
       }
-    }, [destino, isMapReady, userLocation, activeRoutes]);
+
+      // Llamada directa con el valor de param para evitar problemas de estado
+      handleSearch(destino);
+    }
+  }, [destino, isMapReady, userLocation, activeRoutes]);
   const MoveToUser = () => {
     console.log("📷--> MoveToUser ");
     if (userLocation && webviewRef.current && isMapReady) {
@@ -782,7 +827,7 @@ export default function WebMap() {
             style={[
               styles.searchBtnLarge,
               (!selectedStop || !selectedDestinationName) &&
-                styles.disabledButton,
+              styles.disabledButton,
             ]}
             onPress={() => handleSearch()}
             disabled={isSearching || !selectedStop || !selectedDestinationName}
@@ -806,19 +851,19 @@ export default function WebMap() {
       {ShowEta && nearestBusEta && !isSearchExpanded && (
         <View style={styles.etaFloatingCard}>
           <View style={styles.etaIconContainer}>
-             <Ionicons name="bus" size={24} color="white" />
+            <Ionicons name="bus" size={24} color="white" />
           </View>
-          
+
           <View style={styles.etaTextContainer}>
             <Text style={styles.etaTitle}>
-               {selectedStopLocation ? "A la parada" : "A tu ubicación"}
+              {selectedStopLocation ? "A la parada" : "A tu ubicación"}
             </Text>
             <Text style={styles.etaSubtitle}>Tiempo de espera</Text>
           </View>
 
           <View style={styles.etaDataContainer}>
-             <Text style={styles.etaTimeText}>{calculatingBusEta ? "..." : nearestBusEta}</Text>
-             <Text style={styles.etaDistanceText}>{calculatingBusEta ? "..." : nearestBusDist}</Text>
+            <Text style={styles.etaTimeText}>{calculatingBusEta ? "..." : nearestBusEta}</Text>
+            <Text style={styles.etaDistanceText}>{calculatingBusEta ? "..." : nearestBusDist}</Text>
           </View>
         </View>
       )}
