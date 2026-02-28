@@ -1,6 +1,63 @@
-<div align="left">
-  
+# 🛠️ BITÁCORA DE CAMBIOS TÉCNICOS (Refactorización v2.0 - Febrero 2026)
 
+Este documento detalla las modificaciones arquitectónicas y correcciones implementadas para centralizar la lógica en el Backend y mejorar la experiencia de usuario.
+
+## 1. 🗺️ Arquitectura de Mapas y Geolocalización (Backend Driven)
+
+Se eliminó la dependencia de servicios externos directos (Overpass) y archivos estáticos (`json`) en el frontend. Ahora la aplicación es **data-driven** controlada por el Backend (`subapp-api`).
+
+### A. Gestión de Paradas
+*   **Antes:** Consulta directa a la API pública de Overpass (OpenStreetMap) desde el dispositivo móvil. Lento y dependiente de terceros.
+*   **Ahora:** Consumo del endpoint propio `GET /api/paradas/activas`.
+*   **Implementación:**
+    *   Se actualizó `WebMap.js` (Pasajero y Conductor) y `UnifiedHome.js`.
+    *   Se implementó caché local (`AsyncStorage`) con la clave `guayana_bus_stops_cache_v2` para funcionamiento offline temporal.
+    *   Inyección optimizada de datos JSON al WebView mediante `injectJavaScript`.
+
+### B. Gestión de Rutas y Destinos
+*   **Antes:** Lista estática hardcodeada en `Components/Destinos.json`. Requeria recompilar la app para añadir rutas.
+*   **Ahora:** Consumo dinámico del endpoint `GET /api/rutas/activas`.
+*   **Implementación:**
+    *   Se eliminó la importación de `Destinos.json`.
+    *   El componente `Picker` (selector) ahora se puebla con datos vivos de la base de datos MongoDB.
+    *   **Beneficio:** Las rutas creadas o desactivadas en el Panel Administrativo se reflejan instantáneamente en la App Móvil.
+
+### C. Visualización de Trayectorias (Geometría)
+*   **Antes:** La App calculaba la ruta en el cliente usando OSRM (a veces impreciso si el GPS fallaba o la API de OSRM demoraba).
+*   **Ahora:** Renderizado de **GeoJSON** pre-calculado.
+*   **Implementación:**
+    *   **Backend:** Envía el objeto `geometry` (coordenadas exactas del trazado) dentro de la respuesta de `/api/rutas/activas`.
+    *   **Frontend (`map.html`):** Nueva función JS `drawRouteFromGeoJSON(geometry)`.
+    *   **Estilo:** Se dibuja la ruta con estilo "Neón" (Cyan brillante) y se hace auto-zoom (`flyToBounds`) para enfocar el trayecto completo.
+
+---
+
+## 2. 👤 Perfil de Usuario y Almacenamiento
+
+### A. Foto de Perfil
+*   **Integración:** Implementada subida de imágenes a **Supabase Storage**.
+*   **Flujo:**
+    1.  Frontend selecciona imagen (`expo-image-picker`).
+    2.  Envío a Backend (`POST /auth/profile-picture` como `multipart/form-data`).
+    3.  Backend sube a Supabase y guarda la URL pública en MongoDB.
+    4.  App actualiza la sesión local en `AsyncStorage` para persistencia inmediata.
+
+### B. Sesión
+*   Se corrigieron los errores de persistencia de sesión donde la foto o el token desaparecían al navegar.
+*   Se unificó la lectura de sesión bajo la clave `@Sesion_usuario`.
+
+---
+
+## 3. 🔧 Correcciones de Código y Estabilidad
+
+*   **Sintaxis JS/TS:** Se eliminaron las anotaciones de tipo TypeScript (`: string`, `interface`, etc.) dentro de archivos `.js` que causaban `SyntaxError` en el entorno de ejecución de Expo/Metro.
+*   **Importaciones:** Se corrigieron referencias rotas a `@react-native-async-storage/async-storage`.
+*   **Entorno:** Cambio de URLs de desarrollo local (`localhost`/`10.0.2.2`) a Producción (`https://subapp-api.onrender.com`).
+
+---
+---
+
+<div align="left">
   <img src="logotipo.png" alt="Logotipo SUBA" width="350" />
   <hr style="border: 1px solid #ccc; margin: 20px 0;" />
   <p style="color: #666;">Repositorio Oficial</p>
@@ -67,5 +124,4 @@ git pull origin main
 
 # 2. Crea y cambia a tu rama de trabajo
 git checkout -b feature/TU-INICIALES/TU-TAREA
-
-
+```

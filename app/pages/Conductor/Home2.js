@@ -16,6 +16,7 @@ const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_pu
 
 // Constante para el storage
 const BUS_ID_KEY = "@MyBusId";
+const API_URL = "https://subapp-api.onrender.com/api";
 
 // 🚌 RUTAS (Para la UI de cobro)
 const RUTAS_DISPONIBLES = [
@@ -30,11 +31,12 @@ export default function HomeConductor() {
   const insets = useSafeAreaInsets();
 
   // --- ESTADOS DE LA UI NUEVA ---
+  const [rutasDisponibles, setRutasDisponibles] = useState([]);
   const [rutaAsignada, setRutaAsignada] = useState(null); 
   const [modalRutaVisible, setModalRutaVisible] = useState(false);
   const tasaDolar = 45.00;
 
-  // --- ESTADOS DE RASTREO (TUS ESTADOS ORIGINALES) ---
+  // --- ESTADOS DE RASTREO ---
   const [enLinea, setEnLinea] = useState(false);
   const [resumenHoy, setResumenHoy] = useState({ pasajeros: 0, totalBs: 0 });
   const [saldoTotal, setSaldoTotal] = useState(0.00);
@@ -42,20 +44,52 @@ export default function HomeConductor() {
   const [myLocation, setMyLocation] = useState(null);
   const [myRuta, setMyRuta] = useState(null);
   const [busId, setBusId] = useState("CARGANDO...");
-  const [errorMsg, setErrorMsg] = useState(null);
+  const [errorMsg, setErrorMsg] = useState(null); // Keep for debugging
 
   // --- REFS PARA LÓGICA DE FONDO (TUS REFS ORIGINALES) ---
   const mqttClientRef = useRef(null);
   const locationIntervalRef = useRef(null);
   const busIdRef = useRef(busId);
-  const turnoActivoRef = useRef(false); // 💡 NUESTRA BANDERA
+  const turnoActivoRef = useRef(false);
 
-  // Mantener la referencia del ID actualizada para el intervalo
+  // Mantener la referencia del ID actualizada
   useEffect(() => {
     busIdRef.current = busId;
   }, [busId]);
 
-  // --- FUNCIÓN: CARGAR O GENERAR ID (TU FUNCIÓN ORIGINAL) ---
+  // --- CARGA DE DATOS INICIALES ---
+  useEffect(() => {
+    const inicializar = async () => {
+        await loadBusId();
+        const username = await getusername();
+        setDriverName(username);
+        // Simulación de datos financieros
+        setSaldoTotal(1250.50);
+        setResumenHoy({ pasajeros: 24, totalBs: 480.00 });
+        
+        // Cargar Rutas de la API
+        fetchRoutes();
+    };
+    inicializar();
+  }, []);
+
+  const fetchRoutes = async () => {
+    try {
+        const response = await fetch(`${API_URL}/rutas/activas`);
+        const json = await response.json();
+        if (json.success && json.data) {
+            const mappedRoutes = json.data.map(r => ({
+                id: r._id,
+                name: r.name
+            }));
+            setRutasDisponibles(mappedRoutes);
+        }
+    } catch (e) {
+        console.error("Error cargando rutas:", e);
+        Alert.alert("Error", "No se pudieron cargar las rutas disponibles.");
+    }
+  };
+
   const loadBusId = async () => {
     let storedId = await AsyncStorage.getItem(BUS_ID_KEY);
     if (storedId) {
@@ -70,7 +104,7 @@ export default function HomeConductor() {
 
   // --- FUNCIÓN: INICIAR TRANSMISIÓN ---
   const iniciarTurno = async () => {
-    turnoActivoRef.current = true; // 💡 Levantamos la bandera de turno activo
+    turnoActivoRef.current = true;
 
     let { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
@@ -79,10 +113,8 @@ export default function HomeConductor() {
       return;
     }
 
-    // El GPS tarda un segundo aquí...
     let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
     
-    // 💡 FRENO 1: ¿Te fuiste al mapa o cerraste sesión mientras el GPS cargaba?
     if (!turnoActivoRef.current) return; 
 
     setMyLocation(location.coords);
@@ -92,7 +124,6 @@ export default function HomeConductor() {
       longitude: location.coords.longitude
     });
 
-    // 💡 FRENO 2: ¿Te saliste mientras calculaba la calle?
     if (!turnoActivoRef.current) return;
 
     if (geocode && geocode.length > 0) {
@@ -125,15 +156,12 @@ export default function HomeConductor() {
     });
 
     client.on("connect", () => {
-      // 💡 FRENO 3: Evitar conexión tardía
       if (!turnoActivoRef.current) { client.end(); return; } 
       console.log("✅ MQTT Conectado");
       mqttClientRef.current = client;
     });
 
-    // Intervalo de envío cada 5 segundos
     locationIntervalRef.current = setInterval(async () => {
-      // 💡 AUTO-DESTRUCCIÓN: Si el turno ya no está activo, matamos el bucle desde adentro
       if (!turnoActivoRef.current) {
         clearInterval(locationIntervalRef.current);
         return;
@@ -155,7 +183,8 @@ export default function HomeConductor() {
             latitude: coords.latitude,
             longitude: coords.longitude,
             speed: coords.speed,
-            status: "active"
+            status: "active",
+            route_id: rutaAsignada?.id // Enviamos también la ruta si existe
           };
           mqttClientRef.current.publish("subapp/driver", JSON.stringify(payload));
           console.log("📤 Ubicación enviada");
@@ -167,7 +196,7 @@ export default function HomeConductor() {
   };
 
   const detenerTurno = () => {
-    turnoActivoRef.current = false; // 💡 Bajamos la bandera para abortar todo
+    turnoActivoRef.current = false;
     
     if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
     if (mqttClientRef.current) mqttClientRef.current.end();
@@ -176,15 +205,6 @@ export default function HomeConductor() {
     setMyLocation(null);
     console.log("🛑 Turno finalizado");
   };
-
-  // --- EFECTOS ORIGINALES ---
-  useEffect(() => {
-    loadBusId();
-    const username = getusername();
-    setDriverName(username);
-    setSaldoTotal(1250.50);
-    setResumenHoy({ pasajeros: 24, totalBs: 480.00 });
-  }, []);
 
   useEffect(() => {
     if (enLinea) {
@@ -211,6 +231,23 @@ export default function HomeConductor() {
       ]
     );
   }
+
+  const handleToggleSwitch = (valorPropuesto) => {
+    if (valorPropuesto) {
+      setModalRutaVisible(true);
+    } else {
+      Alert.alert(
+        "Finalizar Turno", "¿Estás seguro de que deseas desconectarte y dejar de cobrar?", 
+        [ { text: "Cancelar", style: "cancel" }, { text: "Desconectarse", style: "destructive", onPress: () => setEnLinea(false) } ]
+      );
+    }
+  };
+
+  const confirmarRuta = (ruta) => {
+    setRutaAsignada(ruta); 
+    setModalRutaVisible(false); 
+    setEnLinea(true);
+  };
 
   // --- LÓGICA DEL SWITCH FLOTANTE NUEVO ---
   const handleToggleSwitch = (valorPropuesto) => {
@@ -364,13 +401,18 @@ export default function HomeConductor() {
                 <Ionicons name="close-circle" size={28} color="#999" />
               </TouchableOpacity>
             </View>
-            {RUTAS_DISPONIBLES.map((ruta) => (
-              <TouchableOpacity key={ruta.id} style={styles.modalOption} onPress={() => confirmarRuta(ruta)}>
-                <Ionicons name="bus-outline" size={22} color="#003366" />
-                <Text style={styles.modalOptionText}>{ruta.name}</Text>
-                <Ionicons name="chevron-forward" size={18} color="#CCC" style={{marginLeft: 'auto'}} />
-              </TouchableOpacity>
-            ))}
+            
+            {rutasDisponibles.length === 0 ? (
+                <Text style={{textAlign: 'center', padding: 20, color: '#666'}}>Cargando rutas disponibles...</Text>
+            ) : (
+                rutasDisponibles.map((ruta) => (
+                <TouchableOpacity key={ruta.id} style={styles.modalOption} onPress={() => confirmarRuta(ruta)}>
+                    <Ionicons name="bus-outline" size={22} color="#003366" />
+                    <Text style={styles.modalOptionText}>{ruta.name}</Text>
+                    <Ionicons name="chevron-forward" size={18} color="#CCC" style={{marginLeft: 'auto'}} />
+                </TouchableOpacity>
+                ))
+            )}
           </View>
         </View>
       </Modal>

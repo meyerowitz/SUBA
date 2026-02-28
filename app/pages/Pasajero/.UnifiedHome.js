@@ -17,43 +17,76 @@ import { getuserid, getusername } from '../../Components/AsyncStorage';
 import { useRoute } from '../../Components/Providers/RouteContext';
 
 import mqtt from "mqtt"; // <-- IMPORTANTE: Asegúrate de tener instalado 'mqtt'
-import Destinos from "../../Components/Destinos.json";
+// import Destinos from "../../Components/Destinos.json"; // Reemplazado por API
 import Volver from '../../Components/Botones_genericos/Volver';
 
 // 💡 NUESTRO CENTRO DE CONTROL MAGICO
 import { MOCK_BACKEND } from '../../../lib/SimuladorBackend'; 
 
 const { height } = Dimensions.get('window');
-const STOP_CACHE_KEY = "guayana_bus_stops_cache";
+const STOP_CACHE_KEY = "guayana_bus_stops_cache_v2";
 const GUAYANA_BBOX = "8.21,-62.88,8.39,-62.60";
 const FETCH_BUSES_INTERVAL = 5000; // Refrescar buses en el mapa cada 5 seg
+const API_URL = "https://subapp-api.onrender.com";
 
 // --- VARIABLES GLOBALES (Persisten fuera del ciclo de vida de React) ---
 let hasCenteredSession = false; 
 let globalBuses = []; 
 
-const fetchGuayanaBusStops = async (retry = 0) => {
-  if (retry === 0) {
-    try {
-      const cached = await AsyncStorage.getItem(STOP_CACHE_KEY);
-      if (cached) return JSON.parse(cached).data;
-    } catch (e) {}
-  }
-  const serverUrl = "https://overpass-api.de/api/interpreter"; 
-  const overpassQuery = `[out:json][timeout:25];node[highway=bus_stop](${GUAYANA_BBOX});out center;`;
-  const url = `${serverUrl}?data=${encodeURIComponent(overpassQuery)}`;
+// --- FUNCION PARA OBTENER RUTAS ACTIVAS ---
+const fetchActiveRoutes = async () => {
   try {
-    const response = await fetch(url);
-    if (response.ok) {
-      const data = await response.json();
-      AsyncStorage.setItem(STOP_CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: data }));
-      return data;
+    const response = await fetch(`${API_URL}/api/rutas/activas`);
+    const json = await response.json();
+    if (json.success && json.data) {
+      console.log("✅ Rutas activas cargadas:", json.data.length);
+      // Mapeamos la respuesta de la API al formato que usa el frontend
+      return json.data.map(route => ({
+        _id: route._id,
+        name: route.name,
+        // Usamos el punto final de la ruta como "Destino" para el ruteo
+        lat: route.endPoint.lat,
+        lon: route.endPoint.lng,
+        address: route.name, // Usamos el nombre como dirección visual
+        geometry: route.geometry, // <--- GEOMETRÍA
+        stops: route.stops // <--- PARADAS (Para filtrado)
+      }));
     }
-    throw new Error("Error HTTP");
   } catch (error) {
-    if (retry < 2) return fetchGuayanaBusStops(retry + 1);
-    return null;
+    console.error("❌ Error cargando rutas:", error);
   }
+  return [];
+};
+
+const fetchGuayanaBusStops = async () => {
+  try {
+    const cached = await AsyncStorage.getItem(STOP_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      // 24 horas de expiración
+      if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) return parsed.data;
+    }
+  } catch (e) {}
+
+  try {
+    console.log("📥 Obteniendo paradas desde API Propia...");
+    const response = await fetch(`${API_URL}/api/paradas/activas`);
+    const json = await response.json();
+
+    if (json.success && json.data) {
+        const stops = json.data.map(stop => ({
+            lat: stop.location.lat,
+            lon: stop.location.lng,
+            name: stop.name
+        }));
+        AsyncStorage.setItem(STOP_CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: stops }));
+        console.log(`✅ ${stops.length} paradas obtenidas.`);
+        return stops;
+    }
+  } catch (error) {
+    console.error("Error fetching stops:", error);
+  }
+  return [];
 };
 
 export default function UnifiedHome() {
@@ -76,6 +109,14 @@ export default function UnifiedHome() {
   const [tasaBCV, setTasaBCV] = useState(382.63); 
   const [loadingSaldo, setLoadingSaldo] = useState(true);
   const { destino } = useLocalSearchParams();
+
+  // NUEVO ESTADO: Rutas disponibles (reemplaza Destinos.json)
+  const [activeRoutes, setActiveRoutes] = useState([]);
+  
+  // --- NUEVOS ESTADOS PARA FLUJO DE PARADAS ---
+  const [allStops, setAllStops] = useState([]);
+  const [selectedStop, setSelectedStop] = useState("");
+  const [filteredRoutes, setFilteredRoutes] = useState([]);
 
   const [ShowEta, setShowEta]= useState(true); 
   const [Eta, SetEta]= useState("-- min");
@@ -146,6 +187,30 @@ export default function UnifiedHome() {
 
   // 1. Cargar Datos Iniciales
   useEffect(() => {
+    // Cargar rutas activas al iniciar
+    fetchActiveRoutes().then(routes => {
+        setActiveRoutes(routes);
+        
+        // Extraer paradas únicas de todas las rutas activas
+        const uniqueStopsMap = new Map();
+        routes.forEach(route => {
+            if (route.stops && Array.isArray(route.stops)) {
+                route.stops.forEach(stop => {
+                    // Usamos el nombre como clave para evitar duplicados
+                    if (stop.name) {
+                        uniqueStopsMap.set(stop.name, stop);
+                    }
+                });
+            }
+        });
+        
+        // Convertir a array y ordenar alfabéticamente
+        const stopsArray = Array.from(uniqueStopsMap.values())
+            .sort((a, b) => a.name.localeCompare(b.name));
+            
+        setAllStops(stopsArray);
+    });
+
     const cargarDatos = async () => {
       const name = await getusername();
       if(name) setUsername(name);
@@ -198,9 +263,8 @@ export default function UnifiedHome() {
   // 4. Inyectar Paradas
   useEffect(() => {
     if (isMapReady && webviewRef.current && !stopsInjected) {
-        fetchGuayanaBusStops().then(data => {
-            if (data?.elements) {
-                const stops = data.elements.filter(el => el.type === 'node').map(el => ({ lat: el.lat, lon: el.lon, name: el.tags?.name || 'Parada' }));
+        fetchGuayanaBusStops().then(stops => {
+            if (stops && stops.length > 0) {
                 webviewRef.current.injectJavaScript(`renderBusStops(${JSON.stringify(stops)}); true;`);
                 setStopsInjected(true);
             }
@@ -229,12 +293,43 @@ export default function UnifiedHome() {
     } catch(e) {}
   };
 
+  const handleStopChange = (stopName) => {
+      setSelectedStop(stopName);
+      setSelectedDestinationName(""); // Resetear ruta seleccionada
+      
+      if (stopName) {
+          // Filtrar rutas que contienen esta parada
+          const routes = activeRoutes.filter(route => 
+              route.stops && route.stops.some(s => s.name === stopName)
+          );
+          setFilteredRoutes(routes);
+          
+          // Si solo hay una ruta, seleccionarla automáticamente
+          if (routes.length === 1) {
+              const routeName = routes[0].name;
+              setSelectedDestinationName(routeName);
+              setSelectedRoute({ name: routeName });
+          }
+      } else {
+          setFilteredRoutes([]);
+      }
+  };
+
   const handleSearch = () => {
     if (!selectedDestinationName || !userLocation) return;
     setIsSearching(true);
-    const dest = Destinos.find(d => d.name === selectedDestinationName);
+    // Buscar destino en activeRoutes
+    const dest = activeRoutes.find(d => d.name === selectedDestinationName);
     if (dest) {
-      webviewRef.current.injectJavaScript(`drawRouteAndAnimate(${userLocation.latitude}, ${userLocation.longitude}, ${dest.lat}, ${dest.lon}); true;`);
+      if (dest.geometry) {
+          // Usar geometría del backend
+          const geoJsonString = JSON.stringify(dest.geometry);
+          webviewRef.current.injectJavaScript(`drawRouteFromGeoJSON(${geoJsonString}); true;`);
+          setShowEta(false); 
+      } else {
+          // Fallback OSRM Cliente
+          webviewRef.current.injectJavaScript(`drawRouteAndAnimate(${userLocation.latitude}, ${userLocation.longitude}, ${dest.lat}, ${dest.lon}); true;`);
+      }
     }
     setTimeout(() => setIsSearching(false), 1500);
   };
@@ -289,21 +384,52 @@ export default function UnifiedHome() {
                         <Ionicons name="close" size={24} color="#666" />
                     </TouchableOpacity>
                 </View>
+                
+                {/* 1. SELECCIÓN DE PARADA */}
                 <View style={styles.inputRow}>
-                    <Ionicons name="radio-button-on" size={20} color="#003366" />
-                    <Text style={styles.locationText} numberOfLines={1}>{ubicacionTexto}</Text>
-                </View>
-                <View style={styles.verticalLine} />
-                <View style={styles.inputRow}>
-                    <Ionicons name="location" size={20} color="#E69500" />
+                    <Ionicons name="bus" size={20} color="#003366" />
                     <View style={{flex: 1, marginLeft: 5}}>
-                      <Picker selectedValue={selectedDestinationName} onValueChange={(v) => {setSelectedDestinationName(v),setSelectedRoute(v ? rutaCompleta || { name: v } : null);}} style={{ height: 50, width: '100%' }}>
-                          <Picker.Item label="Selecciona destino..." value="" color="#999" />
-                          {Destinos.map((d) => (<Picker.Item key={d.name} label={d.name} value={d.name} />))}
+                      <Picker 
+                        selectedValue={selectedStop} 
+                        onValueChange={handleStopChange} 
+                        style={{ height: 50, width: '100%' }}
+                      >
+                          <Picker.Item label="Selecciona parada destino..." value="" color="#999" />
+                          {allStops.map((stop, index) => (
+                              <Picker.Item key={`${stop.name}-${index}`} label={stop.name} value={stop.name} />
+                          ))}
                       </Picker>
                     </View>
                 </View>
-                <TouchableOpacity style={styles.searchBtnLarge} onPress={handleSearch} disabled={isSearching}>
+
+                <View style={styles.verticalLine} />
+
+                {/* 2. SELECCIÓN DE RUTA (FILTRADA) */}
+                <View style={styles.inputRow}>
+                    <Ionicons name="map" size={20} color="#E69500" />
+                    <View style={{flex: 1, marginLeft: 5}}>
+                      <Picker 
+                        selectedValue={selectedDestinationName} 
+                        onValueChange={(v) => {
+                            setSelectedDestinationName(v);
+                            setSelectedRoute(v ? { name: v } : null);
+                        }} 
+                        style={{ height: 50, width: '100%' }}
+                        enabled={filteredRoutes.length > 0}
+                      >
+                          <Picker.Item 
+                            label={selectedStop ? "Selecciona la mejor ruta..." : "Primero selecciona una parada"} 
+                            value="" 
+                            color="#999" 
+                          />
+                          {filteredRoutes.map((d) => (
+                              <Picker.Item key={d.name} label={d.name} value={d.name} />
+                          ))}
+                      </Picker>
+                    </View>
+                </View>
+
+                <TouchableOpacity style={styles.searchBtnLarge} onPress={handleSearch} disabled={isSearching || !selectedDestinationName}>
                     {isSearching ? <ActivityIndicator color="#003366" /> : <Text style={styles.searchBtnText}>Buscar Ruta</Text>}
                 </TouchableOpacity>
             </View>
