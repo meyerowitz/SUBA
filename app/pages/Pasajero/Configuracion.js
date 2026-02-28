@@ -25,11 +25,12 @@ import "../../Components/i18n/i18n";
 import Destinos from "../../Components/Destinos.json";
 
 export default function Configuracion() {
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [isGpsOptimized, setIsGpsOptimized] = useState(true);
   const [profileImage, setProfileImage] = useState(null);
   const { t, i18n } = useTranslation();
-  const { theme, toggleTheme, isDark } = useTheme(); //temas oscuro y claro
+  
+  // 💡 Traemos la nueva lógica de los 3 estados
+  const { theme, themeMode, changeThemeMode, isDark } = useTheme(); 
 
   const [isReady, setIsReady] = useState(false);
   const [modalDestinosVisible, setModalDestinosVisible] = useState(false);
@@ -150,8 +151,8 @@ export default function Configuracion() {
 
   const selectLanguage = () => {
     Alert.alert(
-      t("idioma"), // Título (puedes usar traducción o texto fijo)
-      t("selecciona_idioma"), // Mensaje descriptivo
+      t("idioma"), 
+      t("selecciona_idioma"), 
       [
         {
           text: "Español",
@@ -162,12 +163,34 @@ export default function Configuracion() {
           onPress: () => i18n.changeLanguage("en"),
         },
         {
-          text: t("cancelar"), // Opción para cerrar sin cambios
+          text: t("cancelar"), 
           style: "cancel",
         },
       ],
       { cancelable: true },
     );
+  };
+
+  // 💡 Nueva función: Selector de Tema
+  const selectTheme = () => {
+    Alert.alert(
+      t("aspecto") || "Aspecto",
+      "Selecciona el tema de la aplicación",
+      [
+        { text: "Modo Claro", onPress: () => changeThemeMode("light") },
+        { text: "Modo Oscuro", onPress: () => changeThemeMode("dark") },
+        { text: "Usar configuración del sistema", onPress: () => changeThemeMode("system") },
+        { text: t("cancelar") || "Cancelar", style: "cancel" },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  // Función para mostrar el texto correcto en la UI según lo elegido
+  const getThemeText = () => {
+    if (themeMode === 'light') return "Modo Claro";
+    if (themeMode === 'dark') return "Modo Oscuro";
+    return "Sistema";
   };
 
   // Si no está listo, mostramos un fondo limpio (esto evita ver las variables)
@@ -194,26 +217,25 @@ export default function Configuracion() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.sectionTitle}>{t("preferencias")}</Text>
 
-        <View style={styles.row}>
+        {/* 💡 Reemplazamos el Switch por el Selector Múltiple */}
+        <TouchableOpacity onPress={selectTheme} style={[styles.row, { backgroundColor: isDark ? '#003366' : 'white' }]}>
           <View>
-            <Text style={styles.rowText}>{t("modo_oscuro")}</Text>
-            <Text style={styles.subText}>{t("aspecto")}</Text>
+            <Text style={[styles.rowText, { color: theme.text_2 }]}>Tema de la app</Text>
+            <Text style={[styles.subText, { color: isDark ? 'rgba(255,255,255,0.6)' : '#636E72' }]}>
+              Actual: {getThemeText()}
+            </Text>
           </View>
-          <Switch
-            value={isDark}
-            onValueChange={toggleTheme}
-            trackColor={{ false: "#D1D1D1", true: "#D99015" }}
-          />
-        </View>
+          <Ionicons name="color-palette-outline" size={23} color="#D99015" />
+        </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.row}
+          style={[styles.row, { backgroundColor: isDark ? '#003366' : 'white' }]}
           onPress={handleUploadImage}
           disabled={isUploading}
         >
           <View>
-            <Text style={styles.rowText}>{t("foto_perfil")}</Text>
-            <Text style={styles.subText}>{t("foto")}</Text>
+            <Text style={[styles.rowText, { color: theme.text_2 }]}>{t("foto_perfil")}</Text>
+            <Text style={[styles.subText, { color: isDark ? 'rgba(255,255,255,0.6)' : '#636E72' }]}>{t("foto")}</Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             {isUploading ? (
@@ -284,10 +306,10 @@ export default function Configuracion() {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={selectLanguage} style={styles.row}>
+        <TouchableOpacity onPress={selectLanguage} style={[styles.row, { backgroundColor: isDark ? '#003366' : 'white' }]}>
           <View>
-            <Text style={styles.rowText}>{t("idioma")}</Text>
-            <Text style={styles.subText}>{t("espanol")}</Text>
+            <Text style={[styles.rowText, { color: theme.text_2 }]}>{t("idioma")}</Text>
+            <Text style={[styles.subText, { color: isDark ? 'rgba(255,255,255,0.6)' : '#636E72' }]}>{t("espanol")}</Text>
           </View>
           <Ionicons name="language-outline" size={23} color="#D99015" />
         </TouchableOpacity>
@@ -296,10 +318,10 @@ export default function Configuracion() {
           {t("sistema_mapas")}
         </Text>
 
-        <View style={styles.row}>
+        <View style={[styles.row, { backgroundColor: isDark ? '#003366' : 'white' }]}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.rowText}>Optimización de GPS</Text>
-            <Text style={styles.subText}>Mejora la precisión de las rutas</Text>
+            <Text style={[styles.rowText, { color: theme.text_2 }]}>Optimización de GPS</Text>
+            <Text style={[styles.subText, { color: isDark ? 'rgba(255,255,255,0.6)' : '#636E72' }]}>Mejora la precisión de las rutas</Text>
           </View>
           <Switch
             value={isGpsOptimized}
@@ -310,11 +332,11 @@ export default function Configuracion() {
 
         <TouchableOpacity
           onPress={() => setModalDestinosVisible(true)}
-          style={styles.row}
+          style={[styles.row, { backgroundColor: isDark ? '#003366' : 'white' }]}
         >
           <View>
-            <Text style={styles.rowText}>Rutas Preferidas</Text>
-            <Text style={styles.subText}>
+            <Text style={[styles.rowText, { color: theme.text_2 }]}>Rutas Preferidas</Text>
+            <Text style={[styles.subText, { color: isDark ? 'rgba(255,255,255,0.6)' : '#636E72' }]}>
               {destinoSeleccionado
                 ? destinoSeleccionado
                 : "Selecciona tus destinos usuales"}
@@ -323,10 +345,10 @@ export default function Configuracion() {
           <Ionicons name="chevron-down" size={20} color="#CCC" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.row}>
+        <TouchableOpacity style={[styles.row, { backgroundColor: isDark ? '#003366' : 'white' }]}>
           <View>
-            <Text style={styles.rowText}>Unidades de Distancia</Text>
-            <Text style={styles.subText}>Kilómetros (km)</Text>
+            <Text style={[styles.rowText, { color: theme.text_2 }]}>Unidades de Distancia</Text>
+            <Text style={[styles.subText, { color: isDark ? 'rgba(255,255,255,0.6)' : '#636E72' }]}>Kilómetros (km)</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#CCC" />
         </TouchableOpacity>
@@ -334,12 +356,12 @@ export default function Configuracion() {
         <Text style={[styles.sectionTitle, { marginTop: 25 }]}>SOPORTE</Text>
 
         <TouchableOpacity
-          style={styles.row}
+          style={[styles.row, { backgroundColor: isDark ? '#003366' : 'white' }]}
           onPress={() => router.push("/pages/Pasajero/Soporte")}
         >
           <View>
-            <Text style={styles.rowText}>Centro de Ayuda</Text>
-            <Text style={styles.subText}>Preguntas frecuentes y soporte</Text>
+            <Text style={[styles.rowText, { color: theme.text_2 }]}>Centro de Ayuda</Text>
+            <Text style={[styles.subText, { color: isDark ? 'rgba(255,255,255,0.6)' : '#636E72' }]}>Preguntas frecuentes y soporte</Text>
           </View>
           <Ionicons name="help-circle-outline" size={23} color="#D99015" />
         </TouchableOpacity>
@@ -369,7 +391,7 @@ export default function Configuracion() {
           <View
             style={{
               width: "90%",
-              backgroundColor: theme.background, // Usa el fondo de tu tema
+              backgroundColor: theme.background, 
               borderRadius: 25,
               padding: 25,
               maxHeight: "70%",
@@ -403,7 +425,7 @@ export default function Configuracion() {
                     alignItems: "center",
                     paddingVertical: 18,
                     borderBottomWidth: 1,
-                    borderBottomColor: theme.isDark ? "#444" : "#f0f0f0",
+                    borderBottomColor: isDark ? "#444" : "#f0f0f0",
                   }}
                   onPress={() => {
                     setDestinoSeleccionado(item.nombre);

@@ -11,21 +11,12 @@ import * as Sharing from 'expo-sharing';
 const BUS_ID_KEY = "@Sesion_usuario";
 
 export default function GenerarQR() {
-  const [busId, setBusId] = useState("");
-  const [conductorInfo, setConductorInfo] = useState({ id: "", email: "", fullName: "" });
-  const [loading, setLoading] = useState(true);
-  
   const router = useRouter();
   const qrRef = useRef();
 
-export default function GenerarQR() {
-  const router = useRouter();
-  const qrRef = useRef(); 
-
   const [busId, setBusId] = useState("");
-  const [qrData, setQrData] = useState(null);
-  const [cargando, setCargando] = useState(true);
-  const [tiempoRestante, setTiempoRestante] = useState(0);
+  const [conductorInfo, setConductorInfo] = useState({ id: "", email: "", fullName: "" });
+  const [loading, setLoading] = useState(true);
 
   // 1. Obtener ID del bus al cargar
   useEffect(() => {
@@ -54,7 +45,8 @@ export default function GenerarQR() {
   }, []);
 
   const imprimirPDF = async () => {
-    if (!qrData) return;
+    // Verificamos que el QR ya se haya dibujado en pantalla
+    if (!qrRef.current) return;
 
     // Obtenemos la imagen base64 del QR
     qrRef.current.toDataURL(async (dataURL) => {
@@ -118,14 +110,8 @@ export default function GenerarQR() {
         </Text>
 
         <View style={styles.qrContainer}>
-          {cargando ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator size="large" color="#003366" />
-              <Text style={{marginTop: 10, color: '#666'}}>Conectando al servidor...</Text>
-            </View>
-          ) : (
+          {busId ? (
             <QRCode
-              // El QR ahora contiene el objeto JSON con ID, Email y Nombre
               value={JSON.stringify(conductorInfo)}
               size={250}
               color="black"

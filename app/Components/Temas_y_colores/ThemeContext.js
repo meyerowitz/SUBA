@@ -1,6 +1,6 @@
-
-import React, { createContext, useState, useContext } from 'react';
-import { useColorScheme } from 'react-native';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { Appearance, AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const lightTheme = {
   background: '#ffffffff',
@@ -35,15 +35,69 @@ const darkTheme = {
 const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
-  const deviceTheme = useColorScheme(); // Detecta el modo del sistema (iOS/Android)
-  const [isDark, setIsDark] = useState(deviceTheme === 'dark');
+  const [themeMode, setThemeMode] = useState('system'); 
+  const [loading, setLoading] = useState(true);
+  
+  // 💡 Guardamos el color actual del sistema de forma forzada
+  const [systemColor, setSystemColor] = useState(Appearance.getColorScheme());
 
+  // 1. Cargar la configuración elegida al abrir la app
+  useEffect(() => {
+    const loadTheme = async () => {
+      try {
+        const savedMode = await AsyncStorage.getItem('@user_theme_mode');
+        if (savedMode) {
+          setThemeMode(savedMode);
+        }
+      } catch (e) {
+        console.log("Error cargando el tema:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadTheme();
+  }, []);
+
+  // 2. EL DESPERTADOR: Obliga a la app a revisar el color cada vez que vuelves a ella
+  useEffect(() => {
+    // Escucha si la app está activa o en segundo plano
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        // ¡Despierta y revisa! Si cambió de oscuro a claro mientras no veíamos, lo actualiza.
+        setSystemColor(Appearance.getColorScheme());
+      }
+    });
+
+    // Escucha los cambios normales por si acaso Android decide cooperar
+    const appearanceSubscription = Appearance.addChangeListener(({ colorScheme }) => {
+      setSystemColor(colorScheme);
+    });
+
+    return () => {
+      appStateSubscription.remove();
+      appearanceSubscription.remove();
+    };
+  }, []);
+
+  // 3. Guardar la elección
+  const changeThemeMode = async (mode) => {
+    try {
+      setThemeMode(mode);
+      await AsyncStorage.setItem('@user_theme_mode', mode);
+    } catch (e) {
+      console.log("Error guardando el tema:", e);
+    }
+  };
+
+  // 4. Lógica final: Si es sistema, usamos el color que "despertamos". Si no, la elección manual.
+  const isDark = themeMode === 'system' ? systemColor === 'dark' : themeMode === 'dark';
+  
   const theme = isDark ? darkTheme : lightTheme;
 
-  const toggleTheme = () => setIsDark(!isDark);
+  if (loading) return null;
 
   return (
-    <ThemeContext.Provider value={{ theme, isDark, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, isDark, themeMode, changeThemeMode }}>
       {children}
     </ThemeContext.Provider>
   );

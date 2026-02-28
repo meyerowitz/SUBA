@@ -11,10 +11,13 @@ import { getuserid, getusername } from '../../Components/AsyncStorage';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRoute } from '../../Components/Providers/RouteContext';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
 export default function Home({ navigation }) {
+  const insets = useSafeAreaInsets(); // 💡 EL SECRETO PARA QUE QUEDE PERFECTO
   const [ubicacionActual, setUbicacionActual] = useState('');
   const [selectedDestinationName, setSelectedDestinationName] = useState("");
   const { setSelectedRoute } = useRoute();
@@ -39,6 +42,7 @@ export default function Home({ navigation }) {
 
   const [Load, SetLoad] = useState(false);
   const [userImage, SetuserImage] = useState(null);
+  const [UserName, setUserName] = useState(''); // 💡 NUEVO ESTADO
   const { theme } = useTheme();
   
   const router = useRouter();
@@ -54,7 +58,14 @@ export default function Home({ navigation }) {
 
   // --- CARGA DE DATOS INICIALES ---
   useEffect(() => {
-    const loadUserImage = async () => {
+    const loadUserData = async () => {
+      // Cargamos el nombre
+      const name = await getusername();
+      if (name) {
+        setUserName(name.split(' ')[0]); // Tomamos solo el primer nombre para que no se vea amontonado
+      }
+
+      // Cargamos la imagen
       const sessionData = await AsyncStorage.getItem('@Sesion_usuario');
       if (sessionData) {
         const session = JSON.parse(sessionData);
@@ -63,7 +74,7 @@ export default function Home({ navigation }) {
         }
       }
     };
-    loadUserImage();
+    loadUserData();
     obtenerUbicacionOrigen();
     cargarRutas();
     cargarFinanzas();
@@ -237,8 +248,19 @@ export default function Home({ navigation }) {
 
   return (
     <View style={{flex: 1, backgroundColor: theme.background}}>
-      <StatusBar barStyle="light-content" backgroundColor={"#003366"} />
- 
+      
+      {/* 💡 1. STATUS BAR TRANSPARENTE */}
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+      
+      {/* 💡 2. EL ESCUDO MÁGICO DE TU COMPAÑERO */}
+      <View style={{ 
+        position: 'absolute', 
+        top: 0, left: 0, right: 0, 
+        backgroundColor: '#003366', 
+        height: insets.top, // Toma la altura exacta de la barra de notificaciones del teléfono
+        zIndex: 9999 
+      }} />
+
       <ScrollView 
         contentContainerStyle={{ backgroundColor: theme.background_2, width:'100%', paddingBottom: 100 }} 
         keyboardShouldPersistTaps="handled"
@@ -246,36 +268,100 @@ export default function Home({ navigation }) {
         bounces={false}
       >
 
-        {/* HEADER AZUL */}
+{/* HEADER AZUL - 100% RESPONSIVO (A PRUEBA DE MAMÁS) */}
         <LinearGradient 
           colors={['#003366','#3182d3']} 
-          style={{height: 280, paddingHorizontal: 25, borderBottomLeftRadius: 50, borderBottomRightRadius: 50}}
+          style={{
+            // 💡 1. ELIMINAMOS la altura fija (height)
+            // 💡 2. AGREGAMOS paddingBottom: 60 para que siempre haya espacio sin importar cuánto crezca el texto
+            paddingBottom: 60, 
+            paddingHorizontal: 25, 
+            paddingTop: insets.top + 15, 
+            borderBottomLeftRadius: 50, 
+            borderBottomRightRadius: 50, 
+            overflow: 'hidden'
+          }}
         >
-          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 30}}>
-            <Image 
-              style={{width:210, height:210, position:'absolute', top:13, left:110}} 
-              source={require("../../../assets/img/autobuss.png")} 
-            />
+          {/* Autobús de fondo */}
+          <Image 
+            style={{width:220, height:220, position:'absolute', top: insets.top - 35, right: -70, opacity: 0.9}} 
+            source={require("../../../assets/img/autobuss.png")} 
+          />
+          
+          {/* FILTRO DE CONTRASTE */}
+          <LinearGradient
+            colors={['rgba(0,51,102,0.6)', 'rgba(0,51,102,0.3)', 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '80%', zIndex: 1 }}
+          />
+
+          {/* Contenedor de Textos */}
+          <View style={{zIndex: 2}}>
             
-            <View style={{marginTop: 23, marginLeft: 13}}>
-              <Text style={{fontSize: 28, color: 'white', fontWeight: 'bold'}}>¡Bienvenido!</Text>
-              <Text style={{fontSize: 22, color: 'white', fontWeight: '500', marginTop: 5}}>
-                ¡A Ciudad Guayana Bus!
+            {/* 1. Bloque de Perfil */}
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <TouchableOpacity onPress={() => router.push("/pages/Pasajero/Profile")}>
+                {userImage ? (
+                  <Image source={{ uri: userImage }} style={{ width: 55, height: 55, borderRadius: 27.5, borderWidth: 2, borderColor: 'white' }} />
+                ) : (
+                  <Ionicons name="person-circle" size={55} color="white" />
+                )}
+              </TouchableOpacity>
+              
+              <View style={{marginLeft: 12, flex: 1}}>
+                <Text style={{ 
+                  color: 'white', 
+                  fontSize: 20, 
+                  fontWeight: 'bold',
+                  textShadowColor: 'rgba(0,51,102,0.9)', 
+                  textShadowOffset: { width: 1, height: 1 },
+                  textShadowRadius: 3
+                }} numberOfLines={1}>
+                  Hola, {UserName || "Pasajero"}
+                </Text>
+                
+                <Text style={{ 
+                  color: 'rgba(255,255,255,0.9)', 
+                  fontSize: 13, 
+                  marginTop: 2,
+                  textShadowColor: 'rgba(0,51,102,0.8)',
+                  textShadowOffset: { width: 1, height: 1 },
+                  textShadowRadius: 3
+                }}>
+                  ¡Vamos por tu siguiente viaje!
+                </Text>
+              </View>
+            </View>
+
+            {/* 2. Texto Explicativo (DENTRO DEL NUEVO RECUADRO) */}
+            <View style={{
+              marginTop: 16,
+              backgroundColor: 'rgba(0,51,102,0.8)', 
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 12, 
+              alignSelf: 'flex-start', 
+              maxWidth: '70%'
+            }}>
+              <Text style={{
+                fontSize: 14, 
+                color: 'white', 
+                fontWeight: '500', 
+                lineHeight: 18
+              }}>
+                Selecciona tu destino y visualiza tu bus más cercano.
               </Text>
             </View>
-            <TouchableOpacity onPress={() => router.push("/pages/Pasajero/Profile")}>
-              {userImage ? (
-                <Image source={{ uri: userImage }} style={{ width: 50, height: 50, borderRadius: 25 }} />
-              ) : (
-                <Ionicons name="person-circle-outline" size={50} color="white" />
-              )}
-            </TouchableOpacity>
+
           </View>
         </LinearGradient>
   
         {/* TARJETA DE RUTA */}
         <View style={{
-          backgroundColor: 'white', marginHorizontal: 20, marginTop: -85, 
+          backgroundColor: 'white', marginHorizontal: 20, 
+          // 💡 Ajuste de margen para montarse sobre los 60px de paddingBottom que dejamos arriba
+          marginTop: -35, 
           borderRadius: 15, padding: 15, elevation: 8, 
           shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5
         }}>
@@ -390,15 +476,53 @@ export default function Home({ navigation }) {
           </View>
         </View>
 
-        {/* SALDO */}
+{/* SALDO - DISEÑO FINAL BLANCO/AZUL CON ESPACIADO CORREGIDO */}
         <View style={{
-          backgroundColor: '#E69500', marginHorizontal: 20, padding: 20, borderRadius: 20, marginTop: 15,
-          elevation: 5, shadowColor: '#000', shadowOpacity: 0.3
+          backgroundColor: '#E69500', 
+          marginHorizontal: 20, 
+          padding: 25, 
+          borderRadius: 24, 
+          marginTop: 15,
+          elevation: 5, 
+          shadowColor: '#000', 
+          shadowOpacity: 0.3,
         }}>
-          <Text style={{color: 'white', fontSize: 18, fontWeight: 'bold'}}>Saldo actual</Text>
-          <Text style={{color: 'white', fontSize: 38, fontWeight: 'bold', marginTop: 10}}>
-            {saldo ? `Bs.${saldo.toFixed(1)}` : `Bs. ${saldo.toFixed(2)}` }
+          
+          <Text style={{color: 'rgba(255,255,255,0.7)', fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8}}>
+            Saldo disponible
           </Text>
+          
+          <Text style={{color: 'white', fontSize: 34, fontWeight: 'bold', marginBottom: 2}}>
+            Bs. {saldo ? saldo.toFixed(2) : "0.00"}
+          </Text>
+          
+          {/* 💡 Le damos marginBottom: 20 aquí para separar el botón de los dólares */}
+          <Text style={{color: 'rgba(255,255,255,0.9)', fontSize: 15, fontWeight: '600', marginBottom: 20}}>
+            $ ~ {(saldo / (DolarBcv > 0 ? DolarBcv : 1)).toFixed(2)} USD
+          </Text>
+
+          <TouchableOpacity 
+            style={{ 
+              backgroundColor: '#fff', 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              paddingVertical: 14, 
+              borderRadius: 14, 
+              elevation: 3, 
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.2,
+              shadowRadius: 3
+            }}
+            onPress={() => router.push('/pages/Pasajero/Wallet')}
+          >
+            <FontAwesome6 name="wallet" size={18} color="#007bff" style={{ marginRight: 10 }} />
+            <Text style={{ color: '#007bff', fontSize: 15, fontWeight: 'bold' }}>
+              Mi Billetera
+            </Text>
+          </TouchableOpacity>
+
         </View>
       </ScrollView>
       

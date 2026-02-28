@@ -14,11 +14,11 @@ import {
   FontAwesome5,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+// 💡 Cambiamos SafeAreaView por useSafeAreaInsets para tener control total
+import { useSafeAreaInsets } from "react-native-safe-area-context"; 
 import Volver from "../../Components/Botones_genericos/Volver";
 import { router, useFocusEffect, useNavigation } from "expo-router";
-//import { router, useNavigation } from "expo-router"; // <--- AGREGADO useNavigation
-import { CommonActions } from "@react-navigation/native"; // <--- AGREGADO CommonActions
+import { CommonActions } from "@react-navigation/native"; 
 import { getuseremail, getusername } from "../../Components/AsyncStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../Components/Temas_y_colores/ThemeContext";
@@ -31,8 +31,10 @@ export default function Profile() {
   const [UserEmail, setUserEmail] = useState("---");
   const [profileImage, setProfileImage] = useState(null);
   const { theme } = useTheme();
+  
+  // 💡 Traemos los insets mágicos
+  const insets = useSafeAreaInsets();
 
-  // Se ejecuta cada vez que entras a la pantalla
   useFocusEffect(
     React.useCallback(() => {
       const loadSession = async () => {
@@ -40,10 +42,6 @@ export default function Profile() {
           const sessionData = await AsyncStorage.getItem("@Sesion_usuario");
           if (sessionData) {
             const session = JSON.parse(sessionData);
-            console.log(
-              "👤 Cargando Perfil. URL de imagen:",
-              session.profilePictureUrl,
-            );
             setUserName(session.fullName || session.name || "---");
             setUserEmail(session.email || "---");
             if (session.profilePictureUrl) {
@@ -57,7 +55,7 @@ export default function Profile() {
       loadSession();
     }, []),
   );
-  // Hook de navegación para manipular el historial
+
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -83,16 +81,11 @@ export default function Profile() {
       {
         text: "Sí, salir",
         onPress: async () => {
-          // 1. Borramos datos de sesión
           await AsyncStorage.removeItem("@Sesion_usuario");
-
-          // 2. EL TRUCO NUCLEAR: Reiniciamos el historial de navegación
-          // Esto borra el Mapa, el Perfil y todo lo que había antes.
-          // Deja "Login" como la única pantalla existente.
           navigation.dispatch(
             CommonActions.reset({
               index: 0,
-              routes: [{ name: "Login" }], // Asegúrate que 'Login' coincida con tu Stack en _layout
+              routes: [{ name: "Login" }], 
             }),
           );
         },
@@ -101,21 +94,35 @@ export default function Profile() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor={theme.primary_2} barStyle="light-content" />
+    // 💡 1. Contenedor principal ahora es un View normal con fondo BLANCO puro
+    <View style={styles.container}>
+      
+      {/* 💡 2. Status Bar transparente */}
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+
+      {/* 💡 3. EL ESCUDO MÁGICO: Forzamos el color mostaza en las notificaciones */}
+      <View style={{ 
+        position: 'absolute', 
+        top: 0, left: 0, right: 0, 
+        backgroundColor: theme.primary_2, 
+        height: insets.top,
+        zIndex: 9999 
+      }} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        bounces={false}
         contentContainerStyle={{
           paddingBottom: 40,
-          backgroundColor: theme.background,
+          backgroundColor: '#FFFFFF', // 💡 Fondo blanco puro al hacer scroll
         }}
       >
         <View
           style={{
             backgroundColor: theme.primary_2,
-            height: 180,
+            height: 180 + insets.top, // 💡 Sumamos el inset para mantener la proporción visual
             borderBottomRightRadius: 40,
+            paddingTop: insets.top
           }}
         />
 
@@ -138,14 +145,8 @@ export default function Profile() {
             <View style={styles.badgesWrapper}>
               {isStudent && (
                 <View style={styles.badgeItem}>
-                  <View
-                    style={[styles.iconCircle, { backgroundColor: "#4A90E2" }]}
-                  >
-                    <FontAwesome5
-                      name="graduation-cap"
-                      size={12}
-                      color="white"
-                    />
+                  <View style={[styles.iconCircle, { backgroundColor: "#4A90E2" }]}>
+                    <FontAwesome5 name="graduation-cap" size={12} color="white" />
                   </View>
                   <Text style={styles.badgeText}>Estudiante</Text>
                 </View>
@@ -153,14 +154,8 @@ export default function Profile() {
 
               {isSenior && (
                 <View style={styles.badgeItem}>
-                  <View
-                    style={[styles.iconCircle, { backgroundColor: "#FF7043" }]}
-                  >
-                    <MaterialCommunityIcons
-                      name="heart"
-                      size={14}
-                      color="white"
-                    />
+                  <View style={[styles.iconCircle, { backgroundColor: "#FF7043" }]}>
+                    <MaterialCommunityIcons name="heart" size={14} color="white" />
                   </View>
                   <Text style={styles.badgeText}>Adulto Mayor</Text>
                 </View>
@@ -204,35 +199,6 @@ export default function Profile() {
               router.push("/pages/Pasajero/Notificaciones");
             }}
           />
-
-          <MenuOption
-            icon="gift"
-            color="#fb2d2d"
-            bgColor="#feeded"
-            title="Subsidios"
-            subtitle="Consulta posibles beneficios"
-            onPress={() => {
-              router.push("/pages/Pasajero/Subsidios");
-            }}
-          />
-
-          <Text style={[styles.sectionTitle, { marginTop: 20 }]}>
-            BILLETERA
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => router.replace("./Wallet")}
-            style={styles.menuItem}
-          >
-            <View style={[styles.menuIconBox, { backgroundColor: "#F3E5F5" }]}>
-              <Ionicons name="wallet" size={20} color="#7B1FA2" />
-            </View>
-            <View style={styles.menuTextContainer}>
-              <Text style={styles.menuMainText}>Mi Wallet</Text>
-              <Text style={styles.menuSubText}>Ver saldo y movimientos</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#CCC" />
-          </TouchableOpacity>
         </View>
 
         <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
@@ -240,8 +206,9 @@ export default function Profile() {
         </TouchableOpacity>
       </ScrollView>
 
-      <Volver route={"./Navigation"} color={"white"} style={styles.btnVolver} />
-    </SafeAreaView>
+      {/* 💡 4. Ajustamos la posición del botón Volver para que no choque con la notch */}
+      <Volver route={"./Navigation"} color={"white"} style={[styles.btnVolver, { top: insets.top + 15 }]} />
+    </View>
   );
 }
 
@@ -259,7 +226,8 @@ const MenuOption = ({ icon, title, subtitle, color, bgColor, onPress }) => (
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F9FA" },
+  // 💡 5. Fondo principal forzado a blanco
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
   profileBox: {
     backgroundColor: "white",
     width: "90%",
@@ -322,6 +290,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     marginBottom: 10,
     elevation: 2,
+    // 💡 Sombra suave en lugar del fondo gris para dar profundidad
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
   },
   menuIconBox: {
     width: 42,
@@ -342,5 +315,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   logoutText: { color: "#003366", fontWeight: "800", fontSize: 16 },
-  btnVolver: { position: "absolute", top: 50, left: 10 },
+  btnVolver: { position: "absolute", left: 10 }, // 💡 El top lo manejamos dinámico en línea
 });

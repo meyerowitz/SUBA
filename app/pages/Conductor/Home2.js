@@ -18,14 +18,6 @@ const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_pu
 const BUS_ID_KEY = "@MyBusId";
 const API_URL = "https://subapp-api.onrender.com/api";
 
-// 🚌 RUTAS (Para la UI de cobro)
-const RUTAS_DISPONIBLES = [
-  { id: "route_av_c8", name: "Alta Vista - Core 8" },
-  { id: "route_sf_po", name: "San Félix - Puerto Ordaz" },
-  { id: "route_ct_un", name: "Castillito - Unare" },
-  { id: "route_ud_ce", name: "UD-338 - Centro" }
-];
-
 export default function HomeConductor() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -46,7 +38,7 @@ export default function HomeConductor() {
   const [busId, setBusId] = useState("CARGANDO...");
   const [errorMsg, setErrorMsg] = useState(null); // Keep for debugging
 
-  // --- REFS PARA LÓGICA DE FONDO (TUS REFS ORIGINALES) ---
+  // --- REFS PARA LÓGICA DE FONDO ---
   const mqttClientRef = useRef(null);
   const locationIntervalRef = useRef(null);
   const busIdRef = useRef(busId);
@@ -249,25 +241,6 @@ export default function HomeConductor() {
     setEnLinea(true);
   };
 
-  // --- LÓGICA DEL SWITCH FLOTANTE NUEVO ---
-  const handleToggleSwitch = (valorPropuesto) => {
-    if (valorPropuesto) {
-      setModalRutaVisible(true);
-    } else {
-      Alert.alert(
-        "Finalizar Turno", "¿Estás seguro de que deseas desconectarte y dejar de cobrar?", 
-        [ { text: "Cancelar", style: "cancel" }, { text: "Desconectarse", style: "destructive", onPress: () => setEnLinea(false) } ]
-      );
-    }
-  };
-
-  const confirmarRuta = (ruta) => {
-    setRutaAsignada(ruta); setModalRutaVisible(false); setEnLinea(true);
-  };
-
-  // ==========================================
-  // 🎨 UI (DISEÑO NUEVO)
-  // ==========================================
   return (
     <View style={styles.mainContainer}>
       <StatusBar backgroundColor="transparent" barStyle="light-content" translucent={true} />
