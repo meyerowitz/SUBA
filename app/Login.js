@@ -173,6 +173,7 @@ useEffect( () => {
   //----------------------------------------------------------
   //        handleLogin sin API solo el array userData
   //----------------------------------------------------------
+
   const handleLogin = async () => {
     // Buscamos al usuario (por email o nombre)
     const user = userData.users.find(
@@ -213,6 +214,11 @@ useEffect( () => {
   //----------------------------------------------------------
   //        handleLogin2 con API incluida
   //----------------------------------------------------------
+
+  /*
+    En este login guarda de forma aparte el token y el los datos de sesion del usuario por separado 
+    lo hice para poder verificar en la fucion KYC del archivo wallet.js, para mantener el token 
+  */
   const handleLogin2 = async () => {
     if (!correo || !password) {
       Alert.alert("Error", "Por favor, completa todos los campos");
@@ -225,7 +231,6 @@ useEffect( () => {
 
     try {
       // 1. INTENTO DE LOGIN
-      // const response = await fetch('https://subapp-api.onrender.com/auth/login', { //API
       const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -247,7 +252,6 @@ useEffect( () => {
       // 2. OBTENER PERFIL (/me)
       const token = loginData.token || loginData.accessToken;
 
-      //const profileResponse = await fetch('https://subapp-api.onrender.com/auth/me', {
       const profileResponse = await fetch(`${API_URL}/auth/me`, {
         method: "GET",
         headers: {
@@ -260,23 +264,29 @@ useEffect( () => {
       console.log("Respuesta Perfil:", profileData); // Aquí verás por qué falla
 
       if (profileData.success) {
-        // 3. GUARDAR EN ASYNC STORAGE
-        const usuarioAGuardar = { ...profileData.data, token };
+        // 3.  GUARDAR EN ASYNC STORAGE (Adaptado) 
+
+        // Guardamos el token en su propia clave para el guardia
+        await AsyncStorage.setItem("@Token_acceso", token);
+
+        // Guardamos el objeto usuario para las otras partes que lo necesitan
         await AsyncStorage.setItem(
           "@Sesion_usuario",
-          JSON.stringify(usuarioAGuardar),
+          JSON.stringify(profileData.data),
         );
 
-        console.log("✅ Sesión guardada con éxito");
+        console.log("✅ Sesión y Token guardados con éxito");
 
         // 4. VERIFICAR (SACAR Y MOSTRAR)
-        const sesionGuardada = await AsyncStorage.getItem("@Sesion_usuario");
-        console.log("🔍 Datos en AsyncStorage:", JSON.parse(sesionGuardada));
+        const tokenGuardado = await AsyncStorage.getItem("@Token_acceso");
+        const usuarioGuardado = await AsyncStorage.getItem("@Sesion_usuario");
+        console.log("🔍 Token en AsyncStorage:", tokenGuardado);
+        console.log("🔍 Usuario en AsyncStorage:", JSON.parse(usuarioGuardado));
 
         // 5. NAVEGACIÓN
-        setUserRole(usuarioAGuardar.role);
+        setUserRole(profileData.data.role);
 
-        if (usuarioAGuardar.role === "driver") {
+        if (profileData.data.role === "driver") {
           router.replace("./pages/Conductor/Home2");
         } else {
           router.replace("./pages/Pasajero/Navigation");
@@ -292,7 +302,6 @@ useEffect( () => {
       Alert.alert("Error de conexión", "No se pudo conectar con el servidor.");
     }
   };
-
   if (isLoading) {
     return (
       <View style={styles.loaderContainer}>
