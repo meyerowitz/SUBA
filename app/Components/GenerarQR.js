@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, ActivityIndicator } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useRouter } from 'expo-router';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Print from 'expo-print';
@@ -27,7 +27,7 @@ export default function GenerarQR() {
           const sesionObjeto = JSON.parse(sesionString);
           
           // Extraemos los datos específicos
-          const id = sesionObjeto.id || "";
+          const id = sesionObjeto.id || sesionObjeto._id || "";
           const email = sesionObjeto.email || "No disponible";
           const fullName = sesionObjeto.fullName || "Conductor";
 
@@ -45,26 +45,24 @@ export default function GenerarQR() {
   }, []);
 
   const imprimirPDF = async () => {
-    // Verificamos que el QR ya se haya dibujado en pantalla
     if (!qrRef.current) return;
 
-    // Obtenemos la imagen base64 del QR
     qrRef.current.toDataURL(async (dataURL) => {
       const htmlContent = `
         <html>
           <body style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Helvetica', sans-serif; text-align: center;">
-            <div style="border: 2px solid #003366; padding: 40px; border-radius: 20px;">
-              <h1 style="color: #003366; font-size: 40px; margin-bottom: 10px;">PAGO RÁPIDO</h1>
-              <h2 style="color: #333; font-size: 28px; margin-top: 0;">${conductorInfo.fullName.toUpperCase()}</h2>
+            <div style="border: 4px solid #023A73; padding: 40px; border-radius: 20px;">
+              <h1 style="color: #FFA311; font-size: 40px; margin-bottom: 10px; background-color: #023A73; padding: 10px 20px; border-radius: 10px;">SUBA PAGO RÁPIDO</h1>
+              <h2 style="color: #333; font-size: 28px; margin-top: 15px;">${conductorInfo.fullName.toUpperCase()}</h2>
               
               <img src="data:image/png;base64,${dataURL}" style="width: 350px; height: 350px; margin: 20px 0;" />
               
-              <div style="background-color: #f4f7fa; padding: 20px; border-radius: 10px; margin-top: 20px;">
-                <p style="font-size: 24px; margin: 5px 0;"><strong>ID Operador:</strong> ${busId.substring(0, 8).toUpperCase()}</p>
-                <p style="font-size: 18px; color: #666; margin: 5px 0;">${conductorInfo.email}</p>
+              <div style="background-color: #F0F5FA; padding: 20px; border-radius: 10px; margin-top: 20px;">
+                <p style="font-size: 24px; margin: 5px 0; color: #023A73;"><strong>UNIDAD:</strong> ${busId.substring(0, 8).toUpperCase()}</p>
+                <p style="font-size: 18px; color: #64748B; margin: 5px 0;">${conductorInfo.email}</p>
               </div>
               
-              <p style="color: #003366; font-size: 18px; margin-top: 30px; font-weight: bold;">Escanea para pagar tu pasaje</p>
+              <p style="color: #023A73; font-size: 22px; margin-top: 30px; font-weight: bold;">Escanea para pagar tu pasaje</p>
             </div>
           </body>
         </html>
@@ -82,39 +80,39 @@ export default function GenerarQR() {
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color="#003366" />
+        <ActivityIndicator size="large" color="#023A73" />
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor='#003366' barStyle="light-content" />
+      <StatusBar backgroundColor='#F4F7FA' barStyle="dark-content" />
 
       {/* Header */}
       <View style={styles.headerButtons}>
         <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={28} color="#333" />
+          <FontAwesome6 name="arrow-left" size={24} color="#0F172A" />
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.iconButton} onPress={imprimirPDF}>
-          <Ionicons name="print" size={28} color="#003366" />
+          <FontAwesome6 name="print" size={24} color="#023A73" />
         </TouchableOpacity>
       </View>
 
       <View style={styles.content}>
         <Text style={styles.title}>Mi QR de Cobro</Text>
         <Text style={styles.subtitle}>
-          Hola, <Text style={{fontWeight: 'bold'}}>{conductorInfo.fullName}</Text>. 
-          Muestra este código para recibir pagos.
+          Hola, <Text style={{fontWeight: 'bold', color: '#0F172A'}}>{conductorInfo.fullName}</Text>. 
+          Muestra o imprime este código para recibir pagos de pasaje.
         </Text>
 
         <View style={styles.qrContainer}>
           {busId ? (
             <QRCode
-              value={JSON.stringify(conductorInfo)}
+              value={busId} // 💡 AHORA PASAMOS EL ID LIMPIO PARA QUE EL ESCÁNER LO LEA BIEN
               size={250}
-              color="black"
+              color="#0F172A"
               backgroundColor="white"
               getRef={(ref) => (qrRef.current = ref)}
             />
@@ -123,14 +121,13 @@ export default function GenerarQR() {
           )}
         </View>
 
-        {/* Aquí reflejamos solo los primeros 8 dígitos */}
-        <Text style={styles.busIdText}>ID: {busId.substring(0, 8).toUpperCase()}</Text>
+        <Text style={styles.busIdText}>UNIDAD: {busId.substring(0, 8).toUpperCase()}</Text>
         <Text style={styles.emailText}>{conductorInfo.email}</Text>
 
         <View style={styles.infoBox}>
-          <Ionicons name="shield-checkmark" size={24} color="#003366" />
+          <FontAwesome6 name="shield-halved" size={20} color="#023A73" />
           <Text style={styles.infoText}>
-            Este código contiene tu información verificada para transferencias seguras.
+            Este código enlaza directamente a tu cuenta de operador para recibir cobros seguros de SUBA.
           </Text>
         </View>
       </View>
@@ -139,44 +136,50 @@ export default function GenerarQR() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F7FA' },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
   headerButtons: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingTop: 10
+    paddingHorizontal: 20,
+    paddingTop: 15
   },
   iconButton: { 
-    padding: 10,
+    padding: 12,
     backgroundColor: 'white',
-    borderRadius: 12,
-    elevation: 2 
+    borderRadius: 14,
+    shadowColor: '#94A3B8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3 
   },
   content: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30, marginTop: -30 },
-  title: { fontSize: 26, fontWeight: 'bold', color: '#003366', marginBottom: 5 },
-  subtitle: { fontSize: 15, color: '#666', textAlign: 'center', marginBottom: 35, lineHeight: 20 },
+  title: { fontSize: 28, fontWeight: '900', color: '#023A73', marginBottom: 8 },
+  subtitle: { fontSize: 15, color: '#64748B', textAlign: 'center', marginBottom: 35, lineHeight: 22 },
   qrContainer: {
     padding: 20,
     backgroundColor: 'white',
-    borderRadius: 25,
-    elevation: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 7 },
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    shadowColor: '#023A73',
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.15,
-    shadowRadius: 12,
+    shadowRadius: 15,
+    elevation: 10,
   },
-  busIdText: { marginTop: 25, fontSize: 20, fontWeight: 'bold', color: '#333', letterSpacing: 2 },
-  emailText: { fontSize: 14, color: '#888', marginTop: 5 },
+  busIdText: { marginTop: 25, fontSize: 20, fontWeight: '800', color: '#1E293B', letterSpacing: 2 },
+  emailText: { fontSize: 14, color: '#64748B', marginTop: 5, fontWeight: '500' },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0, 51, 102, 0.1)',
+    backgroundColor: '#F0F9FF',
     padding: 15,
-    borderRadius: 15,
+    borderRadius: 16,
     marginTop: 40,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#BBE1FA'
+    borderColor: '#BAE6FD'
   },
-  infoText: { color: '#003366', fontSize: 13, marginLeft: 10, flex: 1, lineHeight: 18 },
+  infoText: { color: '#0369A1', fontSize: 13, marginLeft: 12, flex: 1, lineHeight: 20, fontWeight: '500' },
 });

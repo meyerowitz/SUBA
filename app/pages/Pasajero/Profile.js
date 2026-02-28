@@ -81,7 +81,10 @@ export default function Profile() {
       {
         text: "Sí, salir",
         onPress: async () => {
-          await AsyncStorage.removeItem("@Sesion_usuario");
+          // 💡 LA MAGIA: clear() borra ABSOLUTAMENTE TODO el rastro de la memoria
+          // Ni KYC falsos, ni sesiones viejas, ni fotos fantasma. Pizarra en blanco.
+          await AsyncStorage.clear(); 
+          
           navigation.dispatch(
             CommonActions.reset({
               index: 0,

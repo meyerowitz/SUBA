@@ -63,7 +63,7 @@ export default function WalletScreen() {
   const [modalDineroVisible, setModalDineroVisible] = useState(false); 
   
   const tasaDolar = 45.00; 
-  const estadoTarjetaFisica = 'POR_VINCULAR'; 
+  const estadoTarjetaFisica = 'SIN_TARJETA'; 
 
   const router = useRouter();
 
@@ -73,19 +73,21 @@ export default function WalletScreen() {
     identidad: "V-30366440",
   };
 
-  // 🛡️ GUARDIA DE SEGURIDAD (INTERCEPTOR KYC)
+  // 🛡️ GUARDIA DE SEGURIDAD (INTERCEPTOR KYC BLINDADO)
   useFocusEffect(
     useCallback(() => {
       const verificarKYC = async () => {
         try {
           const sessionData = await AsyncStorage.getItem("@Sesion_usuario");
-          const perfilCompletado = await AsyncStorage.getItem("@Perfil_Completado");
 
           if (sessionData) {
             const session = JSON.parse(sessionData);
-            // Si falta la cédula y no está la bandera de completado, lo echamos al KYC
-            if (!session.cedula && perfilCompletado !== 'true' && !session.isProfileComplete) {
-              console.log("🛑 KYC Incompleto. Redirigiendo al Formulario...");
+            
+            // 💡 REGLA ESTRICTA: Solo evaluamos al usuario actual.
+            // Si este usuario específico NO tiene cédula guardada en SU sesión,
+            // Y TAMPOCO tiene la bandera temporal de que la acaba de completar... ¡Pa' fuera!
+            if (!session.cedula && !session.isProfileComplete) {
+              console.log("🛑 Guardia: El usuario actual no tiene KYC. Redirigiendo...");
               router.replace("/pages/Pasajero/FormularioPerfil"); 
               return;
             }
@@ -93,6 +95,7 @@ export default function WalletScreen() {
              router.replace("/Login");
              return;
           }
+          
           // Si todo está bien, lo dejamos entrar
           setVerificando(false);
           await inicializar();

@@ -6,21 +6,15 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-
-// IMPORTACIONES DE BASE DE DATOS
-import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Configuración de Supabase
-const supabase = createClient(
-  'https://wkkdynuopaaxtzbchxgv.supabase.co', 
-  'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP'
-);
+// 🔗 CONEXIÓN AL BACKEND
+const API_URL = "https://subapp-api.onrender.com";
 
 export default function ScannerQR() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
-  const [procesando, setProcesando] = useState(false); // Bloqueo de UI durante la DB
+  const [procesando, setProcesando] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -29,107 +23,52 @@ export default function ScannerQR() {
     }
   }, []);
 
-  // --- OBTENER DATOS DE SESIÓN ---
-  const getSessionData = async () => {
-    try {
-      const session = await AsyncStorage.getItem('@Sesion_usuario');
-      return session ? JSON.parse(session) : null;
-    } catch (e) {
-      return null;
-    }
-  };
-
-  // --- LÓGICA DE TRANSACCIÓN ---
-  const ejecutarPagoQR = async (conductorID, fechaEmision, fechaCaducidad, nombreConductor) => {
+  // --- LÓGICA DE TRANSACCIÓN VÍA BACKEND ---
+  const ejecutarPagoQR = async (qrDataScaneado) => {
     setProcesando(true);
-    const MONTO_PAGO = 60.00;
-    const targetId = String(conductorID).trim(); // Limpiamos el ID del QR
 
     try {
-      const session = await getSessionData();
-      if (!session) throw new Error("No se encontró sesión activa. Inicia sesión de nuevo.");
+      const sessionString = await AsyncStorage.getItem('@Sesion_usuario');
+      if (!sessionString) throw new Error("No hay sesión activa. Inicia sesión de nuevo.");
+      const token = JSON.parse(sessionString).token;
+
+      // 🧠 LLAMADA A LA API DE ABORDAJE (Sección 4.3 del PDF)
+      // El backend recibe el ID del bus, verifica subsidios, resta el saldo y crea la transacción
+      const response = await fetch(`${API_URL}/api/abordaje/pagar-qr`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          qrData: qrDataScaneado // Enviamos la info que leímos del QR del autobús
+        })
+      });
+
+      const data = await response.json();
       
-      const myId = session._id.trim();
-      const myName = session.fullName || "Usuario App";
-      const referenciaUnica = `QR-${Date.now().toString().slice(-6)}`;
-
-      // 1. OBTENER MI SALDO ACTUAL DIRECTO DE LA DB
-      const { data: myData, error: myError } = await supabase
-        .from('Saldo_usuarios')
-        .select('saldo')
-        .eq('external_user_id', myId)
-        .maybeSingle();
-
-      if (myError) throw new Error("Error al consultar tu saldo.");
-      const miSaldoActual = myData ? myData.saldo : 0;
-
-      // VALIDACIÓN DE SALDO
-      if (miSaldoActual < MONTO_PAGO) {
-        Alert.alert("Saldo insuficiente", `Tu saldo actual es Bs. ${miSaldoActual.toFixed(2)}. Necesitas Bs. 60.00.`);
-        setScanned(false);
-        return;
+      if (!response.ok) {
+        throw new Error(data.message || "No se pudo procesar el pago. Revisa tu saldo.");
       }
 
-      // 2. DESCONTAR MI SALDO
-      const { error: errorResta } = await supabase
-        .from('Saldo_usuarios')
-        .update({ saldo: miSaldoActual - MONTO_PAGO })
-        .eq('external_user_id', myId);
-
-      if (errorResta) throw new Error("No se pudo procesar el descuento de tu cuenta.");
-
-      // 3. SUMAR SALDO AL CONDUCTOR (UPSERT)
-      const { data: destData } = await supabase
-        .from('Saldo_usuarios')
-        .select('saldo')
-        .eq('external_user_id', targetId)
-        .maybeSingle();
-
-      const saldoActualDest = destData ? destData.saldo : 0;
+      // Si el pago es exitoso, el backend nos devuelve los datos del cobro para el ticket
+      // data.ticket podría contener { montoCobrado, descuentoAplicado, unidad, fecha }
       
-      const { error: errorSuma } = await supabase
-        .from('Saldo_usuarios')
-        .upsert(
-          { external_user_id: targetId, saldo: saldoActualDest + MONTO_PAGO },
-          { onConflict: 'external_user_id' }
-        );
-
-      if (errorSuma) throw new Error("Error al acreditar el pago al conductor.");
-
-      // 4. REGISTRAR HISTORIAL PARA AMBOS
-      await supabase.from('validaciones_pago').insert([
-        {
-          external_user_id: myId,
-          referencia: referenciaUnica,
-          monto_informado: MONTO_PAGO,
-          evidencia_url: `Pago Pasaje: ${targetId}`,
-          estado: 'completado'
-        },
-        {
-          external_user_id: targetId,
-          referencia: referenciaUnica,
-          monto_informado: MONTO_PAGO,
-          evidencia_url: `Pasaje Recibido de: ${myName}`,
-          estado: 'completado'
-        }
-      ]);
-
-      // 5. TODO BIEN -> IR AL TICKET
       router.replace({
         pathname: "/Components/TicketVirtual",
         params: {
-          monto: "60.00",
-          unidad: targetId.slice(-4),
-          fecha: fechaEmision,
-          vence: fechaCaducidad,
-          conductor: nombreConductor
+          monto: data.montoCobrado || "60.00", 
+          unidad: qrDataScaneado.slice(-4),
+          fecha: new Date().toLocaleString(),
+          conductor: "Conductor SUBA",
+          descuento: data.descuentoAplicado || "Ninguno"
         }
       });
 
     } catch (error) {
       console.error("Error en proceso de pago:", error);
-      Alert.alert("Error en el pago", error.message);
-      setScanned(false); // Permitir volver a escanear si falló
+      Alert.alert("Pago Rechazado ❌", error.message);
+      setScanned(false); // Permitir volver a escanear
     } finally {
       setProcesando(false);
     }
@@ -140,18 +79,11 @@ export default function ScannerQR() {
     if (scanned || procesando) return; 
     setScanned(true);
 
-    const conductorID = String(data).toUpperCase();
-    const nombreConductor = "Conductor Registrado"; 
+    const conductorID = String(data).trim();
     
-    // Fechas para el ticket
-    const ahora = new Date();
-    const fechaEmision = ahora.toLocaleString();
-    const tiempoCaducidad = new Date(ahora.getTime() + 15 * 60000); 
-    const fechaCaducidad = tiempoCaducidad.toLocaleString();
-
     Alert.alert(
-      "Confirmar Pasaje",
-      `¿Deseas pagar Bs. 60.00 a la unidad ${conductorID.slice(-4)}?`,
+      "Confirmar Abordaje",
+      `¿Deseas pagar el pasaje a la unidad ${conductorID.slice(-4)}?`,
       [
         { 
           text: "Cancelar", 
@@ -160,7 +92,7 @@ export default function ScannerQR() {
         },
         { 
           text: "Pagar Pasaje", 
-          onPress: () => ejecutarPagoQR(conductorID, fechaEmision, fechaCaducidad, nombreConductor) 
+          onPress: () => ejecutarPagoQR(conductorID) 
         }
       ]
     );
@@ -172,7 +104,7 @@ export default function ScannerQR() {
   if (!permission.granted) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>Necesitamos acceso a la cámara para escanear el QR</Text>
+        <Text style={styles.errorText}>Necesitamos acceso a la cámara para escanear el código QR del autobús.</Text>
         <TouchableOpacity style={styles.retryButton} onPress={requestPermission}>
           <Text style={{color:'white', fontWeight:'bold'}}>CONCEDER PERMISO</Text>
         </TouchableOpacity>
@@ -188,16 +120,14 @@ export default function ScannerQR() {
         style={StyleSheet.absoluteFillObject}
       />
       
-      {/* PANTALLA DE CARGA SI SE ESTÁ PROCESANDO EL DINERO */}
       {procesando && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#34C759" />
           <Text style={styles.loadingText}>Procesando pago seguro...</Text>
-          <Text style={styles.loadingSubText}>No cierres la aplicación</Text>
+          <Text style={styles.loadingSubText}>Verificando saldo y subsidios</Text>
         </View>
       )}
 
-      {/* MARCO DEL ESCÁNER (UI) */}
       <View style={styles.overlay}>
           <View style={styles.unfocusedContainer} />
           <View style={styles.middleRow}>

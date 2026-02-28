@@ -110,15 +110,19 @@ export default function FormularioPerfil() {
       const ext = uri.substring(uri.lastIndexOf('.') + 1) || 'jpg';
       const fileName = `${prefijo}_${Date.now()}.${ext}`;
       
-      // 💡 Corrección: Usamos FormData igual que en tu Wallet.js para evitar el Network Error
-      const formData = new FormData();
-      formData.append("file", { 
-        uri: Platform.OS === "android" ? uri : uri.replace("file://", ""), 
-        name: fileName, 
-        type: `image/${ext === 'jpg' ? 'jpeg' : ext}` 
+      // 💡 LA CURA: Leemos la imagen como texto plano (Base64)
+      const base64 = await FileSystem.readAsStringAsync(uri, { 
+        encoding: FileSystem.EncodingType.Base64 
       });
 
-      const { error } = await supabase.storage.from('documentos_suba').upload(fileName, formData);
+      // 💡 Subimos el ArrayBuffer directamente. ¡Esto no falla en Android!
+      const { error } = await supabase.storage
+        .from('documentos_suba')
+        .upload(fileName, decode(base64), { 
+          contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+          upsert: true
+        });
+
       if (error) throw error;
       
       const { data: urlData } = supabase.storage.from('documentos_suba').getPublicUrl(fileName);
