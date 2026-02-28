@@ -58,7 +58,7 @@ export default function ResetPassword() {
 
     if (!email || !verificationCode) {
       Alert.alert("Error", "Sesión expirada. Inicia el proceso de nuevo.")
-      router.replace("/forgotten-password")
+      router.replace("./forgotten-password")
       return
     }
 
@@ -101,7 +101,7 @@ export default function ResetPassword() {
           </TouchableOpacity>
 
           <View style={styles.logo}>
-            <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
+            <Image source={require("../../../assets/img/logo.png")} style={styles.wordmark} />
           </View>
 
           <Text style={styles.title}>Nueva Contraseña</Text>

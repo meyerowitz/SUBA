@@ -1,10 +1,11 @@
 import { Image } from "expo-image"
 import { useRouter } from "expo-router"
 import { useState } from "react"
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from "react-native"
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6"
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, ScrollView } from "react-native"
 import { useRecovery } from "@/context/RecoveryContext"
 import { sendVerificationCode } from "@/services/emailService"
+import Volver from "../../Components/Botones_genericos/Volver"
+import { SafeAreaView } from "react-native-safe-area-context"
 
 // URL de Producción en Render
 const API_URL = "https://subapp-api.onrender.com";
@@ -72,7 +73,7 @@ export default function ForgottenPassword() {
           setVerificationCode(codeFromServer)
 
           Alert.alert("Éxito", `Se ha enviado un código a ${emailInput}`)
-          router.push("/verify-code")
+          router.push("/pages/olvide_contrasena/verify-code")
         } else {
           Alert.alert("Error", "El servidor generó el código pero EmailJS falló al enviarlo.");
         }
@@ -88,16 +89,15 @@ export default function ForgottenPassword() {
   }
 
   return (
-    <View style={styles.page}>
+    <SafeAreaView style={{flex: 1,backgroundColor: "#FFFFFF",}}>
+       <ScrollView contentContainerStyle={{height:'110%'}}>
       <View style={styles.container}>
         {/* Botón de atrás */}
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <FontAwesome6 name="arrow-left" size={26} color="#FFFFFF" />
-        </TouchableOpacity>
+       <Volver style={{top:80, left:15}} color={'gray'} route={'/Login'}/>
 
         {/* Logo */}
-        <View style={styles.logo}>
-          <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
+        <View style={{width: 300,height: 82,marginTop: 0, marginBottom: 60,}}>
+          <Image source={require("../../../assets/img/logo.png")} style={styles.wordmark} />
         </View>
 
         <Text style={styles.title}>Recuperar cuenta</Text>
@@ -133,7 +133,8 @@ export default function ForgottenPassword() {
           )}
         </TouchableOpacity>
       </View>
-    </View>
+     </ScrollView>
+    </SafeAreaView>
   )
 }
 
@@ -148,28 +149,8 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     alignItems: "center",
   },
-  backButton: {
-    position: "absolute",
-    top: 50,
-    left: 25,
-    width: 55,
-    height: 55,
-    borderRadius: 27.5,
-    backgroundColor: "#FFA311",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
   logo: {
-    width: 300,
-    height: 82,
-    marginTop: 70,
-    marginBottom: 60,
+    width: 300,height: 82,marginTop: 70, marginBottom: 60,
   },
   wordmark: {
     width: "100%",

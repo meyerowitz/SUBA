@@ -36,7 +36,7 @@ export default function VerifyCode() {
       Alert.alert("Éxito", "Código verificado correctamente", [
         {
           text: "Continuar",
-          onPress: () => router.push("/reset-password"),
+          onPress: () => router.push("/pages/olvide_contrasena/reset-password"),
         },
       ])
     } catch (error) {
@@ -96,7 +96,7 @@ export default function VerifyCode() {
 
         {/* Logo */}
         <View style={styles.logo}>
-          <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
+          <Image source={require("../../../assets/img/logo.png")} style={styles.wordmark} />
         </View>
 
         {/* Success Icon */}

@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import userData from "./Components/Users.json";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTheme } from './Components/Temas_y_colores/ThemeContext';
 
 export default function Login() {
   const router = useRouter();
@@ -14,36 +15,185 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [userRole, setUserRole] = useState(null);
+  const [state,setState] = useState({email: "",name:""})
+  const [id,setId] = useState(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  useEffect(() => {
-    const cerrar_sesion_anterior = async () => {
+  // Estados para controlar la carga y qué GIF mostrar
+  const [isLoading, setIsLoading] = useState(false)
+  const [userRole, setUserRole] = useState(null)
+  const { theme, toggleTheme, isDark } = useTheme();
+
+//-------------------------------------------------
+//     UseEffect que limpia la sesion anterior
+//-------------------------------------------------
+useEffect(()=>{
+  
+  const cerrar_sesion_anterior = async () => {
+
+    try {
+    const valor = await AsyncStorage.getItem('@Sesion_usuario');
+
+    if (valor !== null) {
+      // Si hay datos, procedemos a borrar
+      await AsyncStorage.removeItem('@Sesion_usuario');
+      console.log("Existían datos y han sido borrados.");
+    } else {
+      // Si es null, el almacenamiento ya estaba vacío
+      console.log("El almacenamiento ya está vacío, nada que borrar.");
+    }
+  } catch (e) {
+    console.error("Error al verificar:", e);
+  }
+  }; cerrar_sesion_anterior()
+  
+},[])
+
+
+/*GoogleSignin.configure({
+  webClientId: '159501895592-5oooqd8f4kvcque2n1aacrk9c93bq0op.apps.googleusercontent.com', // client ID of type WEB for your server. Required to get the `idToken` on the user object, and for offline access.
+  offlineAccess: true, // if you want to access Google API on behalf of the user FROM YOUR SERVER
+  iosClientId: '159501895592-rg8n8i2ab5le35m97m3p8b76657cgnal.apps.googleusercontent.com', // [iOS] if you want to specify the client ID of type iOS (otherwise, it is taken from GoogleService-Info.plist)
+});
+
+const signInA = async () => {
+  try {
+    await GoogleSignin.hasPlayServices();
+    const response = await GoogleSignin.signIn();
+    if (isSuccessResponse(response)) {
+      const infoGoogleUser=response.data.user;
+      const infoGoogleToken = response.data.idToken;
+        
+      const gooLogin = await fetch('https://subapp-api.onrender.com/auth/autenticar-google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        idToken: infoGoogleToken,
+        role: "passenger"
+        }),
+      });
+
+      const gooLoginData = await gooLogin.json();
+
+      if (!gooLogin.ok) {
+      setIsLoading(false);
+      Alert.alert("Error", gooLoginData.message || "Credenciales incorrectas");
+      return;
+    }
+
+      setState({email:infoGoogleUser.email,name: infoGoogleUser.name});
+      setId(gooLoginData.user.id);
+      setIsAuthenticated(true);
+
+    } else {
+      // sign in was cancelled by user
+    }
+  } catch (error) {
+
+    if (isErrorWithCode(error)) {
+      switch (error.code) {
+        case statusCodes.IN_PROGRESS:
+          console.log("error in progress");// operation (eg. sign in) already in progress
+          break;
+        case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+          console.log("eror android only");// Android only, play services not available or outdated
+          break;
+        default:
+        console.log("error default", error);// some other error happened
+      }
+    } else {
+      console.log("error no relacionado");// an error that's not related to google sign in occurred
+    }
+  }
+};
+
+const signIn = async ()=>{
+  signIn().catch((e)=>{
+                    console.log("Error al iniciar sesion con google: ",e);
+                    })
+  }
+
+
+useEffect(() => {
+  async function googleSI() {
+    if (!isAuthenticated) return;
+
+    // Ejecutamos la búsqueda y el guardado, y RETORNAMOS el usuario para el siguiente paso
+    const obtenerUsuario = async () => {
       try {
-        const valor = await AsyncStorage.getItem("@Sesion_usuario");
-        if (valor !== null) {
-          await AsyncStorage.removeItem("@Sesion_usuario");
+        const response = await fetch(`https://subapp-api.onrender.com/api/pasajeros?email=${encodeURIComponent(state.email)}`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        const profileData = await response.json();
+        const foundUser = profileData.passengers[0];
+
+        if (foundUser) {
+          const jsonValue = JSON.stringify(foundUser);
+          await AsyncStorage.setItem('@Sesion_usuario', jsonValue);
+          console.log("Sesion guardada con éxito");
+        const jsonValue2 = await AsyncStorage.getItem('@Sesion_usuario');
+        console.log(jsonValue2);
+          return foundUser; 
         }
+        return null;
       } catch (e) {
-        console.error("Error al limpiar AsyncStorage:", e);
+        console.error("Error al obtener datos:", e);
+        throw e;
       }
     };
-    cerrar_sesion_anterior();
-  }, []);
 
-  useEffect(() => {
-    const cacheGifs = async () => {
-      const images = [
-        require("../assets/img/driver-loading.gif"),
-        require("../assets/img/passenger-loading.gif"),
-      ];
-      const cacheImages = images.map((image) => Asset.fromModule(image).downloadAsync());
-      return Promise.all(cacheImages);
-    };
-    cacheGifs().catch((err) => console.log("Error precargando GIFs:", err));
-  }, []);
+    // Ahora sí podemos usar .then() sobre la función asíncrona
+    obtenerUsuario().then((user) => {
+      if (user) {
+        setUserRole(user.role);
+        setIsLoading(true);
 
-  const handleLoginLocal = async () => {
+        setTimeout(() => {
+          if (user.role === "driver") {
+            router.replace("./pages/Conductor/Home2");
+          } else {
+            router.replace("./pages/Pasajero/Navigation");
+          }
+        }, 4000);
+      } else {
+        Alert.alert("Error", "Usuario o contraseña incorrectos");
+        GoogleSignin.signOut();
+      }
+    }).catch(e => {
+      console.error("Error final:", e);
+    });
+  }
+
+  googleSI();
+}, [state, isAuthenticated]);*/
+//-------------------------------------------------
+//        UseEffect de carga de imagenes
+//-------------------------------------------------
+useEffect(() => {
+  const cacheGifs = async () => {
+    const images = [
+      require("../assets/img/driver-loading.gif"),
+      require("../assets/img/passenger-loading.gif"),
+    ];
+
+    // Mapea los recursos para que Expo los prepare en caché
+    const cacheImages = images.map(image => {
+      return Asset.fromModule(image).downloadAsync();
+    });
+
+    return Promise.all(cacheImages);
+  };
+
+  cacheGifs().catch(err => console.log("Error precargando GIFs:", err));
+}, []);
+
+//----------------------------------------------------------
+//        handleLogin sin API solo el array userData
+//----------------------------------------------------------
+const handleLogin = async () => {
+    // Buscamos al usuario (por email o nombre)
     const user = userData.users.find(
       (u) =>
         (u.email.toLowerCase() === correo.toLowerCase() ||
@@ -163,7 +313,7 @@ export default function Login() {
         style={{ flex: 1, width: "100%" }}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={{flexGrow: 1, backgroundColor: "#FFFFFF", width: "100%", height:'110%'}}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -202,35 +352,40 @@ export default function Login() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity onPress={() => router.push("/forgotten-password")}>
+            <TouchableOpacity onPress={() => router.push("/pages/olvide_contrasena/forgotten-password")}>
               <Text style={styles.question}>¿Olvidaste tu contraseña? </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.button}
               onPress={handleLoginAPI}
-              onLongPress={handleLoginLocal}
+              onLongPress={handleLogin}
               delayLongPress={2000}
             >
               <Text style={styles.textButton}>INICIAR SESIÓN</Text>
             </TouchableOpacity>
 
-            <View style={styles.googleContainer}>
-              <TouchableOpacity style={styles.googleButton}>
-                <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
-                <Text style={styles.googleText}>Continuar con Google</Text>
-              </TouchableOpacity>
-            </View>
+                <View style={styles.googleContainer}>
+                  <TouchableOpacity 
+                  style={styles.googleButton} 
+                  /*onPress={() => signInA()}*/
+                    >
+                    <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
+                    <Text style={styles.googleText}>Continuar con Google</Text>
+                  </TouchableOpacity>
+                </View>
 
-            <View style={styles.redirect}>
-              <Text style={styles.question}>¿No tienes cuenta? </Text>
-              <TouchableOpacity onPress={() => router.replace("/Register")}>
-                <Text style={styles.register}>Regístrate aquí</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+                <View style={{width: 320,marginTop: 20,display: "flex",flexDirection: "row",justifyContent: "center",alignItems: "center",}}>
+                  <Text style={{color: "#544F4F",fontFamily: "roboto",fontWeight: "bold",fontSize: 16,}}>¿No tienes cuenta? </Text>
+                  <TouchableOpacity onPress={() => router.replace("/Register")}>
+                    <Text style={{color: "#0661BC",fontFamily: "roboto",fontWeight: "bold",fontSize: 16, textDecorationLine: "underline",}}>Regístrate aquí</Text>
+                  </TouchableOpacity>
+                </View>
+              
+              </View>
+      
+            </ScrollView>
+        </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -238,7 +393,7 @@ export default function Login() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
   scrollContent: { flexGrow: 1, backgroundColor: "#FFFFFF", width: "100%" },
-  container: { flex: 1, justifyContent: "center", alignItems: "center", paddingBottom: 30 },
+  container: { flex: 1, justifyContent: "center", alignItems: "center", paddingBottom: 100 },
   logo: { width: 320, height: 88, marginTop: 50, marginBottom: 50 },
   wordmark: { width: "100%", height: "100%" },
   title: { fontSize: 30, fontWeight: "bold", color: "#212121", marginBottom: 60 },

@@ -17,9 +17,9 @@ export default function RootLayout() {
           <Stack.Screen name="Register" options={{ animation: "slide_from_bottom", headerShown: false }} />
 
           {/* --- FLUJO DE RECUPERACIÓN (Pantallas Nuevas) --- */}
-          <Stack.Screen name="forgotten-password" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="verify-code" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="reset-password" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="pages/olvide_contrasena/forgotten-password" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="pages/olvide_contrasena/verify-code" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="pages/olvide_contrasena/reset-password" options={{ animation: 'slide_from_right' }} />
 
           {/* --- PÁGINAS DE PASAJERO --- */}
           <Stack.Screen name="pages/Pasajero/Navigation" options={{ animation: "slide_from_right" }} />
