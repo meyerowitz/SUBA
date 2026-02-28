@@ -10,9 +10,15 @@ import { Asset } from "expo-asset";
 import * as Location from "expo-location";
 import * as FileSystem from "expo-file-system/legacy";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router'; 
-import { getusername } from '../../Components/AsyncStorage';
+import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { createClient } from '@supabase/supabase-js';
+import { getuserid, getusername } from '../../Components/AsyncStorage';
+import { useRoute } from '../../Components/Providers/RouteContext';
+
+import mqtt from "mqtt"; // <-- IMPORTANTE: Asegúrate de tener instalado 'mqtt'
 import Destinos from "../../Components/Destinos.json";
+import Volver from '../../Components/Botones_genericos/Volver';
 
 // 💡 NUESTRO CENTRO DE CONTROL MAGICO
 import { MOCK_BACKEND } from '../../../lib/SimuladorBackend'; 
@@ -20,8 +26,11 @@ import { MOCK_BACKEND } from '../../../lib/SimuladorBackend';
 const { height } = Dimensions.get('window');
 const STOP_CACHE_KEY = "guayana_bus_stops_cache";
 const GUAYANA_BBOX = "8.21,-62.88,8.39,-62.60";
+const FETCH_BUSES_INTERVAL = 5000; // Refrescar buses en el mapa cada 5 seg
 
+// --- VARIABLES GLOBALES (Persisten fuera del ciclo de vida de React) ---
 let hasCenteredSession = false; 
+let globalBuses = []; 
 
 const fetchGuayanaBusStops = async (retry = 0) => {
   if (retry === 0) {
@@ -61,12 +70,12 @@ export default function UnifiedHome() {
   const [username, setUsername] = useState("Pasajero");
   
   const [isSearching, setIsSearching] = useState(false);
-  const [selectedDestinationName, setSelectedDestinationName] = useState("");
+  const [selectedDestinationName, setSelectedDestinationName] = useState(""); const { setSelectedRoute } = useRoute();
   
-  // 💡 LEEMOS EL ESTADO DIRECTAMENTE DEL SIMULADOR
-  const perfilCompletado = MOCK_BACKEND.perfil_completado;
-  const saldo = MOCK_BACKEND.saldo;
-  const tasaBCV = MOCK_BACKEND.tasa_bcv;
+  const [saldo, setSaldo] = useState(0.00);
+  const [tasaBCV, setTasaBCV] = useState(382.63); 
+  const [loadingSaldo, setLoadingSaldo] = useState(true);
+  const { destino } = useLocalSearchParams();
 
   const [ShowEta, setShowEta]= useState(true); 
   const [Eta, SetEta]= useState("-- min");
@@ -76,6 +85,66 @@ export default function UnifiedHome() {
   const router = useRouter();
   const slideAnim = useRef(new Animated.Value(height)).current;
 
+  // --- LÓGICA MQTT ---
+  const createOrUpdateBusData = (busData) => {
+    // Buscamos si el bus ya existe por su _id (o bus_id según envíe tu broker)
+    const exists = globalBuses.some(bus => bus._id === busData._id);
+    if (exists) {
+      const index = globalBuses.findIndex(bus => bus._id === busData._id);
+      globalBuses[index] = busData;
+    } else {
+      globalBuses.push(busData);
+    }
+  };
+
+  useEffect(() => {
+    console.log("Conectando al broker MQTT...");
+    const mqttClient = mqtt.connect(
+      "wss://3ef878324832459c8b966598a4c58112.s1.eu.hivemq.cloud:8884/mqtt",
+      { username: "testeo", password: "123456Abc" }
+    );
+
+    mqttClient.on("connect", () => {
+      console.log("✅ Conectado al broker MQTT");
+      mqttClient.subscribe("subapp/passenger");
+    });
+
+    mqttClient.on("message", (topic, message) => {
+      try {
+        const datos = JSON.parse(message.toString());
+        createOrUpdateBusData(datos);
+      } catch (e) {
+        console.error("Error parseando mensaje MQTT:", e);
+      }
+    });
+
+    mqttClient.on("error", (err) => console.error("Error MQTT:", err));
+
+    return () => {
+      if (mqttClient) mqttClient.end();
+      console.log("MQTT desconectado");
+    };
+  }, []);
+
+  // --- RENDERIZADO DE BUSES EN EL MAPA ---
+  useEffect(() => {
+    const renderLoop = setInterval(() => {
+      if (isMapReady && webviewRef.current && globalBuses.length > 0) {
+        const transformedData = globalBuses.map((bus) => ({
+          bus_id: bus._id || "Desconocido",
+          lat: bus.latitude,
+          lon: bus.longitude,
+        }));
+
+        const busDataString = JSON.stringify(transformedData);
+        webviewRef.current.injectJavaScript(`renderBusLocations(${busDataString}); true;`);
+      }
+    }, FETCH_BUSES_INTERVAL);
+
+    return () => clearInterval(renderLoop);
+  }, [isMapReady]);
+
+  // 1. Cargar Datos Iniciales
   useEffect(() => {
     const cargarDatos = async () => {
       const name = await getusername();
@@ -105,17 +174,20 @@ export default function UnifiedHome() {
       
       let curr = await Location.getCurrentPositionAsync({});
       let geo = await Location.reverseGeocodeAsync({ latitude: curr.coords.latitude, longitude: curr.coords.longitude });
-      if (geo?.[0]) setUbicacionTexto(`${geo[0].street || ''}, ${geo[0].city || 'Guayana'}`);
+      if (geo?.[0]) setUbicacionTexto(`${geo[0].street || ''} ${geo[0].city || 'Guayana'}`);
 
       sub = await Location.watchPositionAsync({ accuracy: 4, timeInterval: 5000, distanceInterval: 5 }, (loc) => {
           setUserLocation(loc.coords);
-          if (webviewRef.current && isMapReady) webviewRef.current.injectJavaScript(`updateUserMarker(${loc.coords.latitude}, ${loc.coords.longitude}); true;`);
+          if (webviewRef.current && isMapReady) {
+            webviewRef.current.injectJavaScript(`updateUserMarker(${loc.coords.latitude}, ${loc.coords.longitude}); true;`);
+          }
       });
     };
     startLoc();
     return () => sub?.remove();
   }, [isMapReady]);
 
+  // 3. Auto-centrado
   useEffect(() => {
     if (userLocation && isMapReady && !hasCenteredSession && webviewRef.current) {
         webviewRef.current.injectJavaScript(`moveTo(${userLocation.latitude}, ${userLocation.longitude}); true;`);
@@ -123,6 +195,7 @@ export default function UnifiedHome() {
     }
   }, [userLocation, isMapReady]);
 
+  // 4. Inyectar Paradas
   useEffect(() => {
     if (isMapReady && webviewRef.current && !stopsInjected) {
         fetchGuayanaBusStops().then(data => {
@@ -135,17 +208,21 @@ export default function UnifiedHome() {
     }
   }, [isMapReady, stopsInjected]);
 
+  // 5. Animación ETA
   useEffect(() => {
     Animated.spring(slideAnim, { toValue: ShowEta ? height : 0, useNativeDriver: true, friction: 8 }).start();
   }, [ShowEta]);
 
+  // 6. Manejador Mensajes WebView
   const handleWebViewMessage = (event) => {
     const msg = event.nativeEvent.data;
     if (msg === "MAP_LOADED") { setIsMapReady(true); setStopsInjected(false); }
     try {
         const data = JSON.parse(msg);
         if (data.type === 'ROUTE_INFO') {
-           SetEta(`${data.duration} min`); SetDistancia(`${data.distance} Km`); SetRouteName(data.name || "Ruta");
+           SetEta(`${data.duration} min`); 
+           SetDistancia(`${data.distance} Km`); 
+           SetRouteName(data.name || "Ruta");
            setShowEta(false); 
            setIsSearchExpanded(false); 
         }
@@ -153,16 +230,19 @@ export default function UnifiedHome() {
   };
 
   const handleSearch = () => {
-    if (!selectedDestinationName) return Alert.alert("Error", "Selecciona destino");
-    if (!userLocation) return;
+    if (!selectedDestinationName || !userLocation) return;
     setIsSearching(true);
     const dest = Destinos.find(d => d.name === selectedDestinationName);
-    if (dest) webviewRef.current.injectJavaScript(`drawRouteAndAnimate(${userLocation.latitude}, ${userLocation.longitude}, ${dest.lat}, ${dest.lon}); true;`);
+    if (dest) {
+      webviewRef.current.injectJavaScript(`drawRouteAndAnimate(${userLocation.latitude}, ${userLocation.longitude}, ${dest.lat}, ${dest.lon}); true;`);
+    }
     setTimeout(() => setIsSearching(false), 1500);
   };
 
   const centrar = () => {
-      if(userLocation && webviewRef.current) webviewRef.current.injectJavaScript(`moveTo(${userLocation.latitude}, ${userLocation.longitude}); true;`);
+      if(userLocation && webviewRef.current) {
+        webviewRef.current.injectJavaScript(`moveTo(${userLocation.latitude}, ${userLocation.longitude}); true;`);
+      }
   }
 
   if (mapLoading) return <ActivityIndicator size="large" color="#003366" style={{flex:1}} />;
@@ -171,139 +251,93 @@ export default function UnifiedHome() {
 
   return (
     <View style={styles.container}>
-      <StatusBar translucent barStyle="dark-content" backgroundColor="transparent" />
+      <StatusBar barStyle="light-content" backgroundColor={"#003366"} />
 
       {/* FONDO MAPA */}
       <View style={StyleSheet.absoluteFillObject}>
-        <WebView ref={webviewRef} source={{ html: mapHtmlContent }} onMessage={handleWebViewMessage} style={{ flex: 1 }} javaScriptEnabled={true} />
+        <WebView 
+          ref={webviewRef} 
+          source={{ html: mapHtmlContent }} 
+          onMessage={handleWebViewMessage} 
+          style={{ flex: 1 }} 
+          javaScriptEnabled={true} 
+        />
       </View>
 
-      {/* HEADER (PERFIL) */}
-      <View style={styles.headerContainer}>
-          <View style={styles.headerLeft}>
-              <TouchableOpacity onPress={() => router.push('/pages/Pasajero/Profile')} style={styles.avatarBtn}>
-                  <Ionicons name="person" size={20} color="#003366" />
-              </TouchableOpacity>
-              <View style={{marginLeft: 10}}>
-                  <Text style={styles.greetingText}>Hola, {username} 👋</Text>
-              </View>
-          </View>
+      <View>
+        <Volver route="/pages/Pasajero/Navigation" color={"black"} style={{top:70, left:5}}/>
+        
+        {/* BUSCADOR */}
+        {!isSearchExpanded ? (
+            <TouchableOpacity 
+              style={styles.searchBarCompact} 
+              activeOpacity={0.9}
+              onPress={() => setIsSearchExpanded(true)}
+            >
+                <Text style={[styles.searchPlaceholder, selectedDestinationName && {color: '#003366', fontWeight:'bold'}]}>
+                    {selectedDestinationName ? `📍 ${selectedDestinationName}` : "¿A dónde vamos?"}
+                </Text>
+                <View style={styles.searchIconCircle}>
+                    <Feather name="search" size={20} color="white" />
+                </View>
+            </TouchableOpacity>
+        ) : (
+            <View style={styles.searchPanelExpanded}>
+                <View style={styles.panelHeader}>
+                    <Text style={styles.panelTitle}>Planifica tu viaje</Text>
+                    <TouchableOpacity onPress={() => setIsSearchExpanded(false)}>
+                        <Ionicons name="close" size={24} color="#666" />
+                    </TouchableOpacity>
+                </View>
+                <View style={styles.inputRow}>
+                    <Ionicons name="radio-button-on" size={20} color="#003366" />
+                    <Text style={styles.locationText} numberOfLines={1}>{ubicacionTexto}</Text>
+                </View>
+                <View style={styles.verticalLine} />
+                <View style={styles.inputRow}>
+                    <Ionicons name="location" size={20} color="#E69500" />
+                    <View style={{flex: 1, marginLeft: 5}}>
+                      <Picker selectedValue={selectedDestinationName} onValueChange={(v) => {setSelectedDestinationName(v),setSelectedRoute(v ? rutaCompleta || { name: v } : null);}} style={{ height: 50, width: '100%' }}>
+                          <Picker.Item label="Selecciona destino..." value="" color="#999" />
+                          {Destinos.map((d) => (<Picker.Item key={d.name} label={d.name} value={d.name} />))}
+                      </Picker>
+                    </View>
+                </View>
+                <TouchableOpacity style={styles.searchBtnLarge} onPress={handleSearch} disabled={isSearching}>
+                    {isSearching ? <ActivityIndicator color="#003366" /> : <Text style={styles.searchBtnText}>Buscar Ruta</Text>}
+                </TouchableOpacity>
+            </View>
+        )}
       </View>
 
-      {/* BUSCADOR */}
-      {!isSearchExpanded ? (
-          <TouchableOpacity style={styles.searchBarCompact} activeOpacity={0.9} onPress={() => setIsSearchExpanded(true)}>
-              <Text style={[styles.searchPlaceholder, selectedDestinationName && {color: '#003366', fontWeight:'bold'}]}>
-                  {selectedDestinationName ? `📍 ${selectedDestinationName}` : "¿A dónde vamos?"}
-              </Text>
-              <View style={styles.searchIconCircle}>
-                  <Feather name="search" size={20} color="white" />
-              </View>
-          </TouchableOpacity>
-      ) : (
-          <View style={styles.searchPanelExpanded}>
-              <View style={styles.panelHeader}>
-                  <Text style={styles.panelTitle}>Planifica tu viaje</Text>
-                  <TouchableOpacity onPress={() => setIsSearchExpanded(false)}>
-                      <Ionicons name="close" size={24} color="#666" />
-                  </TouchableOpacity>
-              </View>
-              <View style={styles.inputRow}>
-                  <Ionicons name="radio-button-on" size={20} color="#003366" />
-                  <Text style={styles.locationText} numberOfLines={1}>{ubicacionTexto}</Text>
-              </View>
-              <View style={styles.verticalLine} />
-              <View style={styles.inputRow}>
-                  <Ionicons name="location" size={20} color="#E69500" />
-                  <View style={{flex: 1, marginLeft: 5}}>
-                    <Picker selectedValue={selectedDestinationName} onValueChange={(v) => setSelectedDestinationName(v)} style={{ height: 50, width: '100%' }}>
-                        <Picker.Item label="Selecciona destino..." value="" color="#999" />
-                        {Destinos.map((d) => (<Picker.Item key={d.name} label={d.name} value={d.name} />))}
-                    </Picker>
-                  </View>
-              </View>
-              <TouchableOpacity style={styles.searchBtnLarge} onPress={handleSearch} disabled={isSearching}>
-                  {isSearching ? <ActivityIndicator color="#003366" /> : <Text style={styles.searchBtnText}>Buscar Ruta</Text>}
-              </TouchableOpacity>
-          </View>
-      )}
-
-      <TouchableOpacity style={[styles.gpsBtn, isRouteActive ? { bottom: 250 } : { bottom: 160 }]} onPress={centrar}>
+      {/* BOTONES FLOTANTES */}
+      <TouchableOpacity 
+        style={[styles.gpsBtn, isRouteActive ? { bottom: 250 } : { bottom: 140 }]} 
+        onPress={centrar}
+      >
          <Ionicons name="locate" size={24} color="#003366" />
       </TouchableOpacity>
 
-      {/* TARJETA INFERIOR DINÁMICA (BILLETERA) */}
+      {/* TARJETA SALDO */}
       {!isSearchExpanded && (
         isRouteActive ? (
-            // ESTADO MINI (CANDO ESTÁ EL ETA ACTIVO)
-            <View style={styles.miniActionsContainer}>
-                 <View style={styles.miniBalanceCard}>
-                     {perfilCompletado ? (
-                       <Text style={styles.miniBalanceText}>Bs. {saldo.toFixed(2)}</Text>
-                     ) : (
-                       <Text style={[styles.miniBalanceText, {color: '#666', fontSize: 14}]}>Billetera</Text>
-                     )}
-                     <TouchableOpacity style={styles.miniAddBtn} onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}>
-                        <Ionicons name="wallet" size={20} color="white" />
-                     </TouchableOpacity>
-                 </View>
-
-                 {perfilCompletado && (
-                   <TouchableOpacity style={styles.miniQrBtn} onPress={() => router.push('/Components/ScannerQR')}>
-                      <Ionicons name="qr-code" size={22} color="white" />
-                   </TouchableOpacity>
-                 )}
+            <View style={styles.miniBalanceCard}>
+                 <Text style={styles.miniBalanceText}>Bs. {saldo.toFixed(2)}</Text>
+                 <TouchableOpacity style={styles.miniAddBtn} onPress={() => router.push('/pages/Pasajero/Wallet')}>
+                    <Ionicons name="add" size={20} color="white" />
+                 </TouchableOpacity>
             </View>
         ) : (
-            // 💡 ESTADO COMPLETO COMPACTADO
-            <View style={styles.bottomCardVertical}>
-                 {perfilCompletado ? (
-                   <>
+            <View style={styles.bottomCard}>
+                 <View style={{flex: 1}}>
                      <Text style={styles.saldoLabel}>Saldo disponible</Text>
-                     {/* 💡 AQUI ES DONDE UNIMOS LOS VALORES */}
-                     <View style={styles.balanceRow}>
-                       <Text style={styles.saldoValue}>Bs. {saldo.toFixed(2)}</Text>
-                       <Text style={styles.saldoSub}>≈ ${(saldo / (tasaBCV || 1)).toFixed(2)} USD</Text>
-                     </View>
-
-                     {/* 💡 BOTONES MÁS BAJITOS Y CERCA DEL TEXTO */}
-                     <View style={styles.actionButtonsRowBottom}>
-                        <TouchableOpacity 
-                          style={styles.billeteraBtnYellow} 
-                          onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}
-                        > 
-                           <Ionicons name="wallet" size={20} color="white" style={{marginRight: 6}}/>
-                           <Text style={styles.billeteraBtnText}>Mi Billetera</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity 
-                          style={styles.qrBtnCompact} 
-                          onPress={() => router.push('/Components/ScannerQR')}
-                        >
-                          <Ionicons name="qr-code-outline" size={20} color="white" style={{marginRight: 4}}/>
-                          <Text style={styles.qrBtnCompactText}>QR</Text>
-                        </TouchableOpacity>
-                     </View>
-                   </>
-                 ) : (
-                   // SI NO HA COMPLETADO EL PERFIL
-                   <View style={styles.incompleteProfileRow}>
-                      <View style={{flex: 1}}>
-                          <Text style={[styles.saldoLabel, { color: '#E69500', fontWeight: 'bold', fontSize: 16 }]}>
-                              Billetera Digital
-                          </Text>
-                          <Text style={[styles.saldoValue, { fontSize: 24 }]}>
-                              ¡Actívala gratis!
-                          </Text>
-                          <Text style={[styles.saldoSub, { marginLeft: 0, marginTop: 4 }]}>
-                              Paga tus pasajes y habilita subsidios
-                          </Text>
-                      </View>
-                       <TouchableOpacity style={styles.walletBtnMini} onPress={() => router.push('/pages/Pasajero/MiTarjetaHub')}>
-                          <Ionicons name="arrow-forward" size={28} color="white" />
-                      </TouchableOpacity>
-                   </View>
-                 )}
+                     <Text style={styles.saldoValue}>Bs. {saldo.toFixed(2)}</Text>
+                     <Text style={styles.saldoSub}>≈ ${(saldo / (tasaBCV || 1)).toFixed(2)}</Text>
+                 </View>
+                 <TouchableOpacity style={styles.walletBtn} onPress={() => router.push('/pages/Pasajero/Wallet')}> 
+                     <Text style={styles.walletBtnText}>Recargar</Text>
+                     <Ionicons name="wallet-outline" size={20} color="#003366" style={{marginLeft: 5}}/>
+                 </TouchableOpacity>
             </View>
         )
       )}
@@ -334,14 +368,16 @@ export default function UnifiedHome() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f2f2f2' },
-  headerContainer: { position: 'absolute', top: 50, left: 20, right: 20, zIndex: 10 },
-  headerLeft: { flexDirection: 'row', alignItems: 'center' },
-  avatarBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', elevation: 5 },
-  greetingText: { fontSize: 16, fontWeight: 'bold', color: '#333', backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, overflow:'hidden', elevation: 2 },
-  searchBarCompact: { position: 'absolute', top: 100, left: 20, right: 20, backgroundColor: 'white', borderRadius: 25, height: 50, flexDirection: 'row', alignItems: 'center', paddingLeft: 20, paddingRight: 5, elevation: 8, shadowColor: '#000', shadowOpacity: 0.15 },
+  searchBarCompact: {
+    position: 'absolute', top: 60, left: 40, right: 20,
+    backgroundColor: 'white', borderRadius: 25, height: 50,
+    flexDirection: 'row', alignItems: 'center', paddingLeft: 20, paddingRight: 5,
+    elevation: 8, shadowColor: '#000', shadowOpacity: 0.15
+  },
   searchPlaceholder: { flex: 1, fontSize: 16, fontWeight: '600', color: '#666' },
   searchIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#003366', justifyContent: 'center', alignItems: 'center' },
-  searchPanelExpanded: { position: 'absolute', top: 100, left: 20, right: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, elevation: 15 },
+
+  searchPanelExpanded: { position: 'absolute', top: 60, left: 40, right: 20, backgroundColor: 'white', borderRadius: 20, padding: 20, elevation: 15 },
   panelHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   panelTitle: { fontSize: 16, fontWeight: 'bold', color: '#003366' },
   inputRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
@@ -371,11 +407,23 @@ const styles = StyleSheet.create({
   qrBtnCompact: { backgroundColor: '#003366', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', elevation: 3 },
   qrBtnCompactText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
 
-  incompleteProfileRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  walletBtnMini: { backgroundColor: '#003366', width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
-  
-  miniActionsContainer: { position: 'absolute', bottom: 250, left: 20, flexDirection: 'row', alignItems: 'center' },
-  miniBalanceCard: { backgroundColor: 'white', borderRadius: 30, paddingLeft: 15, paddingRight: 5, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', elevation: 5, height: 50 },
+  bottomCard: {
+    position: 'absolute', bottom: 30, left: 20, right: 20,
+    backgroundColor: 'white', borderRadius: 20, padding: 20,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    elevation: 10
+  },
+  saldoLabel: { fontSize: 12, color: '#666' },
+  saldoValue: { fontSize: 24, fontWeight: 'bold', color: '#003366' },
+  saldoSub: { fontSize: 13, color: '#888', marginTop: 2, fontWeight: '500' }, 
+  walletBtn: { backgroundColor: '#bde0fe', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, flexDirection: 'row', alignItems: 'center' },
+  walletBtnText: { color: '#003366', fontWeight: 'bold' },
+
+  miniBalanceCard: {
+    position: 'absolute', bottom: 250, left: 20, 
+    backgroundColor: 'white', borderRadius: 30, paddingLeft: 15, paddingRight: 5, paddingVertical: 5,
+    flexDirection: 'row', alignItems: 'center', elevation: 5, height: 50
+  },
   miniBalanceText: { fontSize: 16, fontWeight: 'bold', color: '#003366', marginRight: 10 },
   miniAddBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E69500', justifyContent: 'center', alignItems: 'center' },
   miniQrBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#003366', justifyContent: 'center', alignItems: 'center', elevation: 5, marginLeft: 10 },
