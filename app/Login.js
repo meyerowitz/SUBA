@@ -223,66 +223,83 @@ const handleLogin = async () => {
   };
 
   const handleLoginAPI = async () => {
-    if (!correo || !password) {
-      Alert.alert("Error", "Por favor, completa todos los campos");
+  if (!correo || !password) {
+    Alert.alert("Error", "Por favor, completa todos los campos");
+    return;
+  }
+
+  setIsLoading(true);
+  const API_URL = "https://subapp-api.onrender.com";
+
+  try {
+    // --- PASO 1: LOGIN ---
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: correo.toLowerCase().trim(),
+        password: password,
+      }),
+    });
+
+    const loginData = await response.json();
+    
+    // 🔍 RASTREO 1: ¿Qué responde el login?
+    console.log("1. RESPUESTA LOGIN:", JSON.stringify(loginData, null, 2));
+
+    if (!response.ok) {
+      setIsLoading(false);
+      Alert.alert("Error", loginData.message || "Credenciales incorrectas");
       return;
     }
 
-    setIsLoading(true);
-    const API_URL = "https://subapp-api.onrender.com";
+    // Buscamos el token en diferentes lugares por si la API cambió
+    const token = loginData.token || loginData.accessToken || (loginData.data && loginData.data.token);
+    
+    console.log("2. TOKEN EXTRAÍDO:", token ? "SÍ (empieza por " + token.substring(0,10) + "...)" : "NO SE ENCONTRÓ ❌");
 
-    try {
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: correo.toLowerCase().trim(),
-          password: password,
-        }),
-      });
+    // --- PASO 2: OBTENER PERFIL ---
+    const profileResponse = await fetch(`${API_URL}/auth/me`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
 
-      const loginData = await response.json();
+    const profileData = await profileResponse.json();
+    
+    // 🔍 RASTREO 2: ¿Qué responde el perfil?
+    console.log("3. RESPUESTA PERFIL (/auth/me):", JSON.stringify(profileData, null, 2));
 
-      if (!response.ok) {
-        setIsLoading(false);
-        Alert.alert("Error", loginData.message || "Credenciales incorrectas");
-        return;
-      }
+    if (profileData.success) {
+      // 💡 LA CORRECCIÓN MÁGICA:
+      // Combinamos los datos del perfil con el token que sacamos del login
+      const usuarioAGuardar = { 
+        ...profileData.data, 
+        token: token // <--- Forzamos que el token entre al objeto
+      };
 
-      const token = loginData.token || loginData.accessToken;
+      console.log("4. OBJETO FINAL A GUARDAR:", JSON.stringify(usuarioAGuardar, null, 2));
 
-      const profileResponse = await fetch(`${API_URL}/auth/me`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
-
-      const profileData = await profileResponse.json();
-
-      if (profileData.success) {
-        const usuarioAGuardar = { ...profileData.data, token };
-        if (usuarioAGuardar) {
-            await AsyncStorage.setItem("@Sesion_usuario", JSON.stringify(usuarioAGuardar));
-            setUserRole(usuarioAGuardar.role);
-            
-            //Cambio  por if/else
-            if (usuarioAGuardar.role === "driver") {
-              router.replace("./pages/Conductor/Home2");
-            } else {
-              router.replace("./pages/Pasajero/Navigation");
-            }
-        }
+      await AsyncStorage.setItem("@Sesion_usuario", JSON.stringify(usuarioAGuardar));
+      console.log()
+      setUserRole(usuarioAGuardar.role);
+      
+      if (usuarioAGuardar.role === "driver") {
+        router.replace("./pages/Conductor/Home2");
       } else {
-        setIsLoading(false);
-        Alert.alert("Error", "No se pudieron obtener los datos del perfil.");
+        router.replace("./pages/Pasajero/Navigation");
       }
-    } catch (error) {
+    } else {
       setIsLoading(false);
-      console.error("Error Login API:", error);
-      Alert.alert("Error de conexión", "No se pudo conectar con el servidor.");
+      Alert.alert("Error", "No se pudieron obtener los datos del perfil.");
     }
+  } catch (error) {
+    setIsLoading(false);
+    console.error("Error Login API:", error);
+    Alert.alert("Error de conexión", "No se pudo conectar con el servidor.");
+  }
   };
 
   if (isLoading) {

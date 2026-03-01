@@ -43,8 +43,8 @@ function MyTabs() {
         // Estilo de la barra de navegación inferior
         tabBarStyle: {
           backgroundColor: theme.background,
-          height: 70 + insets.bottom,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 50,
+          height:insets.bottom > 0 ? 80 + insets.bottom : 70,
+          paddingBottom:insets.bottom > 0 ? insets.bottom : 10,
           paddingTop: 10,
         },
         // Opciones de las pestañas

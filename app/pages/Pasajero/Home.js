@@ -11,6 +11,10 @@ import { getuserid, getusername } from '../../Components/AsyncStorage';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRoute } from '../../Components/Providers/RouteContext';
+import { SafeAreaView } from "react-native-safe-area-context";
+import Offline from '../../Components/Offline'
+import ModalTarjeta from '../../Components/Modales/ModalTarjeta'
+
 
 const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
@@ -36,6 +40,9 @@ export default function Home({ navigation }) {
   const [TicketDolar, setTicketDolar] = useState('');
   const [TicketDolarLoad, setTicketDolarLoad] = useState(true);
   const [saldo, setSaldo] = useState(0.00);
+
+  // Modales visibilidad
+  const [modalTarjeta, setModalTarjeta] = useState(false);
 
   const [Load, SetLoad] = useState(false);
   const [userImage, SetuserImage] = useState(null);
@@ -236,11 +243,14 @@ export default function Home({ navigation }) {
   };
 
   return (
-    <View style={{flex: 1, backgroundColor: theme.background}}>
+    <Offline>
+      <SafeAreaView style={{ backgroundColor: 'red'}}>
       <StatusBar barStyle="light-content" backgroundColor={"#003366"} />
  
       <ScrollView 
-        contentContainerStyle={{ backgroundColor: theme.background_2, width:'100%', paddingBottom: 100 }} 
+        style={{}} 
+        contentContainerStyle={{ backgroundColor: theme.background_2, width:'100%', paddingBottom: 100, flexGrow:1, minHeight:'100%' }}
+        
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={true}
         bounces={false}
@@ -391,7 +401,7 @@ export default function Home({ navigation }) {
         </View>
 
         {/* SALDO */}
-        <View style={{
+        <TouchableOpacity onPress={()=>{setModalTarjeta(true)}} style={{
           backgroundColor: '#E69500', marginHorizontal: 20, padding: 20, borderRadius: 20, marginTop: 15,
           elevation: 5, shadowColor: '#000', shadowOpacity: 0.3
         }}>
@@ -399,7 +409,7 @@ export default function Home({ navigation }) {
           <Text style={{color: 'white', fontSize: 38, fontWeight: 'bold', marginTop: 10}}>
             {saldo ? `Bs.${saldo.toFixed(1)}` : `Bs. ${saldo.toFixed(2)}` }
           </Text>
-        </View>
+        </TouchableOpacity>
       </ScrollView>
       
       {/* PANTALLA DE CARGA */}
@@ -416,6 +426,17 @@ export default function Home({ navigation }) {
           <ActivityIndicator size={60} color="#313135ff" />
         </View>
       )}
-    </View>
+
+      <ModalTarjeta
+        visible={modalTarjeta} 
+        onClose={() => setModalTarjeta(false)} 
+        onConfirm={() => {
+          setModalTarjeta(false);
+          router.push('/pages/Pasajero/Tarjeta/FormularioPerfil'); // O la lógica de solicitud
+        }}
+      />
+
+      </SafeAreaView>
+    </Offline>
   );
 }
