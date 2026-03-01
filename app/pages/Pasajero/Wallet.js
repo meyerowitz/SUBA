@@ -30,6 +30,8 @@ const supabase = createClient(
   "sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP",
 );
 
+ const API_URL = "https://subapp-api.onrender.com";
+
 export default function WalletScreen() {
   // --- ESTADOS DE LOGICA (ORIGINALES) ---
   const [operaciones, setOperaciones] = useState([]);
@@ -221,7 +223,7 @@ export default function WalletScreen() {
     }
   };
 
-  const ejecutarTransferenciaReal = async () => {
+  const ejecutarTransferenciaReal2 = async () => {
     const monto = parseFloat(montoTransferir);
     if (!nombreDestinatario) { Alert.alert("Error", "ID no encontrado."); return; }
     if (isNaN(monto) || monto <= 0) { Alert.alert("Monto inválido", "Ingresa un monto correcto."); return; }
@@ -261,13 +263,144 @@ export default function WalletScreen() {
     }
   };
 
+  const ejecutarTransferenciaReal3 = async () => {
+    const monto = parseFloat(montoTransferir);
+
+    // Validaciones preventivas en el cliente
+    if (!nombreDestinatario) { Alert.alert("Error", "ID no encontrado."); return; }
+    if (isNaN(monto) || monto <= 0) { Alert.alert("Monto inválido", "Ingresa un monto correcto."); return; }
+    if (monto > saldo) { Alert.alert("Saldo insuficiente", "No tienes suficiente saldo."); return; }
+
+    setCargando(true);
+
+    try {
+       const sessionData = await AsyncStorage.getItem('@Sesion_usuario');
+       const session = JSON.parse(sessionData);
+      const userid = await getuserid();
+      
+      // Llamada al endpoint
+      // NOTA: Ajusta 'TU_URL_DE_API' por la dirección real de tu servidor
+      const response = await fetch("https://subapp-api.onrender.com/api/billetera/transferir", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          senderId: session,
+          receiverId: destinatarioID.trim(),
+          monto: monto,
+          userName: userName 
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Error al procesar la transferencia");
+      }
+
+      // 1. Actualizamos el saldo local con lo que nos responda el servidor (o restando)
+      setSaldo(prevSaldo => prevSaldo - monto);
+
+      // 2. Feedback al usuario
+      Alert.alert(
+        "¡Transferencia Exitosa!", 
+        `Has enviado Bs. ${monto.toFixed(2)} a ${nombreDestinatario}`
+      );
+
+      // 3. Limpieza de UI
+      //setModalTransferVisible(false);
+      //setMontoTransferir("");
+      //setDestinatarioID("");
+      
+      // 4. Refrescar historial para mostrar el nuevo movimiento
+      cargarHistorial();
+
+    } catch (error) {
+      console.error("Error en transferencia:", error);
+      Alert.alert("Error de Transacción", error.message);
+    } finally {
+      setCargando(false);
+    }
+  };
+  const ejecutarTransferenciaReal = async () => {
+  const monto = parseFloat(montoTransferir);
+
+  // 1. Validaciones preventivas básicas
+  if (!nombreDestinatario) { Alert.alert("Error", "ID no encontrado."); return; }
+  if (isNaN(monto) || monto <= 0) { Alert.alert("Monto inválido", "Ingresa un monto correcto."); return; }
+  if (monto > saldo) { Alert.alert("Saldo insuficiente", "No tienes suficiente saldo."); return; }
+
+  setCargando(true);
+
+  try {
+    // 2. Obtener sesión y Token (Igual que en tu función 'avanzar')
+    const sessionString = await AsyncStorage.getItem('@Sesion_usuario');
+    if (!sessionString) {
+      throw new Error("No pudimos identificar tu cuenta. Inicia sesión de nuevo.");
+    }
+
+    const session = JSON.parse(sessionString);
+    const token = session.token; // Extraemos el token JWT
+    const myId = session.id;    // El ID del emisor (tú)
+
+    if (!token) throw new Error("Token de seguridad no encontrado.");
+
+    const payload = {
+      referenciaPago: "test123", // Ej: "test"
+      monto: 40,   // Ej: 40
+      banco: "banesco", // Ej: "banesco"
+      fechaPago: null,           // Ej: "123"
+      comprobanteUrl: "http://abc/xd.com"   // Ej: "http://abc/xd.com"
+    };
+    // 3. Llamada a la API con el Token en los Headers
+    const response = await fetch("https://subapp-api.onrender.com/api/billetera/recargar", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}` // <--- Seguridad activada
+      },
+     body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+
+    // 4. Manejo de respuesta del servidor
+    if (!response.ok) {
+      throw new Error(result.message || "Error al procesar la transferencia");
+    }
+
+    // 5. Éxito: Actualización de UI y Saldo local
+    setSaldo(prevSaldo => prevSaldo - monto);
+
+    Alert.alert(
+      "¡Transferencia Exitosa!", 
+      `Has enviado Bs. ${monto.toFixed(2)} a ${nombreDestinatario}`
+    );
+
+    // Limpieza de campos
+    setModalTransferVisible(false);
+    //setMontoTransferir("");
+    //setDestinatarioID("");
+    
+    // Refrescar lista de movimientos
+    cargarHistorial();
+
+  } catch (error) {
+    console.error("❌ Error en transferencia:", error.message);
+    Alert.alert("Error de Transacción", error.message);
+  } finally {
+    setCargando(false);
+  }
+};
+
   const toggleSeccion = (seccion) => {
     setSeccionAbierta(seccionAbierta === seccion ? null : seccion);
   };
 
   // --- RENDER ---
   return (
-    <View style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" translucent={true} backgroundColor="transparent"/>
       
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -326,7 +459,7 @@ export default function WalletScreen() {
           {seccionAbierta === 'tarjeta' && (
             <View style={styles.accordionContent}>
               <Text style={styles.accordionTextInfo}>Si te quedas sin batería a veces, pide tu tarjeta de plástico con chip NFC para pagar en el bus sin depender de tu celular.</Text>
-              <TouchableOpacity style={styles.btnAccordionPrimary} onPress={() => alert('Funcionalidad en desarrollo')}>
+              <TouchableOpacity style={styles.btnAccordionPrimary} onPress={() => {router.push('./Tarjeta/SolicitarTarjeta')}}>
                 <Text style={styles.btnAccordionPrimaryText}>Solicitar Tarjeta</Text>
               </TouchableOpacity>
             </View>
@@ -577,7 +710,7 @@ export default function WalletScreen() {
         </View>
       </Modal>
 
-    </View>
+    </SafeAreaView>
   );
 }
 
