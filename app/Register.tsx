@@ -86,7 +86,7 @@ export default function Register() {
     setIsLoading(true)
     try {
       // 2. Llamada al Backend
-      const response = await fetch(`${API_URL}/auth/registrarse`, {
+      const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
