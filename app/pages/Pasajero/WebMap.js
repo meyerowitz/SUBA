@@ -1,18 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import {
-  Image,
-  StyleSheet,
-  View,
-  ActivityIndicator,
-  Alert,
-  Text,
-  Platform,
-  TextInput,
-  TouchableOpacity,
-  StatusBar,
-  Animated,
-  Dimensions,
-} from "react-native";
+import { Image, StyleSheet, View,ActivityIndicator, Alert,Text, Platform,TextInput,TouchableOpacity,StatusBar, Animated, Dimensions,} from "react-native";
 import WebView from "react-native-webview";
 import { Picker } from "@react-native-picker/picker";
 import { Feather, Ionicons } from "@expo/vector-icons";
