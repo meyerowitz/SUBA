@@ -129,7 +129,7 @@ export default function WalletScreen() {
     }
   };
 
-  const cargarHistorial = async () => {
+  const cargarHistorial2 = async () => {
     try {
       const userid = await getuserid();
       if (!userid) return;
@@ -159,6 +159,40 @@ export default function WalletScreen() {
       setCargandoHistorial(false);
     }
   };
+  const cargarHistorial = async () => {
+  try {
+    setCargandoHistorial(true);
+    
+    // 1. Obtener el token de la sesión
+    const sessionString = await AsyncStorage.getItem('@Sesion_usuario');
+    const session = JSON.parse(sessionString);
+    const token = session?.token;
+
+    // 2. Llamada al endpoint protegido
+    const response = await fetch("https://subapp-api.onrender.com/api/billetera/historial", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    const result = await response.json();
+    console.log('result:',result)
+
+    if (response.ok) {
+      // Asumiendo que el backend devuelve un array de transacciones
+      // Si el backend tiene una estructura distinta, ajusta 'result'
+      //setOperaciones(result); 
+    } else {
+      console.error("Error en historial:", result.message);
+    }
+  } catch (error) {
+    console.log("Error crítico al cargar historial:", error);
+  } finally {
+    setCargandoHistorial(false);
+  }
+};
 
   const copiarTodo = async () => {
     const textoCompleto = `Banco: ${datosBancarios.banco}\nTelf: ${datosBancarios.telefono}\nCI: ${datosBancarios.identidad}`;
@@ -175,7 +209,7 @@ export default function WalletScreen() {
     if (!result.canceled) setImage(result.assets[0].uri);
   };
 
-  const registrarYValidar2 = async () => {
+  const registrarYValidar = async () => {
     if (!image || !referencia || !montoInput) {
       Alert.alert("Campos incompletos", "Por favor sube el comprobante y llena los datos.");
       return;
@@ -223,7 +257,78 @@ export default function WalletScreen() {
     }
   };
 
-  const ejecutarTransferenciaReal2 = async () => {
+  const registrarYValidar2 = async () => {
+  if (!image || !referencia || !montoInput) {
+    Alert.alert("Campos incompletos", "Por favor sube el comprobante y llena todos los datos.");
+    return;
+  }
+
+  setCargando(true);
+
+  try {
+    // 1. Obtener Token de la sesión
+    const sessionString = await AsyncStorage.getItem('@Sesion_usuario');
+    const session = JSON.parse(sessionString);
+    const token = session?.token;
+
+    if (!token) throw new Error("Sesión no válida. Inicia sesión de nuevo.");
+
+    const montoARecargar = parseFloat(montoInput);
+
+    // --- PASO A: SUBIR IMAGEN A SUPABASE (Para obtener la URL) ---
+    const fileName = `captures/${Date.now()}.jpg`;
+    
+    // Si usas el helper de Expo para FormData:
+    const formData = new FormData();
+    formData.append("file", { uri: image, name: fileName, type: "image/jpeg" });
+
+    
+
+    // --- PASO B: ENVIAR REPORTE A TU API ---
+    const payloadBackend = {
+      referenciaPago: referencia, 
+      monto: montoARecargar,
+      banco: "banesco", // Asegúrate de tener este estado (ej: "banesco")
+      fechaPago: new Date().toISOString().split('T')[0], // 'YYYY-MM-DD'
+      comprobanteUrl: "http://abc/xd.com" // La URL que generamos arriba
+    };
+
+    const response = await fetch("https://subapp-api.onrender.com/api/billetera/recargar", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify(payloadBackend),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || "La API rechazó el reporte de pago.");
+    }
+
+    // --- PASO C: ÉXITO ---
+    // Nota: El saldo no lo sumamos nosotros, esperamos a que la API lo valide.
+    // Pero podemos refrescar el saldo actual llamando a tu función de obtener saldo.
+    await obtenerSaldoReal(); 
+
+    Alert.alert("Reporte Enviado", "Tu pago está siendo verificado por el sistema.");
+    setModalVisible(false);
+    cargarHistorial();
+
+  } catch (error) {
+    console.error("Error en recarga:", error);
+    Alert.alert("Error", error.message);
+  } finally {
+    setCargando(false);
+    setImage(null);
+    setReferencia("");
+    setMontoInput("");
+  }
+};
+
+  const ejecutarTransferenciaReal = async () => {
     const monto = parseFloat(montoTransferir);
     if (!nombreDestinatario) { Alert.alert("Error", "ID no encontrado."); return; }
     if (isNaN(monto) || monto <= 0) { Alert.alert("Monto inválido", "Ingresa un monto correcto."); return; }
@@ -262,139 +367,6 @@ export default function WalletScreen() {
       setCargando(false);
     }
   };
-
-  const ejecutarTransferenciaReal3 = async () => {
-    const monto = parseFloat(montoTransferir);
-
-    // Validaciones preventivas en el cliente
-    if (!nombreDestinatario) { Alert.alert("Error", "ID no encontrado."); return; }
-    if (isNaN(monto) || monto <= 0) { Alert.alert("Monto inválido", "Ingresa un monto correcto."); return; }
-    if (monto > saldo) { Alert.alert("Saldo insuficiente", "No tienes suficiente saldo."); return; }
-
-    setCargando(true);
-
-    try {
-       const sessionData = await AsyncStorage.getItem('@Sesion_usuario');
-       const session = JSON.parse(sessionData);
-      const userid = await getuserid();
-      
-      // Llamada al endpoint
-      // NOTA: Ajusta 'TU_URL_DE_API' por la dirección real de tu servidor
-      const response = await fetch("https://subapp-api.onrender.com/api/billetera/transferir", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          senderId: session,
-          receiverId: destinatarioID.trim(),
-          monto: monto,
-          userName: userName 
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "Error al procesar la transferencia");
-      }
-
-      // 1. Actualizamos el saldo local con lo que nos responda el servidor (o restando)
-      setSaldo(prevSaldo => prevSaldo - monto);
-
-      // 2. Feedback al usuario
-      Alert.alert(
-        "¡Transferencia Exitosa!", 
-        `Has enviado Bs. ${monto.toFixed(2)} a ${nombreDestinatario}`
-      );
-
-      // 3. Limpieza de UI
-      //setModalTransferVisible(false);
-      //setMontoTransferir("");
-      //setDestinatarioID("");
-      
-      // 4. Refrescar historial para mostrar el nuevo movimiento
-      cargarHistorial();
-
-    } catch (error) {
-      console.error("Error en transferencia:", error);
-      Alert.alert("Error de Transacción", error.message);
-    } finally {
-      setCargando(false);
-    }
-  };
-  const ejecutarTransferenciaReal = async () => {
-    console.log('ejecutar transferencia')
-  const monto = parseFloat(montoTransferir);
-
-  // 1. Validaciones preventivas básicas
-  if (!nombreDestinatario) { Alert.alert("Error", "ID no encontrado."); return; }
-  if (isNaN(monto) || monto <= 0) { Alert.alert("Monto inválido", "Ingresa un monto correcto."); return; }
-  if (monto > saldo) { Alert.alert("Saldo insuficiente", "No tienes suficiente saldo."); return; }
-
-  setCargando(true);
-
-  try {
-    // 2. Obtener sesión y Token (Igual que en tu función 'avanzar')
-    const sessionString = await AsyncStorage.getItem('@Sesion_usuario');
-    if (!sessionString) {
-      throw new Error("No pudimos identificar tu cuenta. Inicia sesión de nuevo.");
-    }
-
-    const session = JSON.parse(sessionString);
-    const token = session.token; // Extraemos el token JWT
-    console.log('Token: '+token)
-    const myId = session.id;    // El ID del emisor (tú)
-
-    if (!token) throw new Error("Token de seguridad no encontrado.");
-
-    const payload = {
-      referenciaPago: "test123", // Ej: "test"
-      monto: 40,   // Ej: 40
-      banco: "banesco", // Ej: "banesco"
-      fechaPago: null,           // Ej: "123"
-      comprobanteUrl: "http://abc/xd.com"   // Ej: "http://abc/xd.com"
-    };
-    // 3. Llamada a la API con el Token en los Headers
-    const response = await fetch("https://subapp-api.onrender.com/api/billetera/recargar", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}` // <--- Seguridad activada
-      },
-     body: JSON.stringify(payload),
-    });
-
-    const result = await response.json();
-
-    // 4. Manejo de respuesta del servidor
-    if (!response.ok) {
-      throw new Error(result.message || "Error al procesar la transferencia");
-    }
-
-    // 5. Éxito: Actualización de UI y Saldo local
-    setSaldo(prevSaldo => prevSaldo - monto);
-
-    Alert.alert(
-      "¡Transferencia Exitosa!", 
-      `Has enviado Bs. ${monto.toFixed(2)} a ${nombreDestinatario}`
-    );
-
-    // Limpieza de campos
-    setModalTransferVisible(false);
-    //setMontoTransferir("");
-    //setDestinatarioID("");
-    
-    // Refrescar lista de movimientos
-    cargarHistorial();
-
-  } catch (error) {
-    console.error("❌ Error en transferencia:", error.message);
-    Alert.alert("Error de Transacción", error.message);
-  } finally {
-    setCargando(false);
-  }
-};
 
   const toggleSeccion = (seccion) => {
     setSeccionAbierta(seccionAbierta === seccion ? null : seccion);
