@@ -158,6 +158,12 @@ export default function RootLayout() {
         }}
       />
       <Stack.Screen
+        name="pages/Conductor/DenunciarRuta"
+        options={{
+          animation: "slide_from_right",
+        }}
+      />
+      <Stack.Screen
         name="Components/ScannerQR"
         options={{
           animation: "slide_from_bottom", // Esta subirá como un panel

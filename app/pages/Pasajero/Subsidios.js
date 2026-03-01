@@ -1,287 +1,573 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
-	View,
-	Text,
-	StyleSheet,
-	ScrollView,
-	TouchableOpacity,
-	Alert,
-	TextInput,
-	Modal,
-	Image
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { FontAwesome5, Ionicons } from '@expo/vector-icons';
-import Volver from '../../Components/Botones_genericos/Volver';
-import * as ImagePicker from 'expo-image-picker';
-import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  TextInput,
+  Modal,
+  Image,
+  ActivityIndicator,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { FontAwesome5, Ionicons } from "@expo/vector-icons";
+import Volver from "../../Components/Botones_genericos/Volver";
+import * as ImagePicker from "expo-image-picker";
+import { useTheme } from "../../Components/Temas_y_colores/ThemeContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
+
+const API_URL = "https://subapp-api.onrender.com/api";
 
 export default function Subsidios() {
-	const [selectedOption, setSelectedOption] = useState(null); // 'estudiante' | 'adulto' | 'discapacitado'
-	const [modalVisible, setModalVisible] = useState(false);
+  const [selectedOption, setSelectedOption] = useState(null); // 'estudiante' | 'adulto' | 'discapacitado'
+  const [modalVisible, setModalVisible] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-	// Estudiante
-	const [university, setUniversity] = useState('');
-	const [studentImage, setStudentImage] = useState(null);
+  // Estudiante
+  const [university, setUniversity] = useState("");
+  const [studentImage, setStudentImage] = useState(null);
 
-	// Adulto mayor
-	const [seniorPersonImage, setSeniorPersonImage] = useState(null);
-	const [seniorIdImage, setSeniorIdImage] = useState(null);
+  // Adulto mayor
+  const [seniorPersonImage, setSeniorPersonImage] = useState(null);
+  const [seniorIdImage, setSeniorIdImage] = useState(null);
 
-	// Discapacitado
-	const [disabledDocImage, setDisabledDocImage] = useState(null);
-	const { theme, isDark } = useTheme(); //temas oscuro y claro
+  // Discapacitado
+  const [disabledDocImage, setDisabledDocImage] = useState(null);
+  const { theme, isDark } = useTheme(); //temas oscuro y claro
 
-	const insets = useSafeAreaInsets();
-	useEffect(() => {
-		(async () => {
-			const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-			if (status !== 'granted') {
-				Alert.alert('Permiso requerido', 'Se necesita permiso para acceder a las imágenes.');
-			}
-		})();
-	}, []);
+  const insets = useSafeAreaInsets();
+  useEffect(() => {
+    (async () => {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permiso requerido",
+          "Se necesita permiso para acceder a las imágenes.",
+        );
+      }
+    })();
+  }, []);
 
-	const openOption = (opt) => {
-		setSelectedOption(opt);
-		setModalVisible(true);
-	};
+  const openOption = (opt) => {
+    setSelectedOption(opt);
+    setModalVisible(true);
+  };
 
-	const pickImage = async (setter) => {
-		try {
-			const result = await ImagePicker.launchImageLibraryAsync({
-				mediaTypes: ImagePicker.MediaTypeOptions.Images,
-				quality: 0.7,
-				allowsEditing: true
-			});
+  const pickImage = async (setter) => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+        allowsEditing: true,
+      });
 
-			if (!result.canceled) {
-				const uri = result.assets ? result.assets[0].uri : result.uri;
-				setter(uri);
-			}
-		} catch (e) {
-			console.log('pickImage error', e);
-			Alert.alert('Error', 'No se pudo seleccionar la imagen.');
-		}
-	};
+      if (!result.canceled) {
+        const uri = result.assets ? result.assets[0].uri : result.uri;
+        setter(uri);
+      }
+    } catch (e) {
+      console.log("pickImage error", e);
+      Alert.alert("Error", "No se pudo seleccionar la imagen.");
+    }
+  };
 
-	const handleSubmit = () => {
-		if (selectedOption === 'estudiante') {
-			if (!university.trim() || !studentImage) {
-				Alert.alert('Faltan datos', 'Por favor indica la universidad y sube la constancia.');
-				return;
-			}
-			Alert.alert('Enviado', 'Solicitud como estudiante registrada.');
-			setUniversity('');
-			setStudentImage(null);
-		}
+  const handleUploadImage = async (imageUri) => {
+    try {
+      const sessionData = await AsyncStorage.getItem("@Sesion_usuario");
+      if (!sessionData) throw new Error("No se encontró sesión activa");
+      
+      const { token } = JSON.parse(sessionData);
+      const formData = new FormData();
+      const fileName = imageUri.split("/").pop();
+      const match = /\.(\w+)$/.exec(fileName || "");
+      const type = match ? `image/${match[1]}` : `image`;
 
-		if (selectedOption === 'adulto') {
-			if (!seniorPersonImage || !seniorIdImage) {
-				Alert.alert('Faltan fotos', 'Sube la foto de la persona y la cédula.');
-				return;
-			}
-			Alert.alert('Enviado', 'Solicitud como adulto mayor registrada.');
-			setSeniorPersonImage(null);
-			setSeniorIdImage(null);
-		}
+      formData.append("file", {
+        uri: Platform.OS === "android" ? imageUri : imageUri.replace("file://", ""),
+        name: fileName,
+        type,
+      });
 
-		if (selectedOption === 'discapacitado') {
-			if (!disabledDocImage) {
-				Alert.alert('Faltan fotos', 'Sube el carnet o constancia de discapacidad.');
-				return;
-			}
-			Alert.alert('Enviado', 'Solicitud como persona con discapacidad registrada.');
-			setDisabledDocImage(null);
-		}
+      const response = await fetch("https://subapp-api.onrender.com/api/descuentos/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+        body: formData,
+      });
 
-		setModalVisible(false);
-		setSelectedOption(null);
-	};
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Error al subir imagen");
+      return data.url;
+    } catch (error) {
+      console.error("Upload error:", error);
+      throw error;
+    }
+  };
 
-	const renderModalContent = () => {
-		if (!selectedOption) return null;
+  const handleSubmit = async () => {
+    setIsUploading(true);
+    try {
+      if (selectedOption === "estudiante") {
+        if (!university.trim() || !studentImage) {
+          Alert.alert("Faltan datos", "Por favor indica la universidad y sube la constancia.");
+          setIsUploading(false);
+          return;
+        }
+        
+        const imageUrl = await handleUploadImage(studentImage);
+        
+        const sessionData = await AsyncStorage.getItem("@Sesion_usuario");
+        const { token } = JSON.parse(sessionData);
 
-		if (selectedOption === 'estudiante') {
-			return (
-				<View>
-					<Text style={styles.modalTitle}>Subsidio de tipo: Estudiante</Text>
-					<Text style={styles.modalSubtitle}>Indica tu universidad y sube la constancia</Text>
+        const response = await fetch(`${API_URL}/descuentos`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            discountType: "estudiante",
+            documentType: "constancia_inscripcion",
+            institutionName: university,
+            documentNumber: "PENDIENTE",
+            documentImageUrl: imageUrl
+          }),
+        });
 
-					<Text style={styles.label}>Universidad</Text>
-					<TextInput
-						placeholder="Nombre de la universidad"
-						value={university}
-						onChangeText={setUniversity}
-						style={styles.inputPro}
-					/>
+        if (response.ok) {
+          Alert.alert("Enviado", "Solicitud como estudiante registrada correctamente.");
+          setUniversity("");
+          setStudentImage(null);
+        } else {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Error al crear solicitud");
+        }
+      }
 
-					<Text style={[styles.label, { marginTop: 10 }]}>Constancia de estudios</Text>
-					<TouchableOpacity style={styles.imageSelector} onPress={() => pickImage(setStudentImage)}>
-						{studentImage ? (
-							<Image source={{ uri: studentImage }} style={styles.previewImage} />
-						) : (
-							<View style={{ alignItems: 'center' }}>
-								<Ionicons name="cloud-upload-outline" size={36} color="#D99015" />
-								<Text style={{ color: '#7F8C8D', marginTop: 8 }}>Subir constancia</Text>
-							</View>
-						)}
-					</TouchableOpacity>
+      if (selectedOption === "adulto") {
+        if (!seniorPersonImage || !seniorIdImage) {
+          Alert.alert("Faltan fotos", "Sube la foto de la persona y la cédula.");
+          setIsUploading(false);
+          return;
+        }
+        // Nota: El modelo actual del backend solo soporta una documentImageUrl
+        // Subiremos la cédula como documento principal
+        const imageUrl = await handleUploadImage(seniorIdImage);
+        
+        const sessionData = await AsyncStorage.getItem("@Sesion_usuario");
+        const { token } = JSON.parse(sessionData);
 
-					<TouchableOpacity style={styles.btnPrincipal} onPress={handleSubmit}>
-						<Text style={styles.btnPrincipalText}>Enviar solicitud</Text>
-					</TouchableOpacity>
-				</View>
-			);
-		}
+        const response = await fetch(`${API_URL}/descuentos`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            discountType: "discapacidad", // Temporalmente mapeado ya que no hay 'adulto' en backend
+            documentType: "cedula_senior",
+            documentNumber: "VERIFICAR",
+            documentImageUrl: imageUrl
+          }),
+        });
 
-		if (selectedOption === 'adulto') {
-			return (
-				<View>
-					<Text style={styles.modalTitle}>Subsidio de Tipo: Adulto Mayor</Text>
-					<Text style={styles.modalSubtitle}>Sube una foto tuya y la de tu cédula</Text>
+        if (response.ok) {
+          Alert.alert("Enviado", "Solicitud como adulto mayor registrada.");
+          setSeniorPersonImage(null);
+          setSeniorIdImage(null);
+        } else {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Error al crear solicitud");
+        }
+      }
 
-					<Text style={styles.label}>Foto de la persona</Text>
-					<TouchableOpacity style={styles.imageSelector} onPress={() => pickImage(setSeniorPersonImage)}>
-						{seniorPersonImage ? (
-							<Image source={{ uri: seniorPersonImage }} style={styles.previewImage} />
-						) : (
-							<View style={{ alignItems: 'center' }}>
-								<Ionicons name="person" size={36} color="#D99015" />
-								<Text style={{ color: '#7F8C8D', marginTop: 8 }}>Subir foto</Text>
-							</View>
-						)}
-					</TouchableOpacity>
+      if (selectedOption === "discapacitado") {
+        if (!disabledDocImage) {
+          Alert.alert("Faltan fotos", "Sube el carnet o constancia de discapacidad.");
+          setIsUploading(false);
+          return;
+        }
+        const imageUrl = await handleUploadImage(disabledDocImage);
+        
+        const sessionData = await AsyncStorage.getItem("@Sesion_usuario");
+        const { token } = JSON.parse(sessionData);
 
-					<Text style={[styles.label, { marginTop: 10 }]}>Foto de la cédula</Text>
-					<TouchableOpacity style={styles.imageSelector} onPress={() => pickImage(setSeniorIdImage)}>
-						{seniorIdImage ? (
-							<Image source={{ uri: seniorIdImage }} style={styles.previewImage} />
-						) : (
-							<View style={{ alignItems: 'center' }}>
-								<Ionicons name="document-text" size={36} color="#D99015" />
-								<Text style={{ color: '#7F8C8D', marginTop: 8 }}>Subir cédula</Text>
-							</View>
-						)}
-					</TouchableOpacity>
+        const response = await fetch(`${API_URL}/descuentos`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            discountType: "discapacidad",
+            documentType: "carnet_estudiantil", // Usando un tipo existente temporalmente
+            documentNumber: "VERIFICAR",
+            documentImageUrl: imageUrl
+          }),
+        });
 
-					<TouchableOpacity style={styles.btnPrincipal} onPress={handleSubmit}>
-						<Text style={styles.btnPrincipalText}>Enviar solicitud</Text>
-					</TouchableOpacity>
-				</View>
-			);
-		}
+        if (response.ok) {
+          Alert.alert("Enviado", "Solicitud como persona con discapacidad registrada.");
+          setDisabledDocImage(null);
+        } else {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Error al crear solicitud");
+        }
+      }
 
-		if (selectedOption === 'discapacitado') {
-			return (
-				<View>
-					<Text style={styles.modalTitle}>Subsidio de Tipo: Persona con Discapacidad</Text>
-					<Text style={styles.modalSubtitle}>Sube el carnet o constancia</Text>
+      setModalVisible(false);
+      setSelectedOption(null);
+    } catch (error) {
+      Alert.alert("Error", error.message || "Hubo un problema al procesar la solicitud.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
-					<Text style={[styles.label, { marginTop: 10 }]}>Carnet / Constancia</Text>
-					<TouchableOpacity style={styles.imageSelector} onPress={() => pickImage(setDisabledDocImage)}>
-						{disabledDocImage ? (
-							<Image source={{ uri: disabledDocImage }} style={styles.previewImage} />
-						) : (
-							<View style={{ alignItems: 'center' }}>
-								<Ionicons name="document-text" size={36} color="#D99015" />
-								<Text style={{ color: '#7F8C8D', marginTop: 8 }}>Subir documento</Text>
-							</View>
-						)}
-					</TouchableOpacity>
+  const renderModalContent = () => {
+    if (!selectedOption) return null;
 
-					<TouchableOpacity style={styles.btnPrincipal} onPress={handleSubmit}>
-						<Text style={styles.btnPrincipalText}>Enviar solicitud</Text>
-					</TouchableOpacity>
-				</View>
-			);
-		}
+    if (selectedOption === "estudiante") {
+      return (
+        <View>
+          <Text style={styles.modalTitle}>Subsidio de tipo: Estudiante</Text>
+          <Text style={styles.modalSubtitle}>
+            Indica tu universidad y sube la constancia
+          </Text>
 
-		return null;
-	};
+          <Text style={styles.label}>Universidad</Text>
+          <TextInput
+            placeholder="Nombre de la universidad"
+            value={university}
+            onChangeText={setUniversity}
+            style={styles.inputPro}
+          />
 
-	return (
-		<SafeAreaView style={{flex: 1, backgroundColor: theme.background}}>
-			<ScrollView contentContainerStyle={styles.content}>
-				<View style={styles.header}>
-					<Text style={{fontSize: 28, fontWeight: '700', color: theme.text, marginTop: 10 }}>Subsidios</Text>
-					<Text style={{fontSize: 14, color: theme.text, marginTop: 8}}>Selecciona la categoría que aplica para solicitar un subsidio.</Text>
-				</View>
+          <Text style={[styles.label, { marginTop: 10 }]}>
+            Constancia de estudios
+          </Text>
+          <TouchableOpacity
+            style={styles.imageSelector}
+            onPress={() => pickImage(setStudentImage)}
+          >
+            {studentImage ? (
+              <Image
+                source={{ uri: studentImage }}
+                style={styles.previewImage}
+              />
+            ) : (
+              <View style={{ alignItems: "center" }}>
+                <Ionicons
+                  name="cloud-upload-outline"
+                  size={36}
+                  color="#D99015"
+                />
+                <Text style={{ color: "#7F8C8D", marginTop: 8 }}>
+                  Subir constancia
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
-				<View style={{ marginTop: 20 }}>
-					<TouchableOpacity style={styles.row} onPress={() => openOption('estudiante')}>
-						<View>
-							<Text style={styles.rowText}>Como Estudiante</Text>
-							<Text style={styles.subText}>Sube tu constancia de estudios</Text>
-						</View>
-						<FontAwesome5 name="graduation-cap" size={20} color="#003366" />
-					</TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.btnPrincipal, isUploading && { opacity: 0.7 }]} 
+            onPress={handleSubmit}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.btnPrincipalText}>Enviar solicitud</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      );
+    }
 
-					<TouchableOpacity style={styles.row} onPress={() => openOption('adulto')}>
-						<View>
-							<Text style={styles.rowText}>Como Adulto Mayor</Text>
-							<Text style={styles.subText}>Sube una foto y tu cédula</Text>
-						</View>
-						<Ionicons name="accessibility" size={20} color="#D99015" />
-					</TouchableOpacity>
+    if (selectedOption === "adulto") {
+      return (
+        <View>
+          <Text style={styles.modalTitle}>Subsidio de Tipo: Adulto Mayor</Text>
+          <Text style={styles.modalSubtitle}>
+            Sube una foto tuya y la de tu cédula
+          </Text>
 
-					<TouchableOpacity style={styles.row} onPress={() => openOption('discapacitado')}>
-						<View>
-							<Text style={styles.rowText}>Persona con Discapacidad</Text>
-							<Text style={styles.subText}>Sube tu carnet o constancia</Text>
-						</View>
-						<Ionicons name="heart-sharp" size={20} color="#003366" />
-					</TouchableOpacity>
-				</View>
-			</ScrollView>
+          <Text style={styles.label}>Foto de la persona</Text>
+          <TouchableOpacity
+            style={styles.imageSelector}
+            onPress={() => pickImage(setSeniorPersonImage)}
+          >
+            {seniorPersonImage ? (
+              <Image
+                source={{ uri: seniorPersonImage }}
+                style={styles.previewImage}
+              />
+            ) : (
+              <View style={{ alignItems: "center" }}>
+                <Ionicons name="person" size={36} color="#D99015" />
+                <Text style={{ color: "#7F8C8D", marginTop: 8 }}>
+                  Subir foto
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
-			<Modal visible={modalVisible} animationType="slide" transparent>
-				<View style={styles.modalOverlay}>
-					<View style={{backgroundColor: 'white', borderRadius:20, padding: 20, minHeight: 500,paddingBottom: insets.bottom }}>
-						<ScrollView>
-							{renderModalContent()}
+          <Text style={[styles.label, { marginTop: 10 }]}>
+            Foto de la cédula
+          </Text>
+          <TouchableOpacity
+            style={styles.imageSelector}
+            onPress={() => pickImage(setSeniorIdImage)}
+          >
+            {seniorIdImage ? (
+              <Image
+                source={{ uri: seniorIdImage }}
+                style={styles.previewImage}
+              />
+            ) : (
+              <View style={{ alignItems: "center" }}>
+                <Ionicons name="document-text" size={36} color="#D99015" />
+                <Text style={{ color: "#7F8C8D", marginTop: 8 }}>
+                  Subir cédula
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
-							<TouchableOpacity
-								onPress={() => { setModalVisible(false); setSelectedOption(null); }}
-								style={[{backgroundColor: '#003366', padding: 14, borderRadius: 20, alignItems: 'center', marginTop: 10 , marginBottom:90+insets}, { backgroundColor: '#CCCCCC', marginTop: 15 }]}
-							>
-								<Text style={[styles.btnPrincipalText, { color: '#333' }]}>Cancelar</Text>
-							</TouchableOpacity>
-						</ScrollView>
-					</View>
-				</View>
-			</Modal>
+          <TouchableOpacity 
+            style={[styles.btnPrincipal, isUploading && { opacity: 0.7 }]} 
+            onPress={handleSubmit}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.btnPrincipalText}>Enviar solicitud</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      );
+    }
 
-			<Volver route={"./Profile"} color={theme.volver_button} style={{ top: 60, left: 10 }} />
-		</SafeAreaView>
-	);
+    if (selectedOption === "discapacitado") {
+      return (
+        <View>
+          <Text style={styles.modalTitle}>
+            Subsidio de Tipo: Persona con Discapacidad
+          </Text>
+          <Text style={styles.modalSubtitle}>Sube el carnet o constancia</Text>
+
+          <Text style={[styles.label, { marginTop: 10 }]}>
+            Carnet / Constancia
+          </Text>
+          <TouchableOpacity
+            style={styles.imageSelector}
+            onPress={() => pickImage(setDisabledDocImage)}
+          >
+            {disabledDocImage ? (
+              <Image
+                source={{ uri: disabledDocImage }}
+                style={styles.previewImage}
+              />
+            ) : (
+              <View style={{ alignItems: "center" }}>
+                <Ionicons name="document-text" size={36} color="#D99015" />
+                <Text style={{ color: "#7F8C8D", marginTop: 8 }}>
+                  Subir documento
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.btnPrincipal, isUploading && { opacity: 0.7 }]} 
+            onPress={handleSubmit}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.btnPrincipalText}>Enviar solicitud</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <Text
+            style={{
+              fontSize: 28,
+              fontWeight: "700",
+              color: theme.text,
+              marginTop: 10,
+            }}
+          >
+            Subsidios
+          </Text>
+          <Text style={{ fontSize: 14, color: theme.text, marginTop: 8 }}>
+            Selecciona la categoría que aplica para solicitar un subsidio.
+          </Text>
+        </View>
+
+        <View style={{ marginTop: 20 }}>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => openOption("estudiante")}
+          >
+            <View>
+              <Text style={styles.rowText}>Como Estudiante</Text>
+              <Text style={styles.subText}>Sube tu constancia de estudios</Text>
+            </View>
+            <FontAwesome5 name="graduation-cap" size={20} color="#003366" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => openOption("adulto")}
+          >
+            <View>
+              <Text style={styles.rowText}>Como Adulto Mayor</Text>
+              <Text style={styles.subText}>Sube una foto y tu cédula</Text>
+            </View>
+            <Ionicons name="accessibility" size={20} color="#D99015" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => openOption("discapacitado")}
+          >
+            <View>
+              <Text style={styles.rowText}>Persona con Discapacidad</Text>
+              <Text style={styles.subText}>Sube tu carnet o constancia</Text>
+            </View>
+            <Ionicons name="heart-sharp" size={20} color="#003366" />
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      <Modal visible={modalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View
+            style={{
+              backgroundColor: "white",
+              borderRadius: 20,
+              padding: 20,
+              minHeight: 500,
+              paddingBottom: insets.bottom,
+            }}
+          >
+            <ScrollView>
+              {renderModalContent()}
+
+              <TouchableOpacity
+                onPress={() => {
+                  setModalVisible(false);
+                  setSelectedOption(null);
+                }}
+                style={[
+                  {
+                    backgroundColor: "#003366",
+                    padding: 14,
+                    borderRadius: 20,
+                    alignItems: "center",
+                    marginTop: 10,
+                    marginBottom: 90 + insets,
+                  },
+                  { backgroundColor: "#CCCCCC", marginTop: 15 },
+                ]}
+              >
+                <Text style={[styles.btnPrincipalText, { color: "#333" }]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Volver
+        route={"./Profile"}
+        color={theme.volver_button}
+        style={{ top: 60, left: 10 }}
+      />
+    </SafeAreaView>
+  );
 }
 
-	const styles = StyleSheet.create({
-		container: { flex: 1, backgroundColor: '#F8F9FA' },
-		content: { paddingHorizontal: 20, paddingBottom: 30 },
-		header: { padding: 9, marginTop: 50 },
-		title: { fontSize: 28, fontWeight: '700', color: '#2D3436', marginTop: 10 },
-		description: { fontSize: 14, color: '#636E72', marginTop: 8 },
-		row: { 
-			flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-			backgroundColor: 'white', padding: 18, borderRadius: 20, marginBottom: 12,
-			elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5
-		},
-		rowText: { fontSize: 16, fontWeight: '600', color: '#2D3436' },
-		subText: { fontSize: 12, color: '#636E72' },
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#F8F9FA" },
+  content: { paddingHorizontal: 20, paddingBottom: 30 },
+  header: { padding: 9, marginTop: 50 },
+  title: { fontSize: 28, fontWeight: "700", color: "#2D3436", marginTop: 10 },
+  description: { fontSize: 14, color: "#636E72", marginTop: 8 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "white",
+    padding: 18,
+    borderRadius: 20,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+  },
+  rowText: { fontSize: 16, fontWeight: "600", color: "#2D3436" },
+  subText: { fontSize: 12, color: "#636E72" },
 
-
-		modalOverlay: { flex: 1, backgroundColor: '#00000080', justifyContent: 'flex-end' },
-		modalContent: { backgroundColor: 'white', borderRadius:20, padding: 20, minHeight: 300 },
-		modalTitle: { fontSize: 28, fontWeight: '700', color: '#003366' },
-		modalSubtitle: { fontSize: 13, color: '#7F8C8D', marginBottom: 12 },
-		label: { fontSize: 13, fontWeight: '700', color: '#2D3436', marginTop: 12 },
-		inputPro: { backgroundColor: '#F2F4F4', padding: 12, borderRadius: 20, marginTop: 8 },
-		imageSelector: { height: 160, backgroundColor: '#F8F9F9', borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 10, borderStyle: 'dashed', borderWidth: 2, borderColor: '#BDC3C7' },
-		previewImage: { width: '100%', height: '100%', borderRadius: 12 },
-		btnPrincipal: { backgroundColor: '#003366', padding: 14, borderRadius: 20, alignItems: 'center', marginTop: 12 },
-		btnPrincipalText: { color: 'white', fontWeight: '700' }
-	});
-
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "#00000080",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 20,
+    minHeight: 300,
+  },
+  modalTitle: { fontSize: 28, fontWeight: "700", color: "#003366" },
+  modalSubtitle: { fontSize: 13, color: "#7F8C8D", marginBottom: 12 },
+  label: { fontSize: 13, fontWeight: "700", color: "#2D3436", marginTop: 12 },
+  inputPro: {
+    backgroundColor: "#F2F4F4",
+    padding: 12,
+    borderRadius: 20,
+    marginTop: 8,
+  },
+  imageSelector: {
+    height: 160,
+    backgroundColor: "#F8F9F9",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 10,
+    borderStyle: "dashed",
+    borderWidth: 2,
+    borderColor: "#BDC3C7",
+  },
+  previewImage: { width: "100%", height: "100%", borderRadius: 12 },
+  btnPrincipal: {
+    backgroundColor: "#003366",
+    padding: 14,
+    borderRadius: 20,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  btnPrincipalText: { color: "white", fontWeight: "700" },
+});
