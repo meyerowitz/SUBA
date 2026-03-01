@@ -1,28 +1,13 @@
-//import {GoogleSignin,isErrorWithCode,isSuccessResponse,statusCodes,} from '@react-native-google-signin/google-signin';
-
 import { Image } from "expo-image";
 import { Asset } from "expo-asset";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
-import {
-  Alert,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  StatusBar,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Button,
-} from "react-native";
+import {Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar, ScrollView, KeyboardAvoidingView,Platform} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import userData from "./Components/Users.json";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { v4 as uuidv4 } from "uuid";
-import { useTheme } from "./Components/Temas_y_colores/ThemeContext";
+import { useTheme } from './Components/Temas_y_colores/ThemeContext';
 
 export default function Login() {
   const router = useRouter();
@@ -30,39 +15,42 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const [state, setState] = useState({ email: "", name: "" });
+  const [state,setState] = useState({email: "",name:""})
+  const [id,setId] = useState(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Estados para controlar la carga y qué GIF mostrar
-  const [isLoading, setIsLoading] = useState(false);
-  const [userRole, setUserRole] = useState(null);
+  const [isLoading, setIsLoading] = useState(false)
+  const [userRole, setUserRole] = useState(null)
   const { theme, toggleTheme, isDark } = useTheme();
 
-  //-------------------------------------------------
-  //     UseEffect que limpia la sesion anterior
-  //-------------------------------------------------
-  useEffect(() => {
-    const cerrar_sesion_anterior = async () => {
-      try {
-        const valor = await AsyncStorage.getItem("@Sesion_usuario");
+//-------------------------------------------------
+//     UseEffect que limpia la sesion anterior
+//-------------------------------------------------
+useEffect(()=>{
+  
+  const cerrar_sesion_anterior = async () => {
 
-        if (valor !== null) {
-          // Si hay datos, procedemos a borrar
-          await AsyncStorage.removeItem("@Sesion_usuario");
-          console.log("Existían datos y han sido borrados.");
-        } else {
-          // Si es null, el almacenamiento ya estaba vacío
-          console.log("El almacenamiento ya está vacío, nada que borrar.");
-        }
-      } catch (e) {
-        console.error("Error al verificar:", e);
-      }
-    };
-    cerrar_sesion_anterior();
-  }, []);
+    try {
+    const valor = await AsyncStorage.getItem('@Sesion_usuario');
 
-  /*
-GoogleSignin.configure({
+    if (valor !== null) {
+      // Si hay datos, procedemos a borrar
+      await AsyncStorage.removeItem('@Sesion_usuario');
+      console.log("Existían datos y han sido borrados.");
+    } else {
+      // Si es null, el almacenamiento ya estaba vacío
+      console.log("El almacenamiento ya está vacío, nada que borrar.");
+    }
+  } catch (e) {
+    console.error("Error al verificar:", e);
+  }
+  }; cerrar_sesion_anterior()
+  
+},[])
+
+
+/*GoogleSignin.configure({
   webClientId: '159501895592-5oooqd8f4kvcque2n1aacrk9c93bq0op.apps.googleusercontent.com', // client ID of type WEB for your server. Required to get the `idToken` on the user object, and for offline access.
   offlineAccess: true, // if you want to access Google API on behalf of the user FROM YOUR SERVER
   iosClientId: '159501895592-rg8n8i2ab5le35m97m3p8b76657cgnal.apps.googleusercontent.com', // [iOS] if you want to specify the client ID of type iOS (otherwise, it is taken from GoogleService-Info.plist)
@@ -73,9 +61,30 @@ const signInA = async () => {
     await GoogleSignin.hasPlayServices();
     const response = await GoogleSignin.signIn();
     if (isSuccessResponse(response)) {
-      setState({email:response.data.user.email,name: response.data.user.name});
+      const infoGoogleUser=response.data.user;
+      const infoGoogleToken = response.data.idToken;
+        
+      const gooLogin = await fetch('https://subapp-api.onrender.com/auth/autenticar-google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        idToken: infoGoogleToken,
+        role: "passenger"
+        }),
+      });
+
+      const gooLoginData = await gooLogin.json();
+
+      if (!gooLogin.ok) {
+      setIsLoading(false);
+      Alert.alert("Error", gooLoginData.message || "Credenciales incorrectas");
+      return;
+    }
+
+      setState({email:infoGoogleUser.email,name: infoGoogleUser.name});
+      setId(gooLoginData.user.id);
       setIsAuthenticated(true);
-      console.log("userName:",state);
+
     } else {
       // sign in was cancelled by user
     }
@@ -105,75 +114,85 @@ const signIn = async ()=>{
   }
 
 
-useEffect( () => {
+useEffect(() => {
   async function googleSI() {
-        if (!isAuthenticated) return;//si es el primer render de state no se ejecuta este codigo
-    // Buscamos al usuario (por email o nombre)
-    const user = userData.users.find(
-      (u) =>
-        (u.email.toLowerCase() === state.email.toLowerCase() ||
-        u.fullName.toLowerCase() === state.name.toLowerCase()) 
-      // && u.password === password //modificar o activar cuando se pueda manejar y comprobar el idTocken con el backend
-    );
+    if (!isAuthenticated) return;
 
+    // Ejecutamos la búsqueda y el guardado, y RETORNAMOS el usuario para el siguiente paso
+    const obtenerUsuario = async () => {
       try {
-        const jsonValue = JSON.stringify(user);
-        await AsyncStorage.setItem('@Sesion_usuario', jsonValue);
-        console.log("Sesion guardada con éxito");
+        const response = await fetch(`https://subapp-api.onrender.com/api/pasajeros?email=${encodeURIComponent(state.email)}`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        const profileData = await response.json();
+        const foundUser = profileData.passengers[0];
+
+        if (foundUser) {
+          const jsonValue = JSON.stringify(foundUser);
+          await AsyncStorage.setItem('@Sesion_usuario', jsonValue);
+          console.log("Sesion guardada con éxito");
         const jsonValue2 = await AsyncStorage.getItem('@Sesion_usuario');
         console.log(jsonValue2);
-      } catch (e) {
-        console.error("Error al guardar:", e);
-      }
-
-    if (user) {
-      setUserRole(user.role); // Guardamos el rol ('driver' o 'passenger')
-      setIsLoading(true);     // Activamos la vista de carga
-
-      // Simulamos un tiempo de carga para que se vea el GIF
-      setTimeout(() => {
-        if (user.role === "driver") {
-          router.replace("./pages/Conductor/Home2");
-        } else {
-          router.replace("./pages/Pasajero/Navigation");
+          return foundUser; 
         }
-      }, 4000); // 4 segundos de animación
-    } else {
-      Alert.alert("Error", "Usuario o contraseña incorrectos");
-      GoogleSignin.signOut();
-    }
+        return null;
+      } catch (e) {
+        console.error("Error al obtener datos:", e);
+        throw e;
+      }
+    };
+
+    // Ahora sí podemos usar .then() sobre la función asíncrona
+    obtenerUsuario().then((user) => {
+      if (user) {
+        setUserRole(user.role);
+        setIsLoading(true);
+
+        setTimeout(() => {
+          if (user.role === "driver") {
+            router.replace("./pages/Conductor/Home2");
+          } else {
+            router.replace("./pages/Pasajero/Navigation");
+          }
+        }, 4000);
+      } else {
+        Alert.alert("Error", "Usuario o contraseña incorrectos");
+        GoogleSignin.signOut();
+      }
+    }).catch(e => {
+      console.error("Error final:", e);
+    });
   }
 
   googleSI();
+}, [state, isAuthenticated]);*/
+//-------------------------------------------------
+//        UseEffect de carga de imagenes
+//-------------------------------------------------
+useEffect(() => {
+  const cacheGifs = async () => {
+    const images = [
+      require("../assets/img/driver-loading.gif"),
+      require("../assets/img/passenger-loading.gif"),
+    ];
 
-}, [state], [isAuthenticated]);
-*/
+    // Mapea los recursos para que Expo los prepare en caché
+    const cacheImages = images.map(image => {
+      return Asset.fromModule(image).downloadAsync();
+    });
 
-  //-------------------------------------------------
-  //        UseEffect de carga de imagenes
-  //-------------------------------------------------
-  useEffect(() => {
-    const cacheGifs = async () => {
-      const images = [
-        require("../assets/img/driver-loading.gif"),
-        require("../assets/img/passenger-loading.gif"),
-      ];
+    return Promise.all(cacheImages);
+  };
 
-      // Mapea los recursos para que Expo los prepare en caché
-      const cacheImages = images.map((image) => {
-        return Asset.fromModule(image).downloadAsync();
-      });
+  cacheGifs().catch(err => console.log("Error precargando GIFs:", err));
+}, []);
 
-      return Promise.all(cacheImages);
-    };
-
-    cacheGifs().catch((err) => console.log("Error precargando GIFs:", err));
-  }, []);
-
-  //----------------------------------------------------------
-  //        handleLogin sin API solo el array userData
-  //----------------------------------------------------------
-  const handleLogin = async () => {
+//----------------------------------------------------------
+//        handleLogin sin API solo el array userData
+//----------------------------------------------------------
+const handleLogin = async () => {
     // Buscamos al usuario (por email o nombre)
     const user = userData.users.find(
       (u) =>
@@ -182,125 +201,111 @@ useEffect( () => {
         u.password === password,
     );
 
-    try {
-      const jsonValue = JSON.stringify(user);
-      await AsyncStorage.setItem("@Sesion_usuario", jsonValue); //Si lo encuentra guarda al usuario en el almacenamiento temporal de sesion_usuario
-      console.log("Sesion guardada con éxito");
-      const jsonValue2 = await AsyncStorage.getItem("@Sesion_usuario");
-      console.log(jsonValue2);
-    } catch (e) {
-      console.error("Error al guardar:", e);
-    }
-
     if (user) {
-      setUserRole(user.role); // Guardamos el rol ('driver' o 'passenger')
-      setIsLoading(true); // Activamos la vista de carga
-
-      // Simulamos un tiempo de carga para que se vea el GIF
-      setTimeout(() => {
-        if (user.role === "driver") {
-          //router.replace("./pages/Conductor/Home");
-          router.replace("./pages/Conductor/Home2");
-        } else {
-          router.replace("./pages/Pasajero/Navigation");
-        }
-      }, 4000); // 4 segundos de animación
+      try {
+        await AsyncStorage.setItem("@Sesion_usuario", JSON.stringify(user));
+        setUserRole(user.role);
+        setIsLoading(true);
+        setTimeout(() => {
+          // Cambio por if/else
+          if (user.role === "driver") {
+            router.replace("./pages/Conductor/Home2");
+          } else {
+            router.replace("./pages/Pasajero/Navigation");
+          }
+        }, 4000);
+      } catch (e) {
+        console.error("Error al guardar sesión local:", e);
+      }
     } else {
       Alert.alert("Error", "Usuario o contraseña incorrectos");
     }
   };
 
-  //----------------------------------------------------------
-  //        handleLogin2 con API incluida
-  //----------------------------------------------------------
-  const handleLogin2 = async () => {
-    if (!correo || !password) {
-      Alert.alert("Error", "Por favor, completa todos los campos");
+  const handleLoginAPI = async () => {
+  if (!correo || !password) {
+    Alert.alert("Error", "Por favor, completa todos los campos");
+    return;
+  }
+
+  setIsLoading(true);
+  const API_URL = "https://subapp-api.onrender.com";
+
+  try {
+    // --- PASO 1: LOGIN ---
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: correo.toLowerCase().trim(),
+        password: password,
+      }),
+    });
+
+    const loginData = await response.json();
+    
+    // 🔍 RASTREO 1: ¿Qué responde el login?
+    console.log("1. RESPUESTA LOGIN:", JSON.stringify(loginData, null, 2));
+
+    if (!response.ok) {
+      setIsLoading(false);
+      Alert.alert("Error", loginData.message || "Credenciales incorrectas");
       return;
     }
 
-    setIsLoading(true);
+    // Buscamos el token en diferentes lugares por si la API cambió
+    const token = loginData.token || loginData.accessToken || (loginData.data && loginData.data.token);
+    
+    console.log("2. TOKEN EXTRAÍDO:", token ? "SÍ (empieza por " + token.substring(0,10) + "...)" : "NO SE ENCONTRÓ ❌");
 
-    const API_URL = "https://subapp-api.onrender.com";
+    // --- PASO 2: OBTENER PERFIL ---
+    const profileResponse = await fetch(`${API_URL}/auth/me`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
 
-    try {
-      // 1. INTENTO DE LOGIN
-      // const response = await fetch('https://subapp-api.onrender.com/auth/login', { //API
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: correo.toLowerCase(),
-          password: password,
-        }),
-      });
+    const profileData = await profileResponse.json();
+    
+    // 🔍 RASTREO 2: ¿Qué responde el perfil?
+    console.log("3. RESPUESTA PERFIL (/auth/me):", JSON.stringify(profileData, null, 2));
 
-      const loginData = await response.json();
-      console.log("Respuesta Login:", loginData); // Para ver si trae un token
+    if (profileData.success) {
+      // 💡 LA CORRECCIÓN MÁGICA:
+      // Combinamos los datos del perfil con el token que sacamos del login
+      const usuarioAGuardar = { 
+        ...profileData.data, 
+        token: token // <--- Forzamos que el token entre al objeto
+      };
 
-      if (!response.ok) {
-        setIsLoading(false);
-        Alert.alert("Error", loginData.message || "Credenciales incorrectas");
-        return;
-      }
+      console.log("4. OBJETO FINAL A GUARDAR:", JSON.stringify(usuarioAGuardar, null, 2));
 
-      // 2. OBTENER PERFIL (/me)
-      const token = loginData.token || loginData.accessToken;
-
-      //const profileResponse = await fetch('https://subapp-api.onrender.com/auth/me', {
-      const profileResponse = await fetch(`${API_URL}/auth/me`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
-
-      const profileData = await profileResponse.json();
-      console.log("Respuesta Perfil:", profileData); // Aquí verás por qué falla
-
-      if (profileData.success) {
-        // 3. GUARDAR EN ASYNC STORAGE
-        const usuarioAGuardar = { ...profileData.data, token };
-        await AsyncStorage.setItem(
-          "@Sesion_usuario",
-          JSON.stringify(usuarioAGuardar),
-        );
-
-        console.log("✅ Sesión guardada con éxito");
-
-        // 4. VERIFICAR (SACAR Y MOSTRAR)
-        const sesionGuardada = await AsyncStorage.getItem("@Sesion_usuario");
-        console.log("🔍 Datos en AsyncStorage:", JSON.parse(sesionGuardada));
-
-        // 5. NAVEGACIÓN
-        setUserRole(usuarioAGuardar.role);
-
-        if (usuarioAGuardar.role === "driver") {
-          router.replace("./pages/Conductor/Home2");
-        } else {
-          router.replace("./pages/Pasajero/Navigation");
-        }
+      await AsyncStorage.setItem("@Sesion_usuario", JSON.stringify(usuarioAGuardar));
+      console.log()
+      setUserRole(usuarioAGuardar.role);
+      
+      if (usuarioAGuardar.role === "driver") {
+        router.replace("./pages/Conductor/Home2");
       } else {
-        setIsLoading(false);
-        console.log("Detalle del fallo perfil:", profileData);
-        Alert.alert("Error", "El servidor no devolvió los datos del perfil.");
+        router.replace("./pages/Pasajero/Navigation");
       }
-    } catch (error) {
+    } else {
       setIsLoading(false);
-      console.error("Error completo:", error);
-      Alert.alert("Error de conexión", "No se pudo conectar con el servidor.");
+      Alert.alert("Error", "No se pudieron obtener los datos del perfil.");
     }
+  } catch (error) {
+    setIsLoading(false);
+    console.error("Error Login API:", error);
+    Alert.alert("Error de conexión", "No se pudo conectar con el servidor.");
+  }
   };
 
   if (isLoading) {
     return (
       <View style={styles.loaderContainer}>
-        <StatusBar
-          translucent={true}
-          backgroundColor="transparent"
-          barStyle="dark-content"
-        ></StatusBar>
+        <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
         <Image
           source={
             userRole === "driver"
@@ -309,55 +314,29 @@ useEffect( () => {
           }
           style={styles.gif}
           contentMode="contain"
-          cachePolicy="memory-disk" // Prioriza cargar desde la memoria RAM o disco
-          priority="high" // Le dice al sistema que este recurso es urgente
-          placeholder={{ blurhash: "L6PZfSaD00jE.AyE_3t7t7Rj4n9w" }} // O simplemente una imagen estática
-          transition={10}
         />
         <Text style={styles.loaderText}>
-          {userRole === "driver"
-            ? "Preparando tu ruta..."
-            : "Buscando tu viaje..."}
+          {userRole === "driver" ? "Preparando tu ruta..." : "Buscando tu viaje..."}
         </Text>
       </View>
     );
   }
 
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#ffffffff",
-      }}
-    >
-      <StatusBar
-        translucent={true}
-        backgroundColor="transparent"
-        barStyle="dark-content"
-      ></StatusBar>
-
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "height" : "padding"}
         style={{ flex: 1, width: "100%" }}
       >
         <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            backgroundColor: "#ffff",
-            width: "100%",
-          }}
+          contentContainerStyle={{flexGrow: 1, backgroundColor: "#FFFFFF", width: "100%", height:'110%'}}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          bounces={false}
         >
           <View style={styles.container}>
             <View style={styles.logo}>
-              <Image
-                source={require("../assets/img/logo.png")}
-                style={styles.wordmark}
-              />
+              <Image source={require("../assets/img/logo.png")} style={styles.wordmark} />
             </View>
 
             <Text style={styles.title}>¡Bienvenido de nuevo!</Text>
@@ -374,7 +353,6 @@ useEffect( () => {
 
             <View style={styles.passwordContainer}>
               <TextInput
-                textContentType="password"
                 placeholder="Contraseña"
                 placeholderTextColor="rgba(0, 0, 0, 0.31)"
                 value={password}
@@ -387,222 +365,68 @@ useEffect( () => {
                 style={styles.toggleButton}
                 onPress={() => setShowPassword(!showPassword)}
               >
-                <FontAwesome6
-                  name={showPassword ? "eye-slash" : "eye"}
-                  size={20}
-                  color="#023A73"
-                />
+                <FontAwesome6 name={showPassword ? "eye-slash" : "eye"} size={20} color="#023A73" />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.question}>¿Olvidaste tu contraseña? </Text>
+            <TouchableOpacity onPress={() => router.push("/pages/olvide_contrasena/forgotten-password")}>
+              <Text style={styles.question}>¿Olvidaste tu contraseña? </Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.button}
-              onPress={handleLogin2}
+              onPress={handleLoginAPI}
               onLongPress={handleLogin}
-              delayLongPress={1000}
+              delayLongPress={2000}
             >
               <Text style={styles.textButton}>INICIAR SESIÓN</Text>
             </TouchableOpacity>
 
-            <View style={styles.googleContainer}>
-              <TouchableOpacity
-                style={styles.googleButton}
-                onPress={async () => {
-                  const user = userData.users.find(
-                    (u) => u.email === "meyerowitzrebeca@gmail.com",
-                  );
-                  try {
-                    const jsonValue = JSON.stringify(user);
-                    await AsyncStorage.setItem("@Sesion_usuario", jsonValue);
-                    console.log("Sesion guardada con éxito");
-                    const jsonValue2 =
-                      await AsyncStorage.getItem("@Sesion_usuario");
-                    console.log(jsonValue2);
-                  } catch (e) {
-                    console.error("Error al guardar:", e);
-                  }
-                  router.replace("./pages/Pasajero/Navigation");
-                }}
-              >
-                <Image
-                  source={require("../assets/img/google.png")}
-                  style={styles.googleIcon}
-                />
-                <Text style={styles.googleText}>Continuar con Google</Text>
-              </TouchableOpacity>
-            </View>
+                <View style={styles.googleContainer}>
+                  <TouchableOpacity 
+                  style={styles.googleButton} 
+                  /*onPress={() => signInA()}*/
+                    >
+                    <Image source={require("../assets/img/google.png")} style={styles.googleIcon} />
+                    <Text style={styles.googleText}>Continuar con Google</Text>
+                  </TouchableOpacity>
+                </View>
 
-            <View style={styles.redirect}>
-              <Text style={styles.question}>¿No tienes cuenta? </Text>
-              <TouchableOpacity onPress={() => router.replace("/Register")}>
-                <Text style={styles.register}>Regístrate aquí</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+                <View style={{width: 320,marginTop: 20,display: "flex",flexDirection: "row",justifyContent: "center",alignItems: "center",}}>
+                  <Text style={{color: "#544F4F",fontFamily: "roboto",fontWeight: "bold",fontSize: 16,}}>¿No tienes cuenta? </Text>
+                  <TouchableOpacity onPress={() => router.replace("/Register")}>
+                    <Text style={{color: "#0661BC",fontFamily: "roboto",fontWeight: "bold",fontSize: 16, textDecorationLine: "underline",}}>Regístrate aquí</Text>
+                  </TouchableOpacity>
+                </View>
+              
+              </View>
+      
+            </ScrollView>
+        </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#ffffffff",
-  },
-  container: {
-    height: "100%",
-    width: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  logo: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: 320,
-    height: 88.28,
-    marginTop: 50,
-    marginBottom: 50,
-  },
-  passwordContainer: {
-    position: "relative",
-    width: 320,
-    marginBottom: 20,
-  },
-  toggleButton: {
-    position: "absolute",
-    right: 15,
-    top: 18,
-    padding: 5,
-  },
-  wordmark: {
-    width: 320,
-    height: 88.28,
-  },
-  title: {
-    fontSize: 30,
-    fontFamily: "roboto",
-    fontWeight: "bold",
-    color: "#212121",
-    marginBottom: 60,
-  },
-  input: {
-    width: 320,
-    height: 60,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "#DFDFDF",
-    borderRadius: 100,
-    fontFamily: "roboto",
-    color: "black",
-    marginBottom: 20,
-    fontSize: 18,
-  },
-  question: {
-    color: "#544F4F",
-    fontFamily: "roboto",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  passwordInput: {
-    width: 320,
-    height: 60,
-    padding: 10,
-    paddingRight: 50,
-    borderWidth: 1,
-    borderColor: "#DFDFDF",
-    borderRadius: 100,
-    fontFamily: "roboto",
-    fontSize: 18,
-  },
-  button: {
-    display: "flex",
-    marginTop: 20,
-    width: 320,
-    height: 60,
-    borderRadius: 100,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#FFA311",
-  },
-  textButton: {
-    color: "#023A73",
-    fontSize: 18,
-    fontWeight: "bold",
-    fontFamily: "roboto",
-  },
-  googleContainer: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 20,
-  },
-  googleButton: {
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    width: 320,
-    height: 60,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: "#DFDFDF",
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    gap: 10,
-  },
-  googleIcon: {
-    width: 24,
-    height: 24,
-  },
-  googleText: {
-    fontSize: 16,
-    fontFamily: "roboto",
-    fontWeight: "bold",
-    color: "#212121",
-  },
-  redirect: {
-    width: 320,
-    marginTop: 20,
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  register: {
-    color: "#0661BC",
-    fontFamily: "roboto",
-    fontWeight: "bold",
-    fontSize: 16,
-    textDecorationLine: "underline",
-  },
-
-  loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-  },
-  gif: {
-    width: 200,
-    height: 200,
-    borderRadius: 20,
-  },
-  loaderText: {
-    marginTop: 20,
-    fontSize: 18,
-    color: "#023A73",
-    fontWeight: "bold",
-    fontFamily: "roboto",
-  },
+  safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
+  scrollContent: { flexGrow: 1, backgroundColor: "#FFFFFF", width: "100%" },
+  container: { flex: 1, justifyContent: "center", alignItems: "center", paddingBottom: 100 },
+  logo: { width: 320, height: 88, marginTop: 50, marginBottom: 50 },
+  wordmark: { width: "100%", height: "100%" },
+  title: { fontSize: 30, fontWeight: "bold", color: "#212121", marginBottom: 60 },
+  input: { width: 320, height: 60, padding: 15, borderWidth: 1, borderColor: "#DFDFDF", borderRadius: 100, fontSize: 18, marginBottom: 20, color: "black" },
+  passwordContainer: { position: "relative", width: 320 },
+  toggleButton: { position: "absolute", right: 20, top: 18 },
+  question: { color: "#544F4F", fontWeight: "bold", fontSize: 16 },
+  button: { marginTop: 30, width: 320, height: 60, borderRadius: 100, justifyContent: "center", alignItems: "center", backgroundColor: "#FFA311" },
+  textButton: { color: "#023A73", fontSize: 18, fontWeight: "bold" },
+  googleContainer: { marginTop: 20 },
+  googleButton: { flexDirection: "row", width: 320, height: 60, borderRadius: 100, borderWidth: 1, borderColor: "#DFDFDF", justifyContent: "center", alignItems: "center", gap: 10 },
+  googleIcon: { width: 24, height: 24 },
+  googleText: { fontSize: 16, fontWeight: "bold", color: "#212121" },
+  redirect: { flexDirection: "row", marginTop: 25 },
+  register: { color: "#0661BC", fontWeight: "bold", fontSize: 16, textDecorationLine: "underline" },
+  loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FFFFFF" },
+  gif: { width: 200, height: 200, borderRadius: 20 },
+  loaderText: { marginTop: 20, fontSize: 18, color: "#023A73", fontWeight: "bold" },
 });

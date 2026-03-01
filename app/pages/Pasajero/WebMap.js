@@ -1,18 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import {
-  Image,
-  StyleSheet,
-  View,
-  ActivityIndicator,
-  Alert,
-  Text,
-  Platform,
-  TextInput,
-  TouchableOpacity,
-  StatusBar,
-  Animated,
-  Dimensions,
-} from "react-native";
+import { Image, StyleSheet, View,ActivityIndicator, Alert,Text, Platform,TextInput,TouchableOpacity,StatusBar, Animated, Dimensions,} from "react-native";
 import WebView from "react-native-webview";
 import { Picker } from "@react-native-picker/picker";
 import { Feather, Ionicons } from "@expo/vector-icons";
@@ -23,6 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../Components/Temas_y_colores/ThemeContext";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useRoute } from "@react-navigation/native"; //Importante para la Comunicacion con HOME
+import Offline from '../../Components/Offline'
 
 import SearchRoot from "../../Components/SearchRoot";
 import mqtt from "mqtt";
@@ -644,6 +632,7 @@ export default function WebMap() {
   };
 
   return (
+  <Offline>
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar
         translucent={true}
@@ -928,6 +917,7 @@ export default function WebMap() {
         </Animated.View>
       )}
     </View>
+  </Offline>
   );
 }
 

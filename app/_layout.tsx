@@ -1,193 +1,55 @@
 import { Stack } from "expo-router";
 import * as SplashScreenNative from "expo-splash-screen";
 import { ThemeProvider } from './Components/Temas_y_colores/ThemeContext';
+import { RecoveryProvider } from '@/context/RecoveryContext';
 SplashScreenNative.preventAutoHideAsync();
 import './Components/i18n/i18n';
 
 export default function RootLayout() {
   return (
-    
     <ThemeProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-      {/* 1. El Index (donde está tu SplashScreen) */}
-      <Stack.Screen
-        name="index"
-        options={{
-          animation: "none", // Animación suave para la entrada
-        }}
-      />
-      <Stack.Screen
-        name="Login"
-        options={{
-          animation: "slide_from_right", // Esta subirá como un panel
-        }}
-      />
-      <Stack.Screen
-        name="SplashScreen"
-        options={{
-          animation: "none", // Esta subirá como un panel
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="Register"
-        options={{
-          animation: "slide_from_bottom", // Esta subirá como un panel
-          headerShown: false,
-        }}
-      />
+      <RecoveryProvider> 
+        <Stack screenOptions={{ headerShown: false }}>
+          {/* Pantallas Principales */}
+          <Stack.Screen name="index" options={{ animation: "none" }} />
+          <Stack.Screen name="Login" options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="SplashScreen" options={{ animation: "none", headerShown: false }} />
+          <Stack.Screen name="Register" options={{ animation: "slide_from_bottom", headerShown: false }} />
 
-      <Stack.Screen
-        name="pages/Pasajero/Navigation"
-        options={{
-          animation: "slide_from_right", // Esta subirá como un panel
-        }}
-      />
-      <Stack.Screen
-        name="pages/Pasajero/Profile"
-        options={{
-          animation: "slide_from_right", // Esta subirá como un panel
-        }}
-      />
+          {/* --- FLUJO DE RECUPERACIÓN (Pantallas Nuevas) --- */}
+          <Stack.Screen name="pages/olvide_contrasena/forgotten-password" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="pages/olvide_contrasena/verify-code" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="pages/olvide_contrasena/reset-password" options={{ animation: 'slide_from_right' }} />
 
-      <Stack.Screen
-        name="pages/Pasajero/Wallet"
-        options={{
-          animation: "slide_from_right", // Esta subirá como un panel
-        }}
-      />
+          {/* --- PÁGINAS DE PASAJERO --- */}
+          <Stack.Screen name="pages/Pasajero/Navigation" options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="pages/Pasajero/Profile" options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="pages/Pasajero/Wallet" options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="pages/Conductor/Home" options={{ animation: 'none' }} /> 
+          <Stack.Screen name="pages/Pasajero/WebMap" options={{ animation: 'none' }} /> 
+          <Stack.Screen name="pages/Pasajero/UnifiedHome" options={{ animation: 'none' }} />
+          <Stack.Screen name="pages/Pasajero/Notificaciones" options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="pages/Pasajero/Configuracion" options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="pages/Pasajero/Privacidad" options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="pages/Pasajero/CambiarContras" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="pages/Pasajero/Subsidios" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="pages/Pasajero/Soporte" options={{ animation: 'slide_from_right' }} />
 
-      <Stack.Screen 
-      name="pages/Conductor/Home" 
-      options={{ 
-        animation: 'none', // Esta subirá como un panel
-       
-        }} 
-      />
-            <Stack.Screen 
-      name="pages/Pasajero/WebMap" 
-      options={{ 
-        animation: 'none', // Esta subirá como un panel
-       
-        }} 
-      />
-         <Stack.Screen 
-      name="pages/Pasajero/UnifiedHome"
-      options={{ 
-        animation: 'none', // Esta subirá como un panel
-       
-        }} 
-      />
+          {/* --- PÁGINAS DE CONDUCTOR --- */}
+          <Stack.Screen name="pages/Conductor/Home2" options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="pages/Conductor/Profile" options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="pages/Conductor/Configuracion" options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="pages/Conductor/Historial" options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="pages/Conductor/Notificaciones" options={{ animation: "slide_from_right" }} />
+          <Stack.Screen name="pages/Conductor/Privacidad" options={{ animation: "slide_from_right" }} />
 
-
-      <Stack.Screen
-        name="pages/Pasajero/Notificaciones"
-        options={{
-          animation: "slide_from_right", // Esta subirá como un panel
-        }}
-      />
-      <Stack.Screen
-        name="pages/Pasajero/Configuracion"
-        options={{
-          animation: "slide_from_right", // Esta subirá como un panel
-        }}
-      />
-      <Stack.Screen
-        name="pages/Pasajero/Privacidad"
-        options={{
-          animation: "slide_from_right", // Esta subirá como un panel
-        }}
-      />
-      <Stack.Screen 
-      name="pages/Pasajero/CambiarContras" 
-      options={{ 
-        animation: 'slide_from_right', // Esta subirá como un panel
-       
-        }} 
-      />
-      <Stack.Screen
-      name="pages/Pasajero/Subsidios"
-      options={{ 
-        animation: 'slide_from_right', // Esta subirá como un panel
-       
-        }} 
-      />
-      <Stack.Screen
-      name="pages/Pasajero/Soporte"
-      options={{ 
-        animation: 'slide_from_right', // Esta subirá como un panel 
-        }} 
-      />
-      
-
-      <Stack.Screen
-        name="pages/Conductor/Home2"
-        options={{
-          animation: "slide_from_right", // Esta subirá como un panel
-        }}
-      />
-
-      <Stack.Screen
-        name="pages/Conductor/Profile"
-        options={{
-          animation: "slide_from_right", // Esta subirá como un panel
-        }}
-      />
-      <Stack.Screen
-        name="pages/Conductor/Configuracion"
-        options={{
-          animation: "slide_from_right", // Esta subirá como un panel
-        }}
-      />
-      <Stack.Screen
-        name="pages/Conductor/Historial"
-        options={{
-          animation: "slide_from_right", // Esta subirá como un panel
-        }}
-      />
-      <Stack.Screen
-        name="pages/Conductor/Notificaciones"
-        options={{
-          animation: "slide_from_right", // Esta subirá como un panel
-        }}
-      />
-       <Stack.Screen
-        name="pages/Conductor/Privacidad"
-        options={{
-          animation: "slide_from_right", // Esta subirá como un panel
-        }}
-      />
-      <Stack.Screen
-        name="pages/Conductor/DenunciarRuta"
-        options={{
-          animation: "slide_from_right",
-        }}
-      />
-      <Stack.Screen
-        name="Components/ScannerQR"
-        options={{
-          animation: "slide_from_bottom", // Esta subirá como un panel
-        }}
-      />
-       <Stack.Screen
-        name="Components/GenerarQR"
-        options={{
-          animation: "slide_from_bottom", // Esta subirá como un panel
-        }}
-      />
-       <Stack.Screen
-        name="Components/TicketVirtual"
-        options={{
-          animation: "slide_from_bottom", // Esta subirá como un panel
-        }}
-      />
-       <Stack.Screen
-        name="Components/PaymentNFC"
-        options={{
-          animation: "slide_from_bottom", // Esta subirá como un panel
-        }}
-      />
-      </Stack>
+          {/* --- COMPONENTES ADICIONALES --- */}
+          <Stack.Screen name="Components/ScannerQR" options={{ animation: "slide_from_bottom" }} />
+          <Stack.Screen name="Components/GenerarQR" options={{ animation: "slide_from_bottom" }} />
+          <Stack.Screen name="Components/TicketVirtual" options={{ animation: "slide_from_bottom" }} />
+          <Stack.Screen name="Components/PaymentNFC" options={{ animation: "slide_from_bottom" }} />
+        </Stack>
+      </RecoveryProvider>
     </ThemeProvider>
   );
 }

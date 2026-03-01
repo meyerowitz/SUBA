@@ -1,18 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  Modal,
-  Alert,
-  Image,
-  TextInput,
-  ScrollView,
-  StatusBar,
-  ActivityIndicator,
-  Pressable,
-  Platform
+  StyleSheet, Text, View,TouchableOpacity,Modal,Alert,Image,TextInput,ScrollView,StatusBar,ActivityIndicator,Pressable,Platform,FlatList
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -23,12 +11,34 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../../Components/Temas_y_colores/ThemeContext";
 import { useRouter } from "expo-router";
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
 
 // Configuración de Supabase
 const supabase = createClient(
   "https://wkkdynuopaaxtzbchxgv.supabase.co",
   "sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP",
 );
+
+ const API_URL = "https://subapp-api.onrender.com";
+
+  const transactionConfig = {
+  recarga: { color: '#4CAF50', label: 'Recarga (+)' },
+  transferencia: { color: '#2196F3', label: 'Transferencia' },
+  retiro: { color: '#F44336', label: 'Retiro (-)' },
+};
+const STATUS_THEME = {
+  pendiente: { color: '#EAB308', bg: '#FEF9C3', icon: 'clock-outline', label: 'Pendiente' },
+  aprobado: { color: '#22C55E', bg: '#DCFCE7', icon: 'check-circle-outline', label: 'Aprobado' },
+  rechazado: { color: '#EF4444', bg: '#FEE2E2', icon: 'close-circle-outline', label: 'Rechazado' },
+  completado: { color: '#3B82F6', bg: '#DBEAFE', icon: 'cached', label: 'Procesado' },
+};
+
+const TYPE_LABELS = {
+  recarga: { label: 'Recarga de Saldo', icon: 'wallet-plus-outline' },
+  transferencia: { label: 'Transferencia', icon: 'swap-horizontal' },
+  retiro: { label: 'Retiro de Fondos', icon: 'bank-transfer-out' },
+};
 
 export default function WalletScreen() {
   // --- ESTADOS DE LOGICA (ORIGINALES) ---
@@ -60,6 +70,11 @@ export default function WalletScreen() {
   const tasaDolar = 45.00; // Puedes traer esto de una API si quieres
   const estadoTarjetaFisica = 'SIN_TARJETA'; // 'SIN_TARJETA' | 'APROBADA' | 'VINCULADA'
 
+  const [pasajeros, setPasajeros] = useState([]);
+  const [seleccionado, setSeleccionado] = useState(null);
+  const [monto, setMonto] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
   const router = useRouter();
 
   const datosBancarios = {
@@ -68,6 +83,31 @@ export default function WalletScreen() {
     identidad: "V-30366440",
   };
 
+  // Cargar los primeros pasajeros al abrir el modal
+useEffect(() => {
+  const fetchPasajeros = async () => {
+  try {
+    const sessionString = await AsyncStorage.getItem('@Sesion_usuario');
+    const token = JSON.parse(sessionString)?.token;
+
+    const response = await fetch('https://subapp-api.onrender.com/api/pasajeros?limit=15', {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    const result = await response.json();
+    
+    if (result && result.passengers) {
+      // Usamos .slice(0, 5) para tomar solo los primeros 5
+      setPasajeros(result.passengers.slice(0, 5));
+    } else {
+      setPasajeros([]);
+    }
+  } catch (e) {
+    console.log("Error cargando pasajeros:", e);
+    setPasajeros([]);
+  }
+};
+  fetchPasajeros();
+}, []);
   // --- EFECTOS ---
   useEffect(() => {
     const inicializar = async () => {
@@ -105,57 +145,115 @@ export default function WalletScreen() {
     return JSON.parse(session).fullName;
   };
 
-  const obtenerSaldoReal = async () => {
-    try {
-      const userid = await getuserid();
-      if (!userid) return;
+   const obtenerSaldoReal = async () => {
+  try {
+    // 1. Recuperamos el token de la sesión que arreglamos antes
+    const sessionString = await AsyncStorage.getItem('@Sesion_usuario');
+    if (!sessionString) return;
+    
+    const session = JSON.parse(sessionString);
+    const token = session.token;
 
-      const { data, error } = await supabase
-        .from("Saldo_usuarios")
-        .select("saldo")
-        .eq("external_user_id", userid.trim())
-        .maybeSingle();
-
-      if (error) {
-        console.log("Error saldo:", error.message);
-        return;
-      }
-      if (data) setSaldo(data.saldo);
-      else setSaldo(0.0);
-    } catch (error) {
-      console.log("Error crítico:", error);
+    if (!token) {
+      console.log("No hay token disponible para consultar el saldo");
+      return;
     }
+
+    const API_URL = "https://subapp-api.onrender.com";
+
+    // 2. Llamada al nuevo endpoint
+    const response = await fetch(`${API_URL}/api/billetera/saldo`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}` // 🔑 Indispensable para rutas protegidas
+      },
+    });
+
+    const result = await response.json();
+
+    // 3. Según tu captura, la respuesta es { "success": true, "data": { "saldo": 0 } }
+    if (result.success && result.data) {
+      setSaldo(result.data.saldo);
+    } else {
+      setSaldo(0.00);
+    }
+
+  } catch (error) {
+    console.log("Error saldo API:", error);
+    setSaldo(0.00);
+  }
   };
-
   const cargarHistorial = async () => {
-    try {
-      const userid = await getuserid();
-      if (!userid) return;
+  try {
+    setCargandoHistorial(true);
+    
+    // 1. Extraer ID real de la sesión
+    const sessionString = await AsyncStorage.getItem('@Sesion_usuario');
+    const session = JSON.parse(sessionString);
+    
+    // IMPORTANTE: Verifica si en tu sesión el ID viene como 'id', '_id' o 'userId'
+    const myUserId = session?.user?._id || session?.user?.id || session?._id || session?.id;
+    const token = session?.token;
 
-      const { data, error } = await supabase
-        .from("validaciones_pago")
-        .select("*")
-        .eq("external_user_id", userid.trim())
-        .order("created_at", { ascending: false });
-
-      if (data) {
-        const formateados = data.map((item) => ({
-          id: item.id.toString(),
-          titulo: item.estado === "completado" ? "Recarga Exitosa" : "Validación en curso",
-          subtitulo: item.evidencia_url.includes('Envío') ? `Envío a otro usuario` : `Ref: ${item.referencia}`,
-          hora: new Date(item.created_at).toLocaleDateString(),
-          monto: item.monto_informado,
-          esIngreso: !item.evidencia_url.includes('Envío') && !item.evidencia_url.includes('Pago'), // Lógica simple para determinar signo
-          tipo: item.evidencia_url.includes('Envío') ? 'Transferencia P2P' : 'Recarga de Saldo',
-          icono: item.evidencia_url.includes('Envío') ? 'paper-plane' : 'bolt'
-        }));
-        setOperaciones(formateados);
-      }
-    } catch (error) {
-      console.log("Error historial:", error);
-    } finally {
-      setCargandoHistorial(false);
+    if (!myUserId || !token) {
+      console.error("Sesión inválida");
+      return;
     }
+
+    const URL_HISTORIAL = `https://subapp-api.onrender.com/api/billetera/historial?userId=${myUserId}&limit=50`;
+    const URL_VALIDACIONES = `https://subapp-api.onrender.com/api/billetera/validaciones?userId=${myUserId}`;
+
+    // 2. Ejecutar peticiones en paralelo
+    const [resHistorial, resValidaciones] = await Promise.all([
+      fetch(URL_HISTORIAL, { headers: { "Authorization": `Bearer ${token}` } }),
+      fetch(URL_VALIDACIONES, { headers: { "Authorization": `Bearer ${token}` } })
+    ]);
+
+    const dataHistorial = await resHistorial.json();
+    const dataValidaciones = await resValidaciones.json();
+
+    // 3. Procesar Historial (Solo lo que coincida con mi ID)
+    const historialRaw = dataHistorial.data || [];
+    const historialFiltrado = historialRaw
+      .filter(tx => tx.userId === myUserId) // Filtro de seguridad manual
+      .map(tx => ({
+        ...tx,
+        status: 'aprobado',
+        esHistorial: true,
+        fecha: new Date(tx.createdAt)
+      }));
+
+    // 4. Procesar Validaciones (Pendientes/Rechazadas de mi ID)
+    const validacionesRaw = dataValidaciones.data || dataValidaciones.validation || [];
+    const validacionesFiltradas = (Array.isArray(validacionesRaw) ? validacionesRaw : [])
+      .filter(v => v.userId === myUserId && v.status !== 'aprobado') // Solo mías y no aprobadas
+      .map(v => ({
+        _id: v._id,
+        amount: v.monto,
+        type: v.type,
+        status: v.status,
+        createdAt: v.createdAt,
+        banco: v.banco,
+        referencia: v.referenciaPago,
+        esHistorial: false,
+        fecha: new Date(v.createdAt)
+      }));
+
+    // 5. Unir y Ordenar por fecha (descendente)
+    const totalOperaciones = [...validacionesFiltradas, ...historialFiltrado].sort(
+      (a, b) => b.fecha - a.fecha
+    );
+
+    console.log(`✅ Mostrando ${totalOperaciones.length} operaciones para el usuario: ${myUserId}`);
+    
+    setOperaciones(totalOperaciones);
+
+  } catch (error) {
+    console.log("Error en el filtrado de historial:", error);
+  } finally {
+    setCargandoHistorial(false);
+  }
   };
 
   const copiarTodo = async () => {
@@ -174,52 +272,75 @@ export default function WalletScreen() {
   };
 
   const registrarYValidar2 = async () => {
-    if (!image || !referencia || !montoInput) {
-      Alert.alert("Campos incompletos", "Por favor sube el comprobante y llena los datos.");
-      return;
+  if (!image || !referencia || !montoInput) {
+    Alert.alert("Campos incompletos", "Por favor sube el comprobante y llena todos los datos.");
+    return;
+  }
+
+  setCargando(true);
+
+  try {
+    // 1. Obtener Token de la sesión
+    const sessionString = await AsyncStorage.getItem('@Sesion_usuario');
+    const session = JSON.parse(sessionString);
+    const token = session?.token;
+
+    if (!token) throw new Error("Sesión no válida. Inicia sesión de nuevo.");
+
+    const montoARecargar = parseFloat(montoInput);
+
+    // --- PASO A: SUBIR IMAGEN A SUPABASE (Para obtener la URL) ---
+    const fileName = `captures/${Date.now()}.jpg`;
+    
+    // Si usas el helper de Expo para FormData:
+    const formData = new FormData();
+    formData.append("file", { uri: image, name: fileName, type: "image/jpeg" });
+
+    
+
+    // --- PASO B: ENVIAR REPORTE A TU API ---
+    const payloadBackend = {
+      referenciaPago: referencia, 
+      monto: montoARecargar,
+      banco: "banesco", // Asegúrate de tener este estado (ej: "banesco")
+      fechaPago: new Date().toISOString().split('T')[0], // 'YYYY-MM-DD'
+      comprobanteUrl: "http://abc/xd.com" // La URL que generamos arriba
+    };
+
+    const response = await fetch("https://subapp-api.onrender.com/api/billetera/recargar", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify(payloadBackend),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || "La API rechazó el reporte de pago.");
     }
-    setCargando(true);
-    try {
-      const userid = await getuserid();
-      const cleanUserId = userid.trim();
-      const montoARecargar = parseFloat(montoInput);
 
-      const fileName = `captures/${Date.now()}.jpg`;
-      const formData = new FormData();
-      formData.append("file", { uri: image, name: fileName, type: "image/jpeg" });
+    // --- PASO C: ÉXITO ---
+    // Nota: El saldo no lo sumamos nosotros, esperamos a que la API lo valide.
+    // Pero podemos refrescar el saldo actual llamando a tu función de obtener saldo.
+    await obtenerSaldoReal(); 
 
-      const { error: storageError } = await supabase.storage.from("comprobantes").upload(fileName, formData);
-      if (storageError) throw storageError;
+    Alert.alert("Reporte Enviado", "Tu pago está siendo verificado por el sistema.");
+    setModalVisible(false);
+    cargarHistorial();
 
-      const { error: dbError } = await supabase.from("validaciones_pago").insert([{
-        external_user_id: cleanUserId,
-        referencia: referencia,
-        monto_informado: montoARecargar,
-        evidencia_url: fileName,
-        estado: "completado",
-      }]);
-      if (dbError) throw dbError;
-
-      const nuevoSaldoCalculado = saldo + montoARecargar;
-      const { error: saldoError } = await supabase.from("Saldo_usuarios").upsert(
-        { external_user_id: cleanUserId, saldo: nuevoSaldoCalculado },
-        { onConflict: "external_user_id" }
-      );
-      if (saldoError) throw saldoError;
-
-      setSaldo(nuevoSaldoCalculado);
-      Alert.alert("Recarga Exitosa", `Tu saldo ha sido actualizado. Nuevo saldo: Bs. ${nuevoSaldoCalculado.toFixed(2)}`);
-      setModalVisible(false);
-      cargarHistorial();
-    } catch (error) {
-      Alert.alert("Error", "No pudimos procesar el reporte: " + error.message);
-    } finally {
-      setCargando(false);
-      setImage(null);
-      setReferencia("");
-      setMontoInput("");
-    }
-  };
+  } catch (error) {
+    console.error("Error en recarga:", error);
+    Alert.alert("Error", error.message);
+  } finally {
+    setCargando(false);
+    setImage(null);
+    setReferencia("");
+    setMontoInput("");
+  }
+};
 
   const ejecutarTransferenciaReal = async () => {
     const monto = parseFloat(montoTransferir);
@@ -260,14 +381,58 @@ export default function WalletScreen() {
       setCargando(false);
     }
   };
+  
 
   const toggleSeccion = (seccion) => {
     setSeccionAbierta(seccionAbierta === seccion ? null : seccion);
   };
 
+  // Función para renderizar cada fila
+const renderOperacion = ({ item }) => {
+  // Obtenemos el tema según el estado (si no existe, por defecto 'completado')
+  const theme = STATUS_THEME[item.status] || STATUS_THEME.completado;
+  const typeInfo = TYPE_LABELS[item.type] || { label: item.type, icon: 'help-circle-outline' };
+
+  return (
+    <View style={styles.card}>
+      {/* Icono de Tipo de Operación */}
+      <View style={[styles.iconContainer, { backgroundColor: theme.bg }]}>
+        <MaterialCommunityIcons name={typeInfo.icon} size={24} color={theme.color} />
+      </View>
+
+      {/* Información Central */}
+      <View style={styles.infoContainer}>
+        <Text style={styles.typeText}>{typeInfo.label}</Text>
+        <Text style={styles.dateText}>
+          {new Date(item.createdAt).toLocaleDateString('es-VE', { 
+            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' 
+          })}
+        </Text>
+        {item.banco && (
+          <Text style={styles.bankText}>Ref: {item.referencia} | {item.banco}</Text>
+        )}
+      </View>
+
+      {/* Monto y Badge de Estado */}
+      <View style={styles.rightContainer}>
+        <Text style={[styles.amountText, { color: item.type === 'retiro' ? '#EF4444' : '#1E293B' }]}>
+          {item.type === 'retiro' ? '-' : '+'}{item.amount}
+        </Text>
+        
+        <View style={[styles.badge, { backgroundColor: theme.bg }]}>
+          <MaterialCommunityIcons name={theme.icon} size={12} color={theme.color} />
+          <Text style={[styles.badgeText, { color: theme.color }]}>
+            {theme.label}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
   // --- RENDER ---
   return (
-    <View style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" translucent={true} backgroundColor="transparent"/>
       
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -326,7 +491,7 @@ export default function WalletScreen() {
           {seccionAbierta === 'tarjeta' && (
             <View style={styles.accordionContent}>
               <Text style={styles.accordionTextInfo}>Si te quedas sin batería a veces, pide tu tarjeta de plástico con chip NFC para pagar en el bus sin depender de tu celular.</Text>
-              <TouchableOpacity style={styles.btnAccordionPrimary} onPress={() => alert('Funcionalidad en desarrollo')}>
+              <TouchableOpacity style={styles.btnAccordionPrimary} onPress={() => {router.push('./Tarjeta/SolicitarTarjeta')}}>
                 <Text style={styles.btnAccordionPrimaryText}>Solicitar Tarjeta</Text>
               </TouchableOpacity>
             </View>
@@ -367,22 +532,14 @@ export default function WalletScreen() {
           ) : operaciones.length === 0 ? (
              <Text style={{textAlign: 'center', color: '#94A3B8', marginTop: 20}}>No hay movimientos recientes</Text>
           ) : (
-            operaciones.map((item) => (
-              <View key={item.id} style={styles.transactionItem}>
-                <View style={styles.transactionLeft}>
-                  <View style={[styles.transactionIcon, { backgroundColor: item.esIngreso ? '#DCFCE7' : '#F1F5F9' }]}>
-                    <FontAwesome6 name={item.icono} size={14} color={item.esIngreso ? '#16A34A' : '#475569'} />
-                  </View>
-                  <View>
-                    <Text style={styles.transactionType}>{item.tipo}</Text>
-                    <Text style={styles.transactionDate}>{item.hora}</Text>
-                  </View>
-                </View>
-                <Text style={[styles.transactionAmount, { color: item.esIngreso ? '#16A34A' : '#0F172A' }]}>
-                  {item.esIngreso ? '+' : '-'} Bs. {item.monto}
-                </Text>
-              </View>
-            ))
+            <FlatList
+              data={operaciones} // Accedemos al array 'data' de tu JSON
+              keyExtractor={(item) => item._id}
+              renderItem={renderOperacion}
+              contentContainerStyle={styles.listPadding}
+              ListEmptyComponent={<Text style={styles.empty}>No hay movimientos aún</Text>}
+              scrollEnabled={false}
+            />
           )}
         </View>
         
@@ -541,6 +698,31 @@ export default function WalletScreen() {
               </TouchableOpacity>
             </View>
 
+      {/* CONTENEDOR DEL PICKER */}
+     <View style={{  backgroundColor: '#F1F5F9', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 20, overflow: 'hidden' }}>
+      <Picker
+        selectedValue={destinatarioID}
+        onValueChange={(itemValue) => {
+            setDestinatarioID(itemValue);
+          // Validación extra para encontrar el nombre
+          if (Array.isArray(pasajeros)) {
+            const p = pasajeros.find(pass => pass._id === itemValue);
+            setNombreDestinatario(p ? p.fullName : null);
+          }
+        }}
+          style={{ height: 55, width: '100%' }}
+        >
+        <Picker.Item label="Seleccione un pasajero..." value="" color="#94A3B8" />
+          {Array.isArray(pasajeros) && pasajeros.map((p) => (
+            <Picker.Item 
+              key={p._id || Math.random().toString()} 
+              label={`${p.fullName || 'Sin nombre'} (${p.email || ''})`} 
+              value={p._id} 
+            />
+          ))}
+        </Picker>
+      </View>
+
             <Text style={styles.modalSubtitle}>Ingresa el ID del usuario</Text>
 
             <TextInput
@@ -577,7 +759,7 @@ export default function WalletScreen() {
         </View>
       </Modal>
 
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -653,6 +835,87 @@ const styles = StyleSheet.create({
   btnPrincipalText: { color: "white", fontWeight: "bold", fontSize: 16 },
   imageSelector: { height: 160, backgroundColor: "#F8F9F9", borderRadius: 20, justifyContent: "center", alignItems: "center", marginBottom: 20, borderStyle: "dashed", borderWidth: 2, borderColor: "#BDC3C7" },
   previewImage: { width: "100%", height: "100%", borderRadius: 20 },
-  inputPro: { backgroundColor: "#F2F4F4", padding: 18, borderRadius: 15, marginBottom: 15, fontSize: 16, color: "#2C3E50" }
+  inputPro: { backgroundColor: "#F2F4F4", padding: 18, borderRadius: 15, marginBottom: 15, fontSize: 16, color: "#2C3E50" },
+
+  listPadding: { padding: 0 },
+  itemContainer: {
+    flexDirection: 'row',backgroundColor: '#fff', padding: 10, borderRadius: 12,marginBottom: 10, alignItems: 'center',elevation: 3, shadowColor: '#000',shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1,
+  },
+  indicator: {
+    width: 5,
+    height: '100%',
+    borderRadius: 5,
+    marginRight: 15,
+  },
+  info: { flex: 1 },
+  typeText: { fontWeight: 'bold', fontSize: 16, textTransform: 'capitalize' },
+  dateText: { color: '#888', fontSize: 12, marginTop: 4 },
+  amountContainer: { alignItems: 'flex-end' },
+  amountText: { fontWeight: 'bold', fontSize: 16 },
+  balanceText: { color: '#aaa', fontSize: 10, marginTop: 2 },
+  empty: { textAlign: 'center', marginTop: 50, color: '#999' },
+  card: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+    alignItems: 'center',
+    // Sombra para iOS
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    // Sombra para Android
+    elevation: 2,
+  },
+  iconContainer: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  infoContainer: {
+    flex: 1,
+  },
+  typeText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 2,
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  bankText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  rightContainer: {
+    alignItems: 'flex-end',
+  },
+  amountText: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    gap: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
 });
 

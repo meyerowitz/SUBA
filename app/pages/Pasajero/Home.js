@@ -11,6 +11,10 @@ import { getuserid, getusername } from '../../Components/AsyncStorage';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRoute } from '../../Components/Providers/RouteContext';
+import { SafeAreaView } from "react-native-safe-area-context";
+import Offline from '../../Components/Offline'
+import ModalTarjeta from '../../Components/Modales/ModalTarjeta'
+
 
 const supabase = createClient('https://wkkdynuopaaxtzbchxgv.supabase.co', 'sb_publishable_S18aNBlyLP3-hV_mRMcehA_zbCDMSGP');
 
@@ -36,6 +40,9 @@ export default function Home({ navigation }) {
   const [TicketDolar, setTicketDolar] = useState('');
   const [TicketDolarLoad, setTicketDolarLoad] = useState(true);
   const [saldo, setSaldo] = useState(0.00);
+
+  // Modales visibilidad
+  const [modalTarjeta, setModalTarjeta] = useState(false);
 
   const [Load, SetLoad] = useState(false);
   const [userImage, SetuserImage] = useState(null);
@@ -161,36 +168,72 @@ export default function Home({ navigation }) {
   };
 
   const obtenerDatoPasaje = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('pasaje_y_tarifas')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return data ? data.pasaje : 0;
-    } catch (error) {
-      return 0;
+  try {
+    const API_URL = "https://subapp-api.onrender.com"; // Tu URL base
+    
+    const response = await fetch(`${API_URL}/api/pasajes/listar`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        // Si el endpoint requiere autenticación, descomenta la siguiente línea:
+        // "Authorization": `Bearer ${token}` 
+      },
+    });
+
+    const result = await response.json();
+
+    // La API devuelve un array (se ve el corchete '[' en tu imagen)
+    // Tomamos el primer elemento que suele ser el más reciente o el activo
+    if (Array.isArray(result) && result.length > 0) {
+      // Según tu captura, el campo se llama 'amount'
+      return result[0].amount; 
     }
+
+    return 0;
+  } catch (error) {
+    console.error("Error obteniendo tarifa desde API:", error);
+    return 0;
+  }
   };
 
   const obtenerSaldoReal = async () => {
-    try {
-      const userid = await getuserid();
-      if (!userid) return;
+  try {
+    // 1. Recuperamos el token de la sesión que arreglamos antes
+    const sessionString = await AsyncStorage.getItem('@Sesion_usuario');
+    if (!sessionString) return;
+    
+    const session = JSON.parse(sessionString);
+    const token = session.token;
 
-      const { data, error } = await supabase
-        .from('Saldo_usuarios')
-        .select('saldo')
-        .eq('external_user_id', userid.trim())
-        .maybeSingle(); 
-
-      if (data) setSaldo(data.saldo);
-      else setSaldo(0.00);
-    } catch (error) {
-      console.log("Error saldo:", error);
+    if (!token) {
+      console.log("No hay token disponible para consultar el saldo");
+      return;
     }
+
+    const API_URL = "https://subapp-api.onrender.com";
+
+    // 2. Llamada al nuevo endpoint
+    const response = await fetch(`${API_URL}/api/billetera/saldo`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}` // 🔑 Indispensable para rutas protegidas
+      },
+    });
+
+    const result = await response.json();
+
+    // 3. Según tu captura, la respuesta es { "success": true, "data": { "saldo": 0 } }
+    if (result.success && result.data) {
+      setSaldo(result.data.saldo);
+    } else {
+      setSaldo(0.00);
+    }
+
+  } catch (error) {
+    console.log("Error saldo API:", error);
+    setSaldo(0.00);
+  }
   };
 
   const handleStopChange = (stopName) => {
@@ -210,6 +253,29 @@ export default function Home({ navigation }) {
     } else {
         setFilteredRoutes([]);
     }
+  };
+
+  const WalletAccess = async () => {
+  try {
+    const sessionData = await AsyncStorage.getItem('@Sesion_usuario');
+    if (sessionData) {
+      const session = JSON.parse(sessionData);
+
+      // 🧠 Verificamos el nuevo atributo
+      if (session.isProfileComplete === true) {
+        // SI está completo, vamos directo al Wallet
+        router.push('/pages/Pasajero/Wallet');
+      } else {
+        // NO está completo, mostramos el modal que creamos
+        setModalTarjeta(true);
+      }
+    } else {
+      Alert.alert("Sesión expirada", "Por favor inicia sesión de nuevo.");
+      router.replace("/login");
+    }
+  } catch (error) {
+    console.error("Error al verificar perfil:", error);
+  }
   };
 
   // --- NAVEGACIÓN CORREGIDA AL MAPA ---
@@ -236,11 +302,14 @@ export default function Home({ navigation }) {
   };
 
   return (
-    <View style={{flex: 1, backgroundColor: theme.background}}>
+    <Offline>
+      <SafeAreaView style={{ backgroundColor: 'red'}}>
       <StatusBar barStyle="light-content" backgroundColor={"#003366"} />
  
       <ScrollView 
-        contentContainerStyle={{ backgroundColor: theme.background_2, width:'100%', paddingBottom: 100 }} 
+        style={{}} 
+        contentContainerStyle={{ backgroundColor: theme.background_2, width:'100%', paddingBottom: 100, flexGrow:1, minHeight:'100%' }}
+        
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={true}
         bounces={false}
@@ -391,7 +460,7 @@ export default function Home({ navigation }) {
         </View>
 
         {/* SALDO */}
-        <View style={{
+        <TouchableOpacity onPress={WalletAccess} style={{
           backgroundColor: '#E69500', marginHorizontal: 20, padding: 20, borderRadius: 20, marginTop: 15,
           elevation: 5, shadowColor: '#000', shadowOpacity: 0.3
         }}>
@@ -399,7 +468,7 @@ export default function Home({ navigation }) {
           <Text style={{color: 'white', fontSize: 38, fontWeight: 'bold', marginTop: 10}}>
             {saldo ? `Bs.${saldo.toFixed(1)}` : `Bs. ${saldo.toFixed(2)}` }
           </Text>
-        </View>
+        </TouchableOpacity>
       </ScrollView>
       
       {/* PANTALLA DE CARGA */}
@@ -416,6 +485,17 @@ export default function Home({ navigation }) {
           <ActivityIndicator size={60} color="#313135ff" />
         </View>
       )}
-    </View>
+
+      <ModalTarjeta
+        visible={modalTarjeta} 
+        onClose={() => setModalTarjeta(false)} 
+        onConfirm={() => {
+          setModalTarjeta(false);
+          router.push('/pages/Pasajero/Tarjeta/FormularioPerfil'); // O la lógica de solicitud
+        }}
+      />
+
+      </SafeAreaView>
+    </Offline>
   );
 }
