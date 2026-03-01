@@ -324,6 +324,7 @@ export default function WalletScreen() {
     }
   };
   const ejecutarTransferenciaReal = async () => {
+    console.log('ejecutar transferencia')
   const monto = parseFloat(montoTransferir);
 
   // 1. Validaciones preventivas básicas
@@ -342,6 +343,7 @@ export default function WalletScreen() {
 
     const session = JSON.parse(sessionString);
     const token = session.token; // Extraemos el token JWT
+    console.log('Token: '+token)
     const myId = session.id;    // El ID del emisor (tú)
 
     if (!token) throw new Error("Token de seguridad no encontrado.");
