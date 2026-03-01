@@ -77,6 +77,79 @@ export default function GenerarQR() {
     });
   };
 
+  const imprimirPDF2 = async () => {
+    if (!busId) return;
+
+    try {
+      // 1. Obtener la sesión y el token de AsyncStorage
+      const sessionString = await AsyncStorage.getItem(BUS_ID_KEY);
+      if (!sessionString) {
+        Alert.alert("Error", "No se encontró una sesión activa");
+        return;
+      }
+      
+      const session = JSON.parse(sessionString);
+      const token = session.token;
+
+      if (!token) {
+        Alert.alert("Error", "Token de autenticación no disponible");
+        return;
+      }
+
+      // 2. Llamar al endpoint del backend
+      // Nota: Asegúrate de poner la URL completa (ej: https://tu-api.com/api/...)
+      const response = await fetch('https://TU_API_URL.com/api/abordaje/generar-qr', {
+        method: 'POST', // O 'GET' según lo requiera tu backend
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          busId: busId,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al registrar la generación del QR en el servidor');
+      }
+
+      // 3. Si el backend responde bien, procedemos con la generación del PDF
+      qrRef.current.toDataURL(async (dataURL) => {
+        const htmlContent = `
+          <html>
+            <body style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Helvetica', sans-serif; text-align: center;">
+              <div style="border: 2px solid #003366; padding: 40px; border-radius: 20px;">
+                <h1 style="color: #003366; font-size: 40px; margin-bottom: 10px;">PAGO RÁPIDO</h1>
+                <h2 style="color: #333; font-size: 28px; margin-top: 0;">${conductorInfo.fullName.toUpperCase()}</h2>
+                
+                <img src="data:image/png;base64,${dataURL}" style="width: 350px; height: 350px; margin: 20px 0;" />
+                
+                <div style="background-color: #f4f7fa; padding: 20px; border-radius: 10px; margin-top: 20px;">
+                  <p style="font-size: 24px; margin: 5px 0;"><strong>ID Operador:</strong> ${busId.substring(0, 8).toUpperCase()}</p>
+                  <p style="font-size: 18px; color: #666; margin: 5px 0;">${conductorInfo.email}</p>
+                </div>
+                
+                <p style="color: #003366; font-size: 18px; margin-top: 30px; font-weight: bold;">Escanea para pagar tu pasaje</p>
+              </div>
+            </body>
+          </html>
+        `;
+
+        try {
+          const { uri } = await Print.printToFileAsync({ html: htmlContent });
+          await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+        } catch (error) {
+          Alert.alert("Error", "No se pudo generar el archivo de impresión");
+        }
+      });
+
+    } catch (error) {
+      console.error("Error en el proceso:", error);
+      Alert.alert("Error de Conexión", error.message || "No se pudo comunicar con el servidor");
+    }
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center' }]}>
