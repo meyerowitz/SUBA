@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, ActivityInd
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -11,17 +11,18 @@ import * as Sharing from 'expo-sharing';
 const BUS_ID_KEY = "@Sesion_usuario";
 
 export default function GenerarQR() {
+ const { routeId } = useLocalSearchParams();
   const [busId, setBusId] = useState("");
-  const [conductorInfo, setConductorInfo] = useState({ id: "", email: "", fullName: "" });
+  const [conductorInfo, setConductorInfo] = useState({ id: "", email: "", fullName: "", routeId: routeId});
   const [loading, setLoading] = useState(true);
   
   const router = useRouter();
   const qrRef = useRef();
-
+/*
   useEffect(() => {
     const cargarDatosConductor = async () => {
       try {
-        const sesionString = await AsyncStorage.getItem(BUS_ID_KEY);
+        const sesionString = await AsyncStorage.getItem("@Sesion_usuario");
         if (sesionString) {
           const sesionObjeto = JSON.parse(sesionString);
           
@@ -32,6 +33,7 @@ export default function GenerarQR() {
 
           setBusId(id);
           setConductorInfo({ id, email, fullName });
+          console.log('Datos conductor a guardar: ', conductorInfo)
         }
       } catch (error) {
         console.error("Error al cargar sesión:", error);
@@ -42,7 +44,56 @@ export default function GenerarQR() {
     };
     cargarDatosConductor();
   }, []);
+*/
 
+  useEffect(() => {
+    const cargarDatosYToken = async () => {
+      try {
+        setLoading(true);
+        const sessionString = await AsyncStorage.getItem("@Sesion_usuario");
+        if (!sessionString) return;
+
+        const session = JSON.parse(sessionString);
+        const authToken = session.token;
+
+        // 3. LLAMADA AL ENDPOINT
+        const response = await fetch('https://subapp-api.onrender.com/api/abordaje/generar-qr', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            driverId: session.id,
+            routeId: routeId // Usamos el interceptado arriba
+          })
+        });
+
+        const result = await response.json();
+        console.log('resultado endpoint: ',result)
+        console.log('token result: ',result.data.qrToken)
+        setBusId(session.id || "");
+        setConductorInfo({
+          id: session.id || "",
+          email: session.email || "",
+          fullName: session.fullName || "",
+          routeId: routeId,
+          tokenQR: result.data.qrToken || "", // Si tu API devuelve un token
+          expireat: result.data.expiresAt || "",
+          qrPayLoad: result.data.qrPayload || ""
+        });
+        console.log('ConductorInfo: ', conductorInfo)
+
+      } catch (error) {
+        console.error("Error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    cargarDatosYToken();
+  }, [routeId]);
+
+  if (loading) return <ActivityIndicator style={{flex:1}} />;
   const imprimirPDF = async () => {
     if (!busId) return;
 
@@ -75,6 +126,79 @@ export default function GenerarQR() {
         Alert.alert("Error", "No se pudo generar el archivo de impresión");
       }
     });
+  };
+
+  const imprimirPDF2 = async () => {
+    if (!busId) return;
+
+    try {
+      // 1. Obtener la sesión y el token de AsyncStorage
+      const sessionString = await AsyncStorage.getItem(BUS_ID_KEY);
+      if (!sessionString) {
+        Alert.alert("Error", "No se encontró una sesión activa");
+        return;
+      }
+      
+      const session = JSON.parse(sessionString);
+      const token = session.token;
+
+      if (!token) {
+        Alert.alert("Error", "Token de autenticación no disponible");
+        return;
+      }
+
+      // 2. Llamar al endpoint del backend
+      // Nota: Asegúrate de poner la URL completa (ej: https://tu-api.com/api/...)
+      const response = await fetch('https://TU_API_URL.com/api/abordaje/generar-qr', {
+        method: 'POST', // O 'GET' según lo requiera tu backend
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          busId: busId,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al registrar la generación del QR en el servidor');
+      }
+
+      // 3. Si el backend responde bien, procedemos con la generación del PDF
+      qrRef.current.toDataURL(async (dataURL) => {
+        const htmlContent = `
+          <html>
+            <body style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Helvetica', sans-serif; text-align: center;">
+              <div style="border: 2px solid #003366; padding: 40px; border-radius: 20px;">
+                <h1 style="color: #003366; font-size: 40px; margin-bottom: 10px;">PAGO RÁPIDO</h1>
+                <h2 style="color: #333; font-size: 28px; margin-top: 0;">${conductorInfo.fullName.toUpperCase()}</h2>
+                
+                <img src="data:image/png;base64,${dataURL}" style="width: 350px; height: 350px; margin: 20px 0;" />
+                
+                <div style="background-color: #f4f7fa; padding: 20px; border-radius: 10px; margin-top: 20px;">
+                  <p style="font-size: 24px; margin: 5px 0;"><strong>ID Operador:</strong> ${busId.substring(0, 8).toUpperCase()}</p>
+                  <p style="font-size: 18px; color: #666; margin: 5px 0;">${conductorInfo.email}</p>
+                </div>
+                
+                <p style="color: #003366; font-size: 18px; margin-top: 30px; font-weight: bold;">Escanea para pagar tu pasaje</p>
+              </div>
+            </body>
+          </html>
+        `;
+
+        try {
+          const { uri } = await Print.printToFileAsync({ html: htmlContent });
+          await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+        } catch (error) {
+          Alert.alert("Error", "No se pudo generar el archivo de impresión");
+        }
+      });
+
+    } catch (error) {
+      console.error("Error en el proceso:", error);
+      Alert.alert("Error de Conexión", error.message || "No se pudo comunicar con el servidor");
+    }
   };
 
   if (loading) {

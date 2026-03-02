@@ -24,9 +24,9 @@ const ModalTarjeta = ({ visible, onClose, onConfirm }) => {
             <Image source={require('../../../assets/img/tarjeta.png')} style={styles.iconContainer}>
             </Image>
 
-            <Text style={styles.title}>¿Deseas solicitar una tarjeta?</Text>
+            <Text style={styles.title}>¿Antes de acceder a Wallet?</Text>
             <Text style={styles.subtitle}>
-              Si no quieres solicitarla esta bien, tambien puedes depositar dinero real en tu Wallet virtual en tu perfil de usuario
+              Complete su perfil de usuario por favor , nuestra administración se ocupara del resto
             </Text>
 
             <View style={styles.buttonGroup}>

@@ -303,7 +303,7 @@ export default function Home({ navigation }) {
 
   return (
     <Offline>
-      <SafeAreaView style={{ backgroundColor: 'red'}}>
+      <SafeAreaView style={{ backgroundColor: 'white'}}>
       <StatusBar barStyle="light-content" backgroundColor={"#003366"} />
  
       <ScrollView 

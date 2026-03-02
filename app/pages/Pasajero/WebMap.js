@@ -690,7 +690,7 @@ export default function WebMap() {
         </TouchableOpacity>
       ) : (
         <View style={styles.searchPanelExpanded}>
-          <View style={styles.panelHeader}>
+          <View style={[styles.panelHeader,{}]}>
             <Text style={styles.panelTitle}>Planifica tu viaje</Text>
             <TouchableOpacity onPress={() => setIsSearchExpanded(false)}>
               <Ionicons name="close" size={24} color="#666" />
