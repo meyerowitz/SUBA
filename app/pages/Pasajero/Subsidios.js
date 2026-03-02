@@ -16,6 +16,7 @@ import Volver from '../../Components/Botones_genericos/Volver';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../Components/Temas_y_colores/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Offline from '../../Components/Offline'
 
 export default function Subsidios() {
 	const [selectedOption, setSelectedOption] = useState(null); // 'estudiante' | 'adulto' | 'discapacitado'
@@ -202,6 +203,7 @@ export default function Subsidios() {
 	};
 
 	return (
+		<Offline>
 		<SafeAreaView style={{flex: 1, backgroundColor: theme.background}}>
 			<ScrollView contentContainerStyle={styles.content}>
 				<View style={styles.header}>
@@ -255,6 +257,7 @@ export default function Subsidios() {
 
 			<Volver route={"./Profile"} color={theme.volver_button} style={{ top: 60, left: 10 }} />
 		</SafeAreaView>
+		</Offline>
 	);
 }
 

@@ -22,6 +22,9 @@ import { CommonActions } from "@react-navigation/native"; // <--- AGREGADO Commo
 import { getuseremail, getusername } from "../../Components/AsyncStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../Components/Temas_y_colores/ThemeContext";
+import Offline from '../../Components/Offline'
+import ModalTarjeta from '../../Components/Modales/ModalTarjeta'
+
 
 export default function Profile() {
   const [isStudent, setIsStudent] = useState(true);
@@ -30,6 +33,10 @@ export default function Profile() {
   const [UserName, setUserName] = useState("---");
   const [UserEmail, setUserEmail] = useState("---");
   const [profileImage, setProfileImage] = useState(null);
+
+  // Modales visibilidad
+  const [modalTarjeta, setModalTarjeta] = useState(false);
+
   const { theme } = useTheme();
 
   // Se ejecuta cada vez que entras a la pantalla
@@ -99,10 +106,33 @@ export default function Profile() {
       },
     ]);
   };
+  const WalletAccess = async () => {
+  try {
+    const sessionData = await AsyncStorage.getItem('@Sesion_usuario');
+    if (sessionData) {
+      const session = JSON.parse(sessionData);
+
+      // 🧠 Verificamos el nuevo atributo
+      if (session.isProfileComplete === true) {
+        // SI está completo, vamos directo al Wallet
+        router.push('/pages/Pasajero/Wallet');
+      } else {
+        // NO está completo, mostramos el modal que creamos
+        setModalTarjeta(true);
+      }
+    } else {
+      Alert.alert("Sesión expirada", "Por favor inicia sesión de nuevo.");
+      router.replace("/login");
+    }
+  } catch (error) {
+    console.error("Error al verificar perfil:", error);
+  }
+  };
 
   return (
+    <Offline>
     <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor={theme.primary_2} barStyle="light-content" />
+      <StatusBar backgroundColor={'#D99015'} barStyle="light-content" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -241,7 +271,17 @@ export default function Profile() {
       </ScrollView>
 
       <Volver route={"./Navigation"} color={"white"} style={styles.btnVolver} />
+      <ModalTarjeta
+        visible={modalTarjeta} 
+        onClose={() => setModalTarjeta(false)} 
+        onConfirm={() => {
+          setModalTarjeta(false);
+          router.push('/pages/Pasajero/Tarjeta/FormularioPerfil'); // O la lógica de solicitud
+        }}
+      />
+
     </SafeAreaView>
+    </Offline>
   );
 }
 
