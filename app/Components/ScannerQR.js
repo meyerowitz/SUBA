@@ -40,7 +40,7 @@ export default function ScannerQR() {
   };
 
   // --- LÓGICA DE TRANSACCIÓN ---
-  const ejecutarPagoQR = async (conductorID, fechaEmision, fechaCaducidad, nombreConductor) => {
+  const ejecutarPagoQR2 = async (conductorID, fechaEmision, fechaCaducidad, nombreConductor) => {
     setProcesando(true);
     const MONTO_PAGO = 60.00;
     const targetId = String(conductorID).trim(); // Limpiamos el ID del QR
@@ -136,9 +136,16 @@ export default function ScannerQR() {
   };
 
   // --- DETECTOR DE QR ---
-  const handleBarCodeScanned = ({ data }) => {
+  const handleBarCodeScanned2 = ({ data }) => {
     if (scanned || procesando) return; 
     setScanned(true);
+
+    // 2. LOG DETALLADO EN CONSOLA
+    console.log("====================================");
+    console.log("🔍 NUEVO QR DETECTADO");
+    console.log("📄 Contenido (Data):", data);
+    console.log("⏰ Hora:", new Date().toLocaleTimeString());
+    console.log("====================================");
 
     const conductorID = String(data).toUpperCase();
     const nombreConductor = "Conductor Registrado"; 
@@ -160,12 +167,123 @@ export default function ScannerQR() {
         },
         { 
           text: "Pagar Pasaje", 
-          onPress: () => ejecutarPagoQR(conductorID, fechaEmision, fechaCaducidad, nombreConductor) 
+         // onPress: () => ejecutarPagoQR(conductorID, fechaEmision, fechaCaducidad, nombreConductor) 
         }
       ]
     );
   };
 
+  // --- LÓGICA DE PETICIÓN AL ENDPOINT ---
+  const ejecutarPagoQR = async (tokenDelQR) => {
+    setProcesando(true);
+
+    try {
+      // 1. Obtener el token de sesión de AsyncStorage
+      const sessionString = await AsyncStorage.getItem('@Sesion_usuario');
+      const sessionData = sessionString ? JSON.parse(sessionString) : null;
+      const token = sessionData?.token;
+
+      if (!token) {
+        throw new Error("No se encontró una sesión activa. Por favor, inicia sesión.");
+      }
+
+      // 2. Realizar la petición a la API
+      const response = await fetch('https://subapp-api.onrender.com/api/abordaje/pagar-qr', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}` 
+  },
+  body: JSON.stringify({
+    qrToken: tokenDelQR 
+  })
+});
+
+// AÑADE ESTOS LOGS PARA DEBUGEAR:
+console.log("Status Code:", response.status);
+const result = await response.json();
+console.log("Respuesta completa del servidor:", result);
+
+if (!response.ok) {
+  // Ahora el error será más descriptivo en el Alert
+  throw new Error(result.message || `Error del servidor: ${response.status}`);
+}
+
+      // 3. ÉXITO -> Redirigir al Ticket
+      // Nota: Si el backend devuelve info del conductor, puedes usarla en los params
+      router.replace({
+        pathname: "/Components/TicketVirtual",
+        params: {
+          monto: "60.00",
+          unidad: "Confirmada", 
+          fecha: new Date().toLocaleString(),
+          conductor: result.conductorName || "Registrado"
+        }
+      });
+
+    } catch (error) {
+      console.error("Error en proceso de pago:", error);
+      Alert.alert("Error en el pago", error.message);
+      setScanned(false); // Permite re-escanear si falló
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  // --- DETECTOR DE QR ---
+  const handleBarCodeScanned3 = ({ data }) => {
+    if (scanned || procesando) return; 
+    setScanned(true);
+
+    // Asumimos que 'data' contiene directamente el tokenQR o la info necesaria
+    // Si 'data' es un JSON, deberías parsearlo: const tokenQR = JSON.parse(data).tokenQR;
+    const tokenQR = data;
+    console.log('data del QR: ',data)
+    console.log('token del QR: ', data.tokenQR)
+
+    Alert.alert(
+      "Confirmar Pasaje",
+      `¿Deseas pagar el pasaje de Bs. 60.00?`,
+      [
+        { 
+          text: "Cancelar", 
+          onPress: () => setScanned(false), 
+          style: "cancel" 
+        },
+        { 
+          text: "Pagar Pasaje", 
+          onPress: () => ejecutarPagoQR(tokenQR) 
+        }
+      ]
+    );
+  };
+  const handleBarCodeScanned = ({ data }) => {
+  if (scanned || procesando) return;
+  setScanned(true);
+
+  try {
+    // 1. Convertimos el String en un Objeto JS
+    const qrObjeto = JSON.parse(data);
+
+    // 2. Ahora sí podemos acceder a las propiedades
+    console.log("Token extraído:", qrObjeto.tokenQR);
+    console.log("Nombre del conductor:", qrObjeto.fullName);
+
+    // 3. Pasamos el token correcto a la función de pago
+    Alert.alert(
+      "Confirmar Pasaje",
+      `¿Deseas pagar Bs. 60.00 a ${qrObjeto.fullName}?`,
+      [
+        { text: "Cancelar", onPress: () => setScanned(false), style: "cancel" },
+        { text: "Pagar Pasaje", onPress: () => ejecutarPagoQR(qrObjeto.tokenQR) }
+      ]
+    );
+  } catch (error) {
+    console.error("Error al leer el formato del QR:", error);
+    Alert.alert("Error", "El código QR no tiene un formato válido.");
+    setScanned(false);
+  }
+};
   // --- RENDERIZADO DE PERMISOS ---
   if (!permission) return <View style={styles.centered}><ActivityIndicator size="large" color="#003366" /></View>;
   

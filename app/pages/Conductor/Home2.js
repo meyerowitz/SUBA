@@ -406,7 +406,7 @@ export default function HomeConductor() {
           <View style={[styles.sectionContainer, { marginTop: 15 }]}>
             <Text style={styles.sectionTitleCenter}>Opciones de Cobro</Text>
             <View style={styles.paymentGrid}>
-              <TouchableOpacity style={styles.paymentCard} onPress={() => router.push({ pathname: "/Components/GenerarQR", params: { routeId: rutaAsignada?.id } })}>
+              <TouchableOpacity style={styles.paymentCard} onPress={() => router.push({ pathname: "/Components/GenerarQR", params: { routeId: '696afe10307f01a04976b326'} })}>
                 <View style={[styles.iconCircleSmall, { backgroundColor: '#E3F2FD' }]}>
                   <Ionicons name="qr-code" size={24} color="#007AFF" />
                 </View>

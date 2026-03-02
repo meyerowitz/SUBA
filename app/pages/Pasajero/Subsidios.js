@@ -19,6 +19,7 @@ import { useTheme } from "../../Components/Temas_y_colores/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
+import Offline from "../../Components/Offline";
 
 const API_URL = "https://subapp-api.onrender.com/api";
 
@@ -80,7 +81,7 @@ export default function Subsidios() {
     try {
       const sessionData = await AsyncStorage.getItem("@Sesion_usuario");
       if (!sessionData) throw new Error("No se encontró sesión activa");
-      
+
       const { token } = JSON.parse(sessionData);
       const formData = new FormData();
       const fileName = imageUri.split("/").pop();
@@ -88,19 +89,25 @@ export default function Subsidios() {
       const type = match ? `image/${match[1]}` : `image`;
 
       formData.append("file", {
-        uri: Platform.OS === "android" ? imageUri : imageUri.replace("file://", ""),
+        uri:
+          Platform.OS === "android"
+            ? imageUri
+            : imageUri.replace("file://", ""),
         name: fileName,
         type,
       });
 
-      const response = await fetch("https://subapp-api.onrender.com/api/descuentos/upload", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
+      const response = await fetch(
+        "https://subapp-api.onrender.com/api/descuentos/upload",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+          body: formData,
         },
-        body: formData,
-      });
+      );
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Error al subir imagen");
@@ -116,13 +123,16 @@ export default function Subsidios() {
     try {
       if (selectedOption === "estudiante") {
         if (!university.trim() || !studentImage) {
-          Alert.alert("Faltan datos", "Por favor indica la universidad y sube la constancia.");
+          Alert.alert(
+            "Faltan datos",
+            "Por favor indica la universidad y sube la constancia.",
+          );
           setIsUploading(false);
           return;
         }
-        
+
         const imageUrl = await handleUploadImage(studentImage);
-        
+
         const sessionData = await AsyncStorage.getItem("@Sesion_usuario");
         const { token } = JSON.parse(sessionData);
 
@@ -137,12 +147,15 @@ export default function Subsidios() {
             documentType: "constancia_inscripcion",
             institutionName: university,
             documentNumber: "PENDIENTE",
-            documentImageUrl: imageUrl
+            documentImageUrl: imageUrl,
           }),
         });
 
         if (response.ok) {
-          Alert.alert("Enviado", "Solicitud como estudiante registrada correctamente.");
+          Alert.alert(
+            "Enviado",
+            "Solicitud como estudiante registrada correctamente.",
+          );
           setUniversity("");
           setStudentImage(null);
         } else {
@@ -153,14 +166,17 @@ export default function Subsidios() {
 
       if (selectedOption === "adulto") {
         if (!seniorPersonImage || !seniorIdImage) {
-          Alert.alert("Faltan fotos", "Sube la foto de la persona y la cédula.");
+          Alert.alert(
+            "Faltan fotos",
+            "Sube la foto de la persona y la cédula.",
+          );
           setIsUploading(false);
           return;
         }
         // Nota: El modelo actual del backend solo soporta una documentImageUrl
         // Subiremos la cédula como documento principal
         const imageUrl = await handleUploadImage(seniorIdImage);
-        
+
         const sessionData = await AsyncStorage.getItem("@Sesion_usuario");
         const { token } = JSON.parse(sessionData);
 
@@ -174,7 +190,7 @@ export default function Subsidios() {
             discountType: "discapacidad", // Temporalmente mapeado ya que no hay 'adulto' en backend
             documentType: "cedula_senior",
             documentNumber: "VERIFICAR",
-            documentImageUrl: imageUrl
+            documentImageUrl: imageUrl,
           }),
         });
 
@@ -190,12 +206,15 @@ export default function Subsidios() {
 
       if (selectedOption === "discapacitado") {
         if (!disabledDocImage) {
-          Alert.alert("Faltan fotos", "Sube el carnet o constancia de discapacidad.");
+          Alert.alert(
+            "Faltan fotos",
+            "Sube el carnet o constancia de discapacidad.",
+          );
           setIsUploading(false);
           return;
         }
         const imageUrl = await handleUploadImage(disabledDocImage);
-        
+
         const sessionData = await AsyncStorage.getItem("@Sesion_usuario");
         const { token } = JSON.parse(sessionData);
 
@@ -209,12 +228,15 @@ export default function Subsidios() {
             discountType: "discapacidad",
             documentType: "carnet_estudiantil", // Usando un tipo existente temporalmente
             documentNumber: "VERIFICAR",
-            documentImageUrl: imageUrl
+            documentImageUrl: imageUrl,
           }),
         });
 
         if (response.ok) {
-          Alert.alert("Enviado", "Solicitud como persona con discapacidad registrada.");
+          Alert.alert(
+            "Enviado",
+            "Solicitud como persona con discapacidad registrada.",
+          );
           setDisabledDocImage(null);
         } else {
           const errorData = await response.json();
@@ -225,7 +247,10 @@ export default function Subsidios() {
       setModalVisible(false);
       setSelectedOption(null);
     } catch (error) {
-      Alert.alert("Error", error.message || "Hubo un problema al procesar la solicitud.");
+      Alert.alert(
+        "Error",
+        error.message || "Hubo un problema al procesar la solicitud.",
+      );
     } finally {
       setIsUploading(false);
     }
@@ -276,8 +301,8 @@ export default function Subsidios() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.btnPrincipal, isUploading && { opacity: 0.7 }]} 
+          <TouchableOpacity
+            style={[styles.btnPrincipal, isUploading && { opacity: 0.7 }]}
             onPress={handleSubmit}
             disabled={isUploading}
           >
@@ -341,8 +366,8 @@ export default function Subsidios() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.btnPrincipal, isUploading && { opacity: 0.7 }]} 
+          <TouchableOpacity
+            style={[styles.btnPrincipal, isUploading && { opacity: 0.7 }]}
             onPress={handleSubmit}
             disabled={isUploading}
           >
@@ -386,8 +411,8 @@ export default function Subsidios() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.btnPrincipal, isUploading && { opacity: 0.7 }]} 
+          <TouchableOpacity
+            style={[styles.btnPrincipal, isUploading && { opacity: 0.7 }]}
             onPress={handleSubmit}
             disabled={isUploading}
           >
@@ -405,106 +430,110 @@ export default function Subsidios() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text
-            style={{
-              fontSize: 28,
-              fontWeight: "700",
-              color: theme.text,
-              marginTop: 10,
-            }}
-          >
-            Subsidios
-          </Text>
-          <Text style={{ fontSize: 14, color: theme.text, marginTop: 8 }}>
-            Selecciona la categoría que aplica para solicitar un subsidio.
-          </Text>
-        </View>
-
-        <View style={{ marginTop: 20 }}>
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => openOption("estudiante")}
-          >
-            <View>
-              <Text style={styles.rowText}>Como Estudiante</Text>
-              <Text style={styles.subText}>Sube tu constancia de estudios</Text>
-            </View>
-            <FontAwesome5 name="graduation-cap" size={20} color="#003366" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => openOption("adulto")}
-          >
-            <View>
-              <Text style={styles.rowText}>Como Adulto Mayor</Text>
-              <Text style={styles.subText}>Sube una foto y tu cédula</Text>
-            </View>
-            <Ionicons name="accessibility" size={20} color="#D99015" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => openOption("discapacitado")}
-          >
-            <View>
-              <Text style={styles.rowText}>Persona con Discapacidad</Text>
-              <Text style={styles.subText}>Sube tu carnet o constancia</Text>
-            </View>
-            <Ionicons name="heart-sharp" size={20} color="#003366" />
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View
-            style={{
-              backgroundColor: "white",
-              borderRadius: 20,
-              padding: 20,
-              minHeight: 500,
-              paddingBottom: insets.bottom,
-            }}
-          >
-            <ScrollView>
-              {renderModalContent()}
-
-              <TouchableOpacity
-                onPress={() => {
-                  setModalVisible(false);
-                  setSelectedOption(null);
-                }}
-                style={[
-                  {
-                    backgroundColor: "#003366",
-                    padding: 14,
-                    borderRadius: 20,
-                    alignItems: "center",
-                    marginTop: 10,
-                    marginBottom: 90 + insets,
-                  },
-                  { backgroundColor: "#CCCCCC", marginTop: 15 },
-                ]}
-              >
-                <Text style={[styles.btnPrincipalText, { color: "#333" }]}>
-                  Cancelar
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
+    <Offline>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.header}>
+            <Text
+              style={{
+                fontSize: 28,
+                fontWeight: "700",
+                color: theme.text,
+                marginTop: 10,
+              }}
+            >
+              Subsidios
+            </Text>
+            <Text style={{ fontSize: 14, color: theme.text, marginTop: 8 }}>
+              Selecciona la categoría que aplica para solicitar un subsidio.
+            </Text>
           </View>
-        </View>
-      </Modal>
 
-      <Volver
-        route={"./Profile"}
-        color={theme.volver_button}
-        style={{ top: 60, left: 10 }}
-      />
-    </SafeAreaView>
+          <View style={{ marginTop: 20 }}>
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => openOption("estudiante")}
+            >
+              <View>
+                <Text style={styles.rowText}>Como Estudiante</Text>
+                <Text style={styles.subText}>
+                  Sube tu constancia de estudios
+                </Text>
+              </View>
+              <FontAwesome5 name="graduation-cap" size={20} color="#003366" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => openOption("adulto")}
+            >
+              <View>
+                <Text style={styles.rowText}>Como Adulto Mayor</Text>
+                <Text style={styles.subText}>Sube una foto y tu cédula</Text>
+              </View>
+              <Ionicons name="accessibility" size={20} color="#D99015" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => openOption("discapacitado")}
+            >
+              <View>
+                <Text style={styles.rowText}>Persona con Discapacidad</Text>
+                <Text style={styles.subText}>Sube tu carnet o constancia</Text>
+              </View>
+              <Ionicons name="heart-sharp" size={20} color="#003366" />
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        <Modal visible={modalVisible} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View
+              style={{
+                backgroundColor: "white",
+                borderRadius: 20,
+                padding: 20,
+                minHeight: 500,
+                paddingBottom: insets.bottom,
+              }}
+            >
+              <ScrollView>
+                {renderModalContent()}
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setModalVisible(false);
+                    setSelectedOption(null);
+                  }}
+                  style={[
+                    {
+                      backgroundColor: "#003366",
+                      padding: 14,
+                      borderRadius: 20,
+                      alignItems: "center",
+                      marginTop: 10,
+                      marginBottom: 90 + insets,
+                    },
+                    { backgroundColor: "#CCCCCC", marginTop: 15 },
+                  ]}
+                >
+                  <Text style={[styles.btnPrincipalText, { color: "#333" }]}>
+                    Cancelar
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        <Volver
+          route={"./Profile"}
+          color={theme.volver_button}
+          style={{ top: 60, left: 10 }}
+        />
+      </SafeAreaView>
+    </Offline>
   );
 }
 

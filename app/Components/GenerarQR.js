@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, ActivityInd
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -11,17 +11,18 @@ import * as Sharing from 'expo-sharing';
 const BUS_ID_KEY = "@Sesion_usuario";
 
 export default function GenerarQR() {
+ const { routeId } = useLocalSearchParams();
   const [busId, setBusId] = useState("");
-  const [conductorInfo, setConductorInfo] = useState({ id: "", email: "", fullName: "" });
+  const [conductorInfo, setConductorInfo] = useState({ id: "", email: "", fullName: "", routeId: routeId});
   const [loading, setLoading] = useState(true);
   
   const router = useRouter();
   const qrRef = useRef();
-
+/*
   useEffect(() => {
     const cargarDatosConductor = async () => {
       try {
-        const sesionString = await AsyncStorage.getItem(BUS_ID_KEY);
+        const sesionString = await AsyncStorage.getItem("@Sesion_usuario");
         if (sesionString) {
           const sesionObjeto = JSON.parse(sesionString);
           
@@ -32,6 +33,7 @@ export default function GenerarQR() {
 
           setBusId(id);
           setConductorInfo({ id, email, fullName });
+          console.log('Datos conductor a guardar: ', conductorInfo)
         }
       } catch (error) {
         console.error("Error al cargar sesión:", error);
@@ -42,7 +44,56 @@ export default function GenerarQR() {
     };
     cargarDatosConductor();
   }, []);
+*/
 
+  useEffect(() => {
+    const cargarDatosYToken = async () => {
+      try {
+        setLoading(true);
+        const sessionString = await AsyncStorage.getItem("@Sesion_usuario");
+        if (!sessionString) return;
+
+        const session = JSON.parse(sessionString);
+        const authToken = session.token;
+
+        // 3. LLAMADA AL ENDPOINT
+        const response = await fetch('https://subapp-api.onrender.com/api/abordaje/generar-qr', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            driverId: session.id,
+            routeId: routeId // Usamos el interceptado arriba
+          })
+        });
+
+        const result = await response.json();
+        console.log('resultado endpoint: ',result)
+        console.log('token result: ',result.data.qrToken)
+        setBusId(session.id || "");
+        setConductorInfo({
+          id: session.id || "",
+          email: session.email || "",
+          fullName: session.fullName || "",
+          routeId: routeId,
+          tokenQR: result.data.qrToken || "", // Si tu API devuelve un token
+          expireat: result.data.expiresAt || "",
+          qrPayLoad: result.data.qrPayload || ""
+        });
+        console.log('ConductorInfo: ', conductorInfo)
+
+      } catch (error) {
+        console.error("Error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    cargarDatosYToken();
+  }, [routeId]);
+
+  if (loading) return <ActivityIndicator style={{flex:1}} />;
   const imprimirPDF = async () => {
     if (!busId) return;
 
