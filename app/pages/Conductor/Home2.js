@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, StatusBar, Modal, Switch, Platform } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6'; 
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createClient } from '@supabase/supabase-js';
@@ -25,7 +25,7 @@ export default function HomeConductor() {
 
   // --- ESTADOS DE LA UI NUEVA ---
   const [rutasDisponibles, setRutasDisponibles] = useState([]);
-  const [rutaAsignada, setRutaAsignada] = useState(null); 
+  const [rutaAsignada, setRutaAsignada] = useState(null);
   const [modalRutaVisible, setModalRutaVisible] = useState(false);
   const tasaDolar = 45.00;
 
@@ -37,6 +37,10 @@ export default function HomeConductor() {
   const [myLocation, setMyLocation] = useState(null);
   const [myRuta, setMyRuta] = useState(null);
   const [busId, setBusId] = useState("CARGANDO...");
+  const [errorMsg, setErrorMsg] = useState(null); // Keep for debugging
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  const offlineTimeoutRef = useRef(null);
 
   // --- REFS PARA LÓGICA DE FONDO ---
   const mqttClientRef = useRef(null);
@@ -49,51 +53,42 @@ export default function HomeConductor() {
     busIdRef.current = busId;
   }, [busId]);
 
-  // --- CARGA DE DATOS INICIALES Y RESTAURACIÓN DE ESTADO ---
+  const getSwitchTrackColor = () => {
+    if (isConnecting) return "#FFD700"; // Yellow while blocking
+    if (enLinea) return "#34C759";      // Green when active
+    return "rgba(255,255,255,0.3)";     // Gray when off
+  };
+
+  // --- CARGA DE DATOS INICIALES ---
   useEffect(() => {
     const inicializar = async () => {
-        await loadBusId();
-        const username = await getusername();
-        setDriverName(username);
-        // Simulación de datos financieros
-        setSaldoTotal(1250.50);
-        setResumenHoy({ pasajeros: 24, totalBs: 480.00 });
-        
-        // Cargar Rutas de la API
-        await fetchRoutes();
+      await loadBusId();
+      const username = await getusername();
+      setDriverName(username);
+      // Simulación de datos financieros
+      setSaldoTotal(1250.50);
+      setResumenHoy({ pasajeros: 24, totalBs: 480.00 });
 
-        // RESTAURAR ESTADO DEL TURNO (Persistencia)
-        try {
-          const savedState = await AsyncStorage.getItem(DRIVER_STATE_KEY);
-          if (savedState) {
-            const { isOnline, route } = JSON.parse(savedState);
-            if (isOnline && route) {
-              console.log("🔄 Restaurando sesión de turno:", route.name);
-              setRutaAsignada(route);
-              setEnLinea(true); // Esto disparará el useEffect de iniciarTurno
-            }
-          }
-        } catch (e) {
-          console.error("Error restaurando estado:", e);
-        }
+      // Cargar Rutas de la API
+      fetchRoutes();
     };
     inicializar();
   }, []);
 
   const fetchRoutes = async () => {
     try {
-        const response = await fetch(`${API_URL}/rutas/activas`);
-        const json = await response.json();
-        if (json.success && json.data) {
-            const mappedRoutes = json.data.map(r => ({
-                id: r._id,
-                name: r.name
-            }));
-            setRutasDisponibles(mappedRoutes);
-        }
+      const response = await fetch(`${API_URL}/rutas/activas`);
+      const json = await response.json();
+      if (json.success && json.data) {
+        const mappedRoutes = json.data.map(r => ({
+          id: r._id,
+          name: r.name
+        }));
+        setRutasDisponibles(mappedRoutes);
+      }
     } catch (e) {
-        console.error("Error cargando rutas:", e);
-        Alert.alert("Error", "No se pudieron cargar las rutas disponibles.");
+      console.error("Error cargando rutas:", e);
+      Alert.alert("Error", "No se pudieron cargar las rutas disponibles.");
     }
   };
 
@@ -121,8 +116,7 @@ export default function HomeConductor() {
 
   // --- FUNCIÓN: INICIAR TRANSMISIÓN ---
   const iniciarTurno = async () => {
-    if (turnoActivoRef.current) return; // Evitar duplicar intervalos
-    console.log("🟢 Iniciando turno y transmisión...");
+    setIsConnecting(true);
     turnoActivoRef.current = true;
 
     let { status } = await Location.requestForegroundPermissionsAsync();
@@ -132,24 +126,42 @@ export default function HomeConductor() {
       return;
     }
 
-    // Ubicación inicial rápida
-    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).then(location => {
-        if (!turnoActivoRef.current) return;
-        setMyLocation(location.coords);
-        
-        // Reverse Geocoding inicial
-        Location.reverseGeocodeAsync({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude
-        }).then(geocode => {
-            if (geocode && geocode.length > 0) {
-                const addr = geocode[0];
-                const calle = addr.street || "";
-                const sector = addr.district || addr.subregion || "";
-                setMyRuta(`${calle} ${sector}`.trim() || "Ruta en movimiento");
-            }
-        }).catch(e => console.log("Error geocoding:", e));
-    }).catch(e => console.log("Error ubicación inicial:", e));
+    let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+
+    if (!turnoActivoRef.current) return;
+
+    setMyLocation(location.coords);
+
+    let geocode = await Location.reverseGeocodeAsync({
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude
+    });
+
+    if (!turnoActivoRef.current) return;
+
+    if (geocode && geocode.length > 0) {
+      const addr = geocode[0];
+      const calle = addr.street;
+      const sector = addr.district || addr.subregion;
+      const ciud = addr.city;
+      const codigo = addr.name;
+
+      let direccionFinal = "";
+
+      if (calle && !calle.includes('+')) {
+        if (sector) {
+          direccionFinal = calle + ", " + sector + ", " + ciud;
+        } else {
+          direccionFinal = calle + ", " + ciud;
+        }
+      } else if (sector) {
+        direccionFinal = sector + ", " + ciud;
+      } else {
+        direccionFinal = codigo || "Ruta en movimiento";
+      }
+
+      setMyRuta(direccionFinal);
+    }
 
     // Conexión MQTT
     const client = mqtt.connect("wss://3ef878324832459c8b966598a4c58112.s1.eu.hivemq.cloud:8884/mqtt", {
@@ -158,17 +170,42 @@ export default function HomeConductor() {
       clientId: `driver_${busIdRef.current}_${Date.now()}` // ClientID único para evitar desconexiones
     });
 
+    mqttClientRef.current = client;
+
     client.on("connect", () => {
-      if (!turnoActivoRef.current) { client.end(); return; } 
       console.log("✅ MQTT Conectado");
-      mqttClientRef.current = client;
+      setIsConnecting(false); // UNBLOCK
+      setIsOffline(false);
+      // Clear timeout if we were in the middle of a reconnection attempt
+      if (offlineTimeoutRef.current) {
+        clearTimeout(offlineTimeoutRef.current);
+        offlineTimeoutRef.current = null;
+      }
     });
 
-    client.on("error", (err) => console.log("MQTT Error:", err));
+    client.on("offline", () => {
+      console.log("⚠️ MQTT Offline - Inicia temporizador de 120s");
+      setIsOffline(true);
 
-    // Intervalo de transmisión
-    if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
-    
+      // Start 120-second grace period before turning off the switch
+      if (!offlineTimeoutRef.current) {
+        offlineTimeoutRef.current = setTimeout(() => {
+          console.log("❌ Tiempo de espera agotado, cerrando turno");
+          setIsOffline(false);
+          setIsConnecting(false);
+
+          // 2. Clear the ref manually
+          offlineTimeoutRef.current = null;
+
+          // 3. Turn off the switch
+          setEnLinea(false); Alert.alert("Conexión Perdida", "Se cerró el turno debido a la falta de internet.");
+        }, 120000); // 120 seconds
+      }
+    });
+    client.on("reconnect", () => {
+      console.log("🔄 Intentando reconectar...");
+      // setIsReconnecting(true);
+    });
     locationIntervalRef.current = setInterval(async () => {
       if (!turnoActivoRef.current) {
         clearInterval(locationIntervalRef.current);
@@ -182,7 +219,7 @@ export default function HomeConductor() {
           longitude: loc.coords.longitude,
           speed: loc.coords.speed || 0,
         };
-        
+
         setMyLocation(coords);
 
         if (mqttClientRef.current?.connected) {
@@ -194,8 +231,8 @@ export default function HomeConductor() {
             status: "active",
             route_id: rutaAsignada?.id
           };
-          mqttClientRef.current.publish("subapp/driver", JSON.stringify(payload));
-          // console.log("📤 Ubicación enviada"); // Comentado para no saturar consola
+          mqttClientRef.current.publish("subapp/driver", JSON.stringify(payload), { qos: 0, retain: false });
+          console.log("📤 Ubicación enviada");
         }
       } catch (e) {
         console.error("Error loop ubicación:", e);
@@ -206,23 +243,16 @@ export default function HomeConductor() {
   const detenerTurno = async () => {
     console.log("🛑 Deteniendo turno...");
     turnoActivoRef.current = false;
-    
-    if (locationIntervalRef.current) {
-        clearInterval(locationIntervalRef.current);
-        locationIntervalRef.current = null;
-    }
-    
-    if (mqttClientRef.current) {
-        mqttClientRef.current.end();
-        mqttClientRef.current = null;
-    }
-    
-    setMyRuta(null); 
+
+    if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
+    if (mqttClientRef.current) mqttClientRef.current.end();
+    mqttClientRef.current = null;
+    setMyRuta(null);
     setMyLocation(null);
-    
+
     // Limpiar persistencia si se detiene explícitamente
-    if (!enLinea) { 
-        await AsyncStorage.removeItem(DRIVER_STATE_KEY);
+    if (!enLinea) {
+      await AsyncStorage.removeItem(DRIVER_STATE_KEY);
     }
   };
 
@@ -235,14 +265,14 @@ export default function HomeConductor() {
       // No borramos aquí para evitar borrado accidental al desmontar, 
       // la limpieza real se hace en handleToggleSwitch false
     }
-    
+
     // Cleanup al desmontar el componente (solo visual, el background task muere con la app)
     return () => {
-        // Opcional: Si quieres que siga en background real, necesitarías BackgroundTasks de Expo.
-        // Por ahora, al desmontar, limpiamos referencias de memoria.
-        if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
-        if (mqttClientRef.current) mqttClientRef.current.end();
-        turnoActivoRef.current = false;
+      // Opcional: Si quieres que siga en background real, necesitarías BackgroundTasks de Expo.
+      // Por ahora, al desmontar, limpiamos referencias de memoria.
+      if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
+      if (mqttClientRef.current) mqttClientRef.current.end();
+      turnoActivoRef.current = false;
     };
   }, [enLinea]);
 
@@ -252,13 +282,13 @@ export default function HomeConductor() {
       "¿Estás segura de que quieres salir?",
       [
         { text: "Cancelar", style: "cancel" },
-        { 
-          text: "Sí, salir", 
+        {
+          text: "Sí, salir",
           onPress: async () => {
             setEnLinea(false);
             await AsyncStorage.multiRemove(['@Sesion_usuario', DRIVER_STATE_KEY]);
             router.replace('/Login');
-          } 
+          }
         }
       ]
     );
@@ -269,25 +299,15 @@ export default function HomeConductor() {
       setModalRutaVisible(true);
     } else {
       Alert.alert(
-        "Finalizar Turno", "¿Estás seguro de que deseas desconectarte y dejar de cobrar?", 
-        [ 
-            { text: "Cancelar", style: "cancel" }, 
-            { 
-                text: "Desconectarse", 
-                style: "destructive", 
-                onPress: async () => { 
-                    setEnLinea(false);
-                    await AsyncStorage.removeItem(DRIVER_STATE_KEY); // Limpiar persistencia explícitamente
-                } 
-            } 
-        ]
+        "Finalizar Turno", "¿Estás seguro de que deseas desconectarte y dejar de cobrar?",
+        [{ text: "Cancelar", style: "cancel" }, { text: "Desconectarse", style: "destructive", onPress: () => setEnLinea(false) }]
       );
     }
   };
 
   const confirmarRuta = (ruta) => {
-    setRutaAsignada(ruta); 
-    setModalRutaVisible(false); 
+    setRutaAsignada(ruta);
+    setModalRutaVisible(false);
     setEnLinea(true);
     // El useEffect de [enLinea] se encargará de persistir y arrancar
   };
@@ -295,28 +315,28 @@ export default function HomeConductor() {
   return (
     <View style={styles.mainContainer}>
       <StatusBar backgroundColor="transparent" barStyle="light-content" translucent={true} />
-      
+
       <View style={[styles.statusBarShield, { height: insets.top }]} />
 
       <ScrollView bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 160 }}>
-        
+
         {/* ENCABEZADO AZUL */}
         <View style={[styles.header, { paddingTop: insets.top + 15 }]}>
           <View style={styles.headerTop}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity onPress={() => router.push("./Profile")}>
                 <Ionicons name="person-circle" size={55} color="white" />
               </TouchableOpacity>
-              <View style={{marginLeft: 12}}>
+              <View style={{ marginLeft: 12 }}>
                 <Text style={styles.driverName}>Hola, {DriverName || "Conductor"}</Text>
                 <Text style={styles.unitText}>Unidad: {busId.slice(-6).toUpperCase()}</Text>
               </View>
             </View>
-            <TouchableOpacity onPress={handleLogout} style={{padding: 5}}>
+            <TouchableOpacity onPress={handleLogout} style={{ padding: 5 }}>
               <Ionicons name="log-out-outline" size={28} color="rgba(255,255,255,0.7)" />
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.headerInfoBox}>
             <View style={{ flex: 1, paddingRight: 10 }}>
               <View style={styles.gpsRow}>
@@ -326,7 +346,7 @@ export default function HomeConductor() {
                 </Text>
               </View>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.routePill}
                 onPress={() => enLinea ? setModalRutaVisible(true) : alert("Inicia tu turno para cambiar la ruta.")}
               >
@@ -380,14 +400,14 @@ export default function HomeConductor() {
         {/* 3. REPORTES Y SOPORTE */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Soporte y Seguridad</Text>
-          <TouchableOpacity 
-            style={[styles.statCard, { borderLeftColor: '#EF4444', flexDirection: 'row', alignItems: 'center', padding: 15 }]} 
-            onPress={() => router.push({ 
-              pathname: "./DenunciarRuta", 
-              params: { 
-                routeId: rutaAsignada?.id, 
-                routeName: rutaAsignada?.name 
-              } 
+          <TouchableOpacity
+            style={[styles.statCard, { borderLeftColor: '#EF4444', flexDirection: 'row', alignItems: 'center', padding: 15 }]}
+            onPress={() => router.push({
+              pathname: "./DenunciarRuta",
+              params: {
+                routeId: rutaAsignada?.id,
+                routeName: rutaAsignada?.name
+              }
             })}
           >
             <View style={[styles.iconCircleSmall, { backgroundColor: '#FEE2E2', marginBottom: 0 }]}>
@@ -406,7 +426,7 @@ export default function HomeConductor() {
           <View style={[styles.sectionContainer, { marginTop: 15 }]}>
             <Text style={styles.sectionTitleCenter}>Opciones de Cobro</Text>
             <View style={styles.paymentGrid}>
-              <TouchableOpacity style={styles.paymentCard} onPress={() => router.push({ pathname: "/Components/GenerarQR", params: { routeId: '696afe10307f01a04976b326'} })}>
+              <TouchableOpacity style={styles.paymentCard} onPress={() => router.push({ pathname: "/Components/GenerarQR", params: { routeId: '696afe10307f01a04976b326' } })}>
                 <View style={[styles.iconCircleSmall, { backgroundColor: '#E3F2FD' }]}>
                   <Ionicons name="qr-code" size={24} color="#007AFF" />
                 </View>
@@ -427,18 +447,31 @@ export default function HomeConductor() {
       </ScrollView>
 
       {/* PANEL FLOTANTE EN AZUL OSCURO */}
-      <View style={[styles.floatingFooter, { bottom: Platform.OS === 'ios' ? insets.bottom + 20 : 35 }]}>
-        <Switch 
-          value={enLinea} onValueChange={handleToggleSwitch}
-          trackColor={{ false: "rgba(255,255,255,0.3)", true: "#34C759" }} thumbColor="#FFFFFF"
-          style={{ transform: [{ scaleX: 1.4 }, { scaleY: 1.4 }], marginLeft: 10 }} 
+      <View style={[styles.floatingFooter, { bottom: 35 }]}>
+        <Switch
+          value={enLinea}
+          onValueChange={handleToggleSwitch}
+          // DISABLE while connecting, but keep enabled during background reconnections
+          disabled={isConnecting}
+          trackColor={{
+            false: "rgba(255,255,255,0.3)",
+            true: getSwitchTrackColor()
+          }}
+          thumbColor="#FFFFFF"
+          style={{ transform: [{ scaleX: 1.4 }, { scaleY: 1.4 }], marginLeft: 10 }}
         />
         <View style={styles.switchTextContainer}>
-          <Text style={[styles.switchTitle, { color: enLinea ? '#4ADE80' : '#FFFFFF' }]}>{enLinea ? "Turno Activo" : "Turno Inactivo"}</Text>
-          <Text style={styles.switchSubtitle}>{enLinea ? "Apaga al terminar tu jornada" : "Enciende para iniciar a cobrar"}</Text>
+          <Text style={[
+            styles.switchTitle,
+            { color: isConnecting ? '#FFD700' : (enLinea ? '#4ADE80' : '#FFFFFF') }
+          ]}>
+            {isConnecting ? "Conectando..." : (isOffline ? "Reconectando..." : (enLinea ? "Turno Activo" : "Turno Inactivo"))}
+          </Text>
+          <Text style={styles.switchSubtitle}>
+            {isConnecting ? "Por favor espere..." : (isOffline ? "Señal débil, reintentando..." : (enLinea ? "Apaga al terminar tu jornada" : "Enciende para iniciar a cobrar"))}
+          </Text>
         </View>
       </View>
-
       {/* MODAL DE RUTAS */}
       <Modal visible={modalRutaVisible} transparent={true} animationType="slide">
         <View style={styles.modalOverlay}>
@@ -449,17 +482,17 @@ export default function HomeConductor() {
                 <Ionicons name="close-circle" size={28} color="#999" />
               </TouchableOpacity>
             </View>
-            
+
             {rutasDisponibles.length === 0 ? (
-                <Text style={{textAlign: 'center', padding: 20, color: '#666'}}>Cargando rutas disponibles...</Text>
+              <Text style={{ textAlign: 'center', padding: 20, color: '#666' }}>Cargando rutas disponibles...</Text>
             ) : (
-                rutasDisponibles.map((ruta) => (
+              rutasDisponibles.map((ruta) => (
                 <TouchableOpacity key={ruta.id} style={styles.modalOption} onPress={() => confirmarRuta(ruta)}>
-                    <Ionicons name="bus-outline" size={22} color="#003366" />
-                    <Text style={styles.modalOptionText}>{ruta.name}</Text>
-                    <Ionicons name="chevron-forward" size={18} color="#CCC" style={{marginLeft: 'auto'}} />
+                  <Ionicons name="bus-outline" size={22} color="#003366" />
+                  <Text style={styles.modalOptionText}>{ruta.name}</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#CCC" style={{ marginLeft: 'auto' }} />
                 </TouchableOpacity>
-                ))
+              ))
             )}
           </View>
         </View>
@@ -471,14 +504,14 @@ export default function HomeConductor() {
 
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: '#F4F7FA' },
-  
+
   statusBarShield: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: '#003366', zIndex: 9999 },
-  
+
   header: { backgroundColor: '#003366', paddingHorizontal: 25, paddingBottom: 25, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   driverName: { color: 'white', fontSize: 20, fontWeight: 'bold' },
   unitText: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginTop: 2 },
-  
+
   headerInfoBox: { marginTop: 20, backgroundColor: 'rgba(0,0,0,0.2)', padding: 15, borderRadius: 15, flexDirection: 'row', alignItems: 'center' },
   gpsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   gpsText: { color: '#4ADE80', fontSize: 13, fontWeight: '600', marginLeft: 8, flex: 1 },
